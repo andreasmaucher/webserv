@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 20:51:10 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/09/24 22:03:50 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,6 +19,13 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <signal.h>
+
+// Program which simulates a minimalistic server, capable of accepting 1 connection
+// Usage: launch with one parameter specifying the port to open : ./a.out 2351
+// Usage: open a separate terminal and launch netcat: nc -v localhost 2351
+// Usage: send msgs from client/netcat, which will be printed out on server.
+// Usage: type "close" on client when done to close connection and exit server
+
 
 #define BACKLOG 10 // how many pending connections queue will hold
 
@@ -65,11 +72,13 @@ int main(int argc, char *argv[])
 
     // Step 2. make a socket, bind it, and listen on it:
     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    // Step 2.1. Manually added option to allow to reuse ports straight after closing the server - SO_REUSEADDR
+    // If this option is not configured, ports will be in TIME_WAIT state even after they are closed and can be used only after they timeout
     int opt = 1;
-    // if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-    //     perror("setsockopt(SO_REUSEADDR) failed");
-    //     exit(1);
-    // }
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("setsockopt(SO_REUSEADDR) failed");
+        exit(1);
+    }
 
     bind(sockfd, res->ai_addr, res->ai_addrlen);
     listen(sockfd, BACKLOG);
