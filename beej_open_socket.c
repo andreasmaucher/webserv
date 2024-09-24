@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   beej_open_socket.c                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 18:12:26 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/09/24 20:41:24 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,20 +25,16 @@
 int new_fd;
 int sockfd;
 
+
 void handle_sigint(int signal)
 {
     if (signal == SIGINT)
     {
-        // printf(“\n”);
-        // rl_on_new_line();
-        // rl_replace_line(“”, 0);
-        // rl_redisplay();
-        // g_signal_switch = 2;
         printf("Ctrl- C Closing connection\n"); // Print the message.
         close(new_fd);
         close(sockfd);
         printf("Exiting\n"); // Print the message.
-
+        // Memory leaks will be present, since we can't run freeaddrinfo(res) unless it is declared as a global
         exit(1);
     }
 }
@@ -48,15 +44,18 @@ int main(int argc, char *argv[])
     struct sockaddr_storage their_addr;
     socklen_t addr_size;
     struct addrinfo hints, *res;
-    // int sockfd, new_fd;
     char buffer[1024];
     int bytes_received;
+    if (argc != 2)
+    {
+        printf("Usage: please ./a.out <port number, has to be over 1024>\n");
+        exit(1);
+    }
     signal(SIGINT, handle_sigint);
 
     // !! don't forget your error checking for these calls !!
 
-    // first, load up address structs with getaddrinfo():
-
+    // Step 1. first, load up address structs with getaddrinfo():
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; // use IPv4 or IPv6, whichever
     hints.ai_socktype = SOCK_STREAM;
@@ -64,8 +63,7 @@ int main(int argc, char *argv[])
 
     getaddrinfo(NULL, argv[1], &hints, &res);
 
-    // make a socket, bind it, and listen on it:
-
+    // Step 2. make a socket, bind it, and listen on it:
     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     bind(sockfd, res->ai_addr, res->ai_addrlen);
     listen(sockfd, BACKLOG);
@@ -75,7 +73,7 @@ int main(int argc, char *argv[])
     addr_size = sizeof their_addr;
     new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
     printf("Server: accepted...\n");
-
+    // Step 3. Receive msgs
     while ((bytes_received = recv(new_fd, buffer, sizeof(buffer) - 1, 0)) > 0)
     {
         buffer[bytes_received] = '\0';    // Null-terminate the buffer.
@@ -87,11 +85,10 @@ int main(int argc, char *argv[])
             printf("Closing connection\n");   // Print the message.
             close(new_fd);
             close(sockfd);
-
+            freeaddrinfo(res); // free the linked list
             return 0;
         }
-
-        // Sending back a msg to the client
+        // Step 4. Sending back a msg to the client
         send(new_fd, "Message received!\n", 18, 0);
     }
 
@@ -107,6 +104,6 @@ int main(int argc, char *argv[])
     // Step 5: Close the connection to this client.
     close(new_fd);
     close(sockfd);
-
+    freeaddrinfo(res); // free the linked list
     return 0;
 }
