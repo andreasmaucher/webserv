@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 15:43:44 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/09/24 15:49:48 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -92,6 +92,9 @@ int main(int argc, char *argv[])
         //struct in6_addr for IPv6 (AF_INET6)
         //3. ipstr string(fixed-size) with the human-readable string
         //4. sizeof ipstr
+
+
+        
         printf("  %s: %s\n", ipver, ipstr);
     }
 
