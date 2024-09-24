@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 17:14:06 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/09/24 18:12:26 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,18 +18,40 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <signal.h>
 
-#define MYPORT "3494" // the port users will be connecting to
-#define BACKLOG 10    // how many pending connections queue will hold
+#define BACKLOG 10 // how many pending connections queue will hold
+
+int new_fd;
+int sockfd;
+
+void handle_sigint(int signal)
+{
+    if (signal == SIGINT)
+    {
+        // printf(“\n”);
+        // rl_on_new_line();
+        // rl_replace_line(“”, 0);
+        // rl_redisplay();
+        // g_signal_switch = 2;
+        printf("Ctrl- C Closing connection\n"); // Print the message.
+        close(new_fd);
+        close(sockfd);
+        printf("Exiting\n"); // Print the message.
+
+        exit(1);
+    }
+}
 
 int main(int argc, char *argv[])
 {
     struct sockaddr_storage their_addr;
     socklen_t addr_size;
     struct addrinfo hints, *res;
-    int sockfd, new_fd;
+    // int sockfd, new_fd;
     char buffer[1024];
     int bytes_received;
+    signal(SIGINT, handle_sigint);
 
     // !! don't forget your error checking for these calls !!
 
@@ -58,15 +80,18 @@ int main(int argc, char *argv[])
     {
         buffer[bytes_received] = '\0';    // Null-terminate the buffer.
         printf("Received: %s\n", buffer); // Print the message.
+
         if (strncmp(buffer, "close", 5) == 0)
         {
             printf("Received: %s\n", buffer); // Print the message.
             printf("Closing connection\n");   // Print the message.
             close(new_fd);
+            close(sockfd);
+
             return 0;
         }
 
-        // Optionally, send a response back to the client.
+        // Sending back a msg to the client
         send(new_fd, "Message received!\n", 18, 0);
     }
 
@@ -81,5 +106,7 @@ int main(int argc, char *argv[])
 
     // Step 5: Close the connection to this client.
     close(new_fd);
+    close(sockfd);
+
     return 0;
 }
