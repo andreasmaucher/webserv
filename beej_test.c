@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   beej_test.c                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 14:37:52 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/09/24 15:18:38 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,14 +25,8 @@
 // getaddrinfo(argv[1], NULL, &hints, &res)
 // argv[1] is dns address,
 // NULl  is ?
-// &hints and &res seems to return the struct addrinfo
-
-//  The hints argument points to an addrinfo structure that specifies
-//        criteria for selecting the socket address structures returned in
-//        the list pointed to by res.  If hints is not NULL it points to an
-//        addrinfo structure whose ai_family, ai_socktype, and ai_protocol
-//        specify criteria that limit the set of socket addresses returned
-//        by getaddrinfo(), as follows:
+// &hints - pointer to stuct addrinfo, provides config details
+// &res - will point to the results
 
 // Given node and service, which identify an Internet host and a
 // service, getaddrinfo() returns one or more addrinfo structures,
@@ -60,10 +54,11 @@ int main(int argc, char *argv[])
         fprintf(stderr,"usage: showip hostname\n");
         return 1;
     }
-
+// make sure the struct is empty
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC; // AF_INET or AF_INET6 to force version
-    hints.ai_socktype = SOCK_STREAM;
+    
+    hints.ai_family = AF_UNSPEC; // unspecified, don't care IPv4 or IPv6 - AF_INET or AF_INET6 to force version
+    hints.ai_socktype = SOCK_STREAM; // TCP stream sockets
 
     if ((status = getaddrinfo(argv[1], NULL, &hints, &res)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
