@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 14:26:16 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/09/24 14:37:52 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,7 +25,15 @@
 // getaddrinfo(argv[1], NULL, &hints, &res)
 // argv[1] is dns address,
 // NULl  is ?
-// &hints 
+// &hints and &res seems to return the struct addrinfo
+
+//  The hints argument points to an addrinfo structure that specifies
+//        criteria for selecting the socket address structures returned in
+//        the list pointed to by res.  If hints is not NULL it points to an
+//        addrinfo structure whose ai_family, ai_socktype, and ai_protocol
+//        specify criteria that limit the set of socket addresses returned
+//        by getaddrinfo(), as follows:
+
 // Given node and service, which identify an Internet host and a
 // service, getaddrinfo() returns one or more addrinfo structures,
 // each of which contains an Internet address that can be specified
