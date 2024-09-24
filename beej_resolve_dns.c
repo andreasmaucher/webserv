@@ -1,12 +1,12 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   beej_test.c                                        :+:      :+:    :+:   */
+/*   beej_resolve_dns.c                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 15:49:48 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/09/24 22:06:18 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,13 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+
+// Program which simulates resolves a DNS address to an IP address
+// Usage: launch with one parameter specifying the DNS address to resolve: ./a.out google.com
+
+
+
+
 
 // getaddrinfo(argv[1], NULL, &hints, &res)
 // argv[1] is dns address,
