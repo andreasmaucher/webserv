@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 15:18:38 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/09/24 15:43:44 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -73,11 +73,11 @@ int main(int argc, char *argv[])
 
         // get the pointer to the address itself,
         // different fields in IPv4 and IPv6:
-        if (p->ai_family == AF_INET) { // IPv4
+        if (p->ai_family == AF_INET) { // the address is IPv4
             struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
             addr = &(ipv4->sin_addr);
             ipver = "IPv4";
-        } else { // IPv6
+        } else { // the address is IPv6
             struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
             addr = &(ipv6->sin6_addr);
             ipver = "IPv6";
@@ -85,6 +85,13 @@ int main(int argc, char *argv[])
 
         // convert the IP to a string and print it:
         inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
+        //1.p->ai_family - This specifies the address family (either AF_INET for IPv4 or AF_INET6 for IPv6). It tells the function whether it should interpret the address as an IPv4 or IPv6 address.
+        //p is &res, pointer to struct addrinfo
+        //2. addr - This is a pointer to the binary representation of the IP address. Depending on the family (ai_family), this is either:
+        //struct in_addr for IPv4 (AF_INET)
+        //struct in6_addr for IPv6 (AF_INET6)
+        //3. ipstr string(fixed-size) with the human-readable string
+        //4. sizeof ipstr
         printf("  %s: %s\n", ipver, ipstr);
     }
 
