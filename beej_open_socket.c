@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   beej_open_socket.c                                 :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/09/24 22:03:50 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/01 20:51:12 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <signal.h>
+#include <errno.h>
 
 // Program which simulates a minimalistic server, capable of accepting 1 connection
 // Usage: launch with one parameter specifying the port to open : ./a.out 2351
@@ -80,13 +81,26 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    bind(sockfd, res->ai_addr, res->ai_addrlen);
-    listen(sockfd, BACKLOG);
+    if (bind(sockfd, res->ai_addr, res->ai_addrlen) == -1)
+    {
+        perror("Failed to bind socket to port");
+        return (errno);
+    }
+    if (listen(sockfd, BACKLOG) == -1)
+    {
+        perror("Failed to listen(), maybe number of connections exceeds allowed incoming queue");
+        return (errno);
+    }
 
     // now accept an incoming connection:
     printf("Server: waiting for connections...\n");
     addr_size = sizeof their_addr;
     new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+    if (new_fd == -1)
+    {
+        perror("Failed to open a socket fd for this connection");
+        return (errno);
+    }
     printf("Server: accepted...\n");
     // Step 3. Receive msgs
     while ((bytes_received = recv(new_fd, buffer, sizeof(buffer) - 1, 0)) > 0)
@@ -104,7 +118,9 @@ int main(int argc, char *argv[])
             return 0;
         }
         // Step 4. Sending back a msg to the client
-        send(new_fd, "Message received!\n", 18, 0);
+        send(new_fd, "Server sent back: ", 19, 0);
+
+        send(new_fd, buffer, strlen(buffer), 0);
     }
 
     if (bytes_received == 0)
