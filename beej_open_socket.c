@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/01 20:51:12 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/01 21:26:24 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,8 @@
 #include <netdb.h>
 #include <signal.h>
 #include <errno.h>
+#include <poll.h>
+
 
 // Program which simulates a minimalistic server, capable of accepting 1 connection
 // Usage: launch with one parameter specifying the port to open : ./a.out 2351
@@ -46,6 +48,8 @@ void handle_sigint(int signal)
         exit(1);
     }
 }
+
+int 
 
 int main(int argc, char *argv[])
 {
@@ -96,6 +100,11 @@ int main(int argc, char *argv[])
     printf("Server: waiting for connections...\n");
     addr_size = sizeof their_addr;
     new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+    // Blocking
+    // A very simplistic way of making a socket non-blocking would be to change it's parameters using fcntl()
+    // By default fd's are blocking, but we can instruct the kernel to make them non-blocking
+    // The downside of this approach is that this method will use a lot of CPU time,
+    // since this socket it is constantly busy-wait looking for data on the socket
     if (new_fd == -1)
     {
         perror("Failed to open a socket fd for this connection");
@@ -107,8 +116,8 @@ int main(int argc, char *argv[])
     {
         buffer[bytes_received] = '\0';    // Null-terminate the buffer.
         printf("Received: %s\n", buffer); // Print the message.
-
-        if (strncmp(buffer, "close", 5) == 0)
+        // sending a msg "close" from the client closes the connection
+        if (strncmp(buffer, "close", 5) == 0) 
         {
             printf("Received: %s\n", buffer); // Print the message.
             printf("Closing connection\n");   // Print the message.
@@ -122,6 +131,7 @@ int main(int argc, char *argv[])
 
         send(new_fd, buffer, strlen(buffer), 0);
     }
+    // if 0 bytes are received, the client has closed the connection from it's side
 
     if (bytes_received == 0)
     {
