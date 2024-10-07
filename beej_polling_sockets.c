@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/07 14:07:00 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/07 14:05:57 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -35,6 +35,13 @@
 int new_fd;
 int sockfd;
 
+// struct pollfd {
+//     int fd;         // the socket descriptor
+//     short events;   // bitmap of events we're interested in
+//     short revents;  // when poll() returns, bitmap of events that occurred
+// } typedef poll_fd_struct;
+
+
 void handle_sigint(int signal)
 {
     if (signal == SIGINT)
@@ -47,6 +54,10 @@ void handle_sigint(int signal)
         exit(1);
     }
 }
+
+// int configure_sockets(int argc, char *argv[], poll_fd_struct arr)
+// {}
+
 
 int main(int argc, char *argv[])
 {
