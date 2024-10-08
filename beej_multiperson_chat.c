@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/08 22:09:06 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/08 22:11:50 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,6 +22,12 @@
 #include <poll.h>
 
 #define PORT "9036"
+
+// add signals so can reuse the port
+// add msgs of which client sent what
+// add msg confirmation to send back to clients
+// add clear msgs of what is happening - ex. added sockets and fd'
+// add cleanup on exit
 
 
 
