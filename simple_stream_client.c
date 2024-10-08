@@ -66,7 +66,8 @@ int main(int argc, char *argv[])
 			perror("client: socket");
 			continue;
 		}
-
+        // Attempts to connect to the server using connect(). If this fails, 
+        // it closes the socket and continues to the next address
 		if (connect(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
 			perror("client: connect");
 			close(sockfd);
@@ -76,17 +77,21 @@ int main(int argc, char *argv[])
 		break;
 	}
 
+    // check for successful connection
 	if (p == NULL) {
 		fprintf(stderr, "client: failed to connect\n");
 		return 2;
 	}
 
+    // Converts the connected address to a human-readable string using inet_ntop 
+    // and prints it to the console.
 	inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr),
 			s, sizeof s);
 	printf("client: connecting to %s\n", s);
 
 	freeaddrinfo(servinfo); // all done with this structure
 
+    // waits to receive data from the server
 	if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
 	    perror("recv");
 	    exit(1);
