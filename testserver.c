@@ -16,15 +16,6 @@
 #define PORT "3490"  // the port the server will be listening on
 #define BACKLOG 10    // how many pending connections queue will hold
 #define MESSAGE "Hello from the server!\n"  // message to send to the client
-// name of a file as parameter then it runs all the tests of the file
-// when we send it over we could chunk it, how is the size of the buffer defined?
-// test:: not sending the null terminator
-// test the polling with several clients
-// run a script that runs several clients at the same time
-// output error messages to a logfile (what message, parameters, error code etc.)
-// for each client a separate logfile
-// how can we identify clients 
-// later udp version as well
 
 // Function prototype for get_in_addr
 void *get_in_addr(struct sockaddr *sa);

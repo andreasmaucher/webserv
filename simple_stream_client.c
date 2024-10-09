@@ -14,6 +14,17 @@
 
 #include <arpa/inet.h>
 
+//! in the beginning the client always sends sth
+// name of a file as parameter then it runs all the tests of the file
+// when we send it over we could chunk it, how is the size of the buffer defined?
+// test:: not sending the null terminator
+// test the polling with several clients
+// run a script that runs several clients at the same time
+// output error messages to a logfile (what message, parameters, error code etc.)
+// for each client a separate logfile
+// how can we identify clients 
+// later udp version as well
+
 #define PORT "3490" // the port client will be connecting to 
 
 #define MAXDATASIZE 100 // max number of bytes we can get at once 
@@ -41,6 +52,8 @@ int main(int argc, char *argv[])
 	int rv;
     // s: Buffer to hold the string representation of the IP address.
 	char s[INET6_ADDRSTRLEN];
+    // ** Added variable for user input message **
+	char message[MAXDATASIZE];  // Declare the message variable
 
     // only one argument expected
 	if (argc != 2) {
@@ -91,17 +104,43 @@ int main(int argc, char *argv[])
 
 	freeaddrinfo(servinfo); // all done with this structure
 
-    // waits to receive data from the server
-	if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-	    perror("recv");
-	    exit(1);
-	}
+    // Send a message to the server before receiving any data
+	const char *start_message = "Client sends message to start\n";
+	send(sockfd, start_message, strlen(start_message), 0);
 
-	buf[numbytes] = '\0';
+    // ** Added loop for sending multiple messages **
+	while (1) {
+		// ** Get user input for the message to send **
+		printf("Enter message to send (or 'exit' to quit): ");
+		fgets(message, MAXDATASIZE, stdin);
+		message[strcspn(message, "\n")] = '\0'; // Remove newline character
+
+		// ** Send the message to the server **
+		send(sockfd, message, strlen(message), 0);
+
+		// Optional: Break the loop if the user types "exit"
+		if (strcmp(message, "exit") == 0) {
+			printf("client: exiting.\n");
+			break;
+		}
+        //! add another receive loop for normal communication not just for errors
+        
+		// ** Wait to receive data from the server **
+		if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) <= 0) {
+			if (numbytes == 0) {
+				printf("client: server closed the connection.\n");
+			} else {
+				perror("recv");
+			}
+			break;
+		}
+    }
+
+	/* buf[numbytes] = '\0';
 
 	printf("client: received '%s'\n",buf);
-
-	close(sockfd);
+ */
+	close(sockfd); //! no closing behavior wanted 
 
 	return 0;
 }
