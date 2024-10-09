@@ -55,8 +55,8 @@ int main(int argc, char *argv[])
     // ** Added variable for user input message **
 	char message[MAXDATASIZE];  // Declare the message variable
 
-    // only one argument expected
-	if (argc != 2) {
+    //! why 3?
+	if (argc != 3) {
 	    fprintf(stderr,"usage: client hostname\n");
 	    exit(1);
 	}
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	freeaddrinfo(servinfo); // all done with this structure
 
     // Send a message to the server before receiving any data
-	const char *start_message = "Client sends message to start\n";
+	const char *start_message = argv[2];
 	send(sockfd, start_message, strlen(start_message), 0);
 
     // ** Added loop for sending multiple messages **
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 			break;
 		}
         //! add another receive loop for normal communication not just for errors
-        
+
 		// ** Wait to receive data from the server **
 		if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) <= 0) {
 			if (numbytes == 0) {
