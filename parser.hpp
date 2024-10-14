@@ -20,8 +20,7 @@ class parser {
 public:
   static std::vector<std::string>
   splitIntoLines(const std::string &raw_request);
-  static void tokenizeRequestLine(const std::string &requestLine,
-                                  httpRequest &request);
-  static bool tokenizeHeaders(const std::string &headerLine,
-                              httpRequest &request);
+  static void tokenizeRequestLine(const std::string &requestLine, httpRequest &request);
+  static void tokenizeHeaders(std::vector<std::string>::iterator &it, const std::vector<std::string> &requestLines,  httpRequest &request);
+  static void saveBody(std::vector<std::string>::iterator &it, const std::vector<std::string> &requestLines,  httpRequest &request);
 };
