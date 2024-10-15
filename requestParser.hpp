@@ -1,20 +1,13 @@
+#ifndef REQUESTPARSER_HPP
+#define REQUESTPARSER_HPP
+
 #include <cstring>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <string>
 #include <vector>
-
-class parser;
-
-class httpRequest {
-public:
-  std::string method;                         // e.g., GET, POST
-  std::string uri;                            // e.g., /index.html
-  std::string version;                        // e.g., HTTP/1.1
-  std::map<std::string, std::string> headers; // e.g., Host, User-Agent
-  std::string body; // The body of the request (optional, for POST/PUT)
-};
+#include "httpRequest.hpp"
 
 class parser {
 public:
@@ -24,3 +17,5 @@ public:
   static void tokenizeHeaders(std::vector<std::string>::iterator &it, const std::vector<std::string> &requestLines,  httpRequest &request);
   static void saveBody(std::vector<std::string>::iterator &it, const std::vector<std::string> &requestLines,  httpRequest &request);
 };
+
+#endif

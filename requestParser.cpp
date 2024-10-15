@@ -1,7 +1,6 @@
-#include "parser.hpp"
+#include "requestParser.hpp"
 
-// Split the raw request into lines (raw_request = buffer passed to
-// recv())
+// Split the raw request into lines (raw_request = buffer passed to recv())
 std::vector<std::string> parser::splitIntoLines(const std::string &raw_request) {
   std::istringstream stream(raw_request);
   std::string line;
