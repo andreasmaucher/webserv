@@ -1,5 +1,5 @@
 NAME = webserv
-SOURCES = main.cpp parser.cpp
+SOURCES = main.cpp requestParser.cpp
 		
 OBJS = $(SOURCES:.cpp=.o)
 

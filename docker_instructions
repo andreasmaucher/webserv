@@ -1,4 +1,4 @@
-1. Download Dockerfile and runwebsrv.sh script and save in root directory (if not icluded already)
+1. Download Dockerfile and runwebsrv.sh script and save in root directory (if not included already)
 2. Build the Docker Image running "docker build -t webserv-img ." in the root dir
 3. Optional:
    Add the runwebsrv.sh script to your zsh:
@@ -9,6 +9,5 @@
    Profit
    If you dont have zsh - get it !
 4. Run the script using ./runwebserv.sh or your created alias
-   -> The current folder you are in (root of repository) will be mounted into home/root in the container,
-   so make sure to have all the needed files there
+   -> The current folder you are in (root of repository) will be mounted into home/root in the container, so make sure to have all the needed files there!
 5. Have fun coding from inside the container :)
