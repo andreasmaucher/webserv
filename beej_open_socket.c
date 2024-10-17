@@ -48,6 +48,29 @@ void handle_sigint(int signal)
     }
 }
 
+// NEW FUNCTION: Sends file contents to the client
+void send_file_contents(int client_fd, const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Failed to open file");
+        const char *response = "HTTP/1.1 500 Internal Server Error\r\n\r\n";
+        send(client_fd, response, strlen(response), 0);
+        return;
+    }
+    printf("Sending file contents...\n"); // Debug line
+
+    char buffer[1024];
+    size_t bytes_read;
+    const char *response_header = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n";
+    send(client_fd, response_header, strlen(response_header), 0);
+
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        send(client_fd, buffer, bytes_read, 0);
+    }
+    printf("Finished sending file contents.\n"); // Debug line
+    fclose(file);
+}
+
 int main(int argc, char *argv[])
 {
     struct sockaddr_storage their_addr;
@@ -96,7 +119,15 @@ int main(int argc, char *argv[])
     // now accept an incoming connection:
     printf("Server: waiting for connections...\n");
     addr_size = sizeof their_addr;
-    new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+    //new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+    while ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size)) != -1) {
+        printf("Server: accepted...\n");
+        
+        // NEW LINE: Call the function to send file contents
+        send_file_contents(new_fd, "message.txt"); // Change "message.txt" to your desired file
+
+        close(new_fd); // Close connection after response
+    }
     // Blocking
     // A very simplistic way of making a socket non-blocking would be to change it's parameters using fcntl()
     // By default fd's are blocking, but we can instruct the kernel to make them non-blocking

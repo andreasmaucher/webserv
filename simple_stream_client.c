@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 	char message[MAXDATASIZE];  // Declare the message variable
 
     //! why 3?
-	if (argc != 3) {
+	if (argc != 4) {
 	    fprintf(stderr,"usage: client hostname\n");
 	    exit(1);
 	}
@@ -126,7 +126,10 @@ int main(int argc, char *argv[])
         //! add another receive loop for normal communication not just for errors
 
 		// ** Wait to receive data from the server **
-		if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) <= 0) {
+		if ((numbytes = recv(sockfd, buf, MAXDATASIZE - 1, 0)) > 0) {
+			buf[numbytes] = '\0'; // Null-terminate the buffer
+			printf("client: received '%s'\n", buf); // Print the received message
+		} else {
 			if (numbytes == 0) {
 				printf("client: server closed the connection.\n");
 			} else {
@@ -138,8 +141,8 @@ int main(int argc, char *argv[])
 
 	/* buf[numbytes] = '\0';
 
-	printf("client: received '%s'\n",buf);
- */
+	printf("client: received '%s'\n",buf); */
+
 	close(sockfd); //! no closing behavior wanted 
 
 	return 0;
