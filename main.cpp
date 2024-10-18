@@ -37,7 +37,7 @@ int main() {
       }
   }
 
-  processRequest(request, response); // process request and populate response
+  processRequest(request, response); // process request, check for errors and populate response
 
   sendResponse(socket_fd, response); // send response to client
 
@@ -61,5 +61,9 @@ int main() {
   //   "Content-Length: 39\r\n"
   //   "\r\n"
   //   "name=John+Doe&email=johndoe%40email.com";
-  
+  //  const std::string raw_request = "POST /upload HTTP/1.1\r\rHost: www.example.com\r\n"
+  //     "Transfer-Encoding: chunked\r\n"
+  //     "4\r\nWiki\r\n"
+  //     "5\r\npedia\r\n"
+  //     "0\r\n\r\n"
 }

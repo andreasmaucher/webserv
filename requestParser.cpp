@@ -3,21 +3,23 @@
 // Read a line from the raw request
 std::string RequestParser::readLine(const std::string &raw_request, size_t &position) {
   
-  size_t line_end = raw_request.find("\r\n", position);
-  if (line_end == std::string::npos) {
-    throw std::runtime_error("Invalid request line (line too long).\nHint: Is buffer size enough?");
+  size_t line_end = raw_request.find("\r\n", position); // start searching at position
+  std::string line;
+  if (line_end != std::string::npos) { // \r\n found
+    line = raw_request.substr(position, line_end - position);
+    position = line_end + 2; // Move past the '\r\n' so line is pointing to the next line or the end
   }
-  std::string line = raw_request.substr(position, line_end - position);
-  position = line_end + 2; // Move past the '\r\n'
+  else {
+    std::cout << "Line incomplete.\nHint: Is buffer size enough? Or chunked transfer encoding used?" << std::endl;
+  }
   return line;
 }
 
 bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw_request, size_t &position) { 
   
   try {
-
-    if (request.method.empty()) { // only in 1st iteration
-
+    // parse until headers only in 1st iteration
+    if (request.method.empty()) {
       RequestParser::tokenizeRequestLine(request, raw_request, position);
       //debugging print
       std::cout << "Method: " << request.method << "\n"
@@ -32,35 +34,42 @@ bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw
       }
     }
 
-    // at this point:
-    // we need to check if there is a body expected, and if so, if there is a part already save it,
-    // if there is no body expected, but there is a part -> bad request
-    // if there is no body expected and no part -> return to calling function and signalize that the request is complete
-    // if there is a body expected and no part -> keep reading until the body is complete
-    // if there is a body expected and a part -> save the part and return to calling function to keep reading until the body is complete
-  
-    if (!RequestParser::saveValidBody(request, raw_request, position)) {
-      return true; // no body expected, request complete
+    // if no body expected
+    if (!((request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked")
+      || (request.headers.find("Content-Length") != request.headers.end()))) {
+      std::string body = readLine(raw_request, position);
+      if (!body.empty()) { 
+        request.error_code = 400; //400 BAD_REQUEST
+        throw std::runtime_error("Body present but not expected");
+        //return false;
+      }
     }
-    //debugging print
-    std::cout << "Body: " << request.body << std::endl;
+    // if body expected
+    else {
+      RequestParser::saveValidBody(request, raw_request, position);
+
+      return false; // keep reading
+    }
+
+
     
   } catch (std::exception &e) {
     std::cerr << "Error: " << e.what() << std::endl;
     std::cerr << "HTTP Error Code: " << request.error_code << std::endl;
 
-    return true; // handle error code in calling func to create appropriate response & clean resources
-
   }
 
-  return false; // keep reading request
+  return true; // request complete or error. Stop reading. Handle error code in calling func to create appropriate response & clean resources
 }
 
+// if there is a body expected and a part -> save the part
+// if there is a body expected and no part -> keep reading
+// make distinction between chunked and content-length
 bool RequestParser::saveValidBody(HttpRequest &request, const std::string &raw_request, size_t &position) {
 
   if ((++it)->empty() || it == request_lines.end())
     return;
-  // If the request has a Transfer-Encoding header with the value "chunked", the body should be read until an empty line
+  // If the request has a Transfer-Encoding header with the value "chunked", the body should be read until a chunk size 0 followed by an empty line
   if (request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked") {
 
     std::string chunked_body;
@@ -105,8 +114,10 @@ bool RequestParser::saveValidBody(HttpRequest &request, const std::string &raw_r
     }
     
     request.body = *it;
-
+    
   }
+  //debugging print
+  std::cout << "Body: " << request.body << std::endl;
 }
 
 // Extract headers from request until blank line (\r\n)
@@ -114,6 +125,12 @@ void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw
   
   std::string current_line = readLine(raw_request, position);
   
+  if (current_line.empty()){
+    request.error_code = 400; //400 BAD_REQUEST
+    throw std::runtime_error("Empty headers");
+    //return;
+  }
+
   while (current_line != "\r\n") {
     size_t colon_pos = current_line.find(":");
     
