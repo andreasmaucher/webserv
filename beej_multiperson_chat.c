@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   beej_multiperson_chat.c                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/08 22:11:50 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/20 20:10:43 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -67,22 +67,23 @@ int get_listener_socket(void)
     }
     // gai_strerror(addrinfo_status) - use this instead of perror() or strerror() since it is designed to describe getaddrinfo() or other network function error codes
     
-    for(p = ai; p != NULL; p = p->ai_next) { //loop through the ai ll and try to create a socket 
-        listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (listener < 0) { 
-            continue;
-        }
+    // TODO: fixing this block of code in c++
+    // for(p = ai; p != NULL; p = p->ai_next) { //loop through the ai ll and try to create a socket 
+    //     listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    //     if (listener < 0) { 
+    //         continue;
+    //     }
         
-        // Lose the pesky "address already in use" error message
-        setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
-        // tries to bind the socket, otherwise closes it
-        if (bind(listener, p->ai_addr, p->ai_addrlen) < 0) {
-            close(listener);
-            continue;
-        }
-        // breaks loop on success
-        break;
-    }
+    //     // Lose the pesky "address already in use" error message
+    //     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    //     // tries to bind the socket, otherwise closes it
+    //     if (bind(listener, p->ai_addr, p->ai_addrlen) < 0) {
+    //         close(listener);
+    //         continue;
+    //     }
+    //     // breaks loop on success
+    //     break;
+    // }
 
     // If we got here, it means we didn't get bound. Reached end of ai ll
     if (p == NULL) {

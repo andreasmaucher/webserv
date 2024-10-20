@@ -6,13 +6,13 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/20 18:23:17 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/20 19:41:44 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/20 20:10:54 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include"server.hpp"
 
-Server::Server(const std::string& port) : sockfd(-1), new_fd(-1), res(NULL) {
+Server::Server(const std::string& port) : sockfd(-1), new_fd(-1) {
     signal(SIGINT, sigintHandler);
     setup(port);
 }
@@ -24,36 +24,45 @@ Server::~Server() {
 }
 
 void Server::setup(const std::string& port) {
-    struct addrinfo hints;
+    struct addrinfo hints, *ai, *p;
+    int             listener;     // Listening socket descriptor
+    
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
-    int status = getaddrinfo(NULL, port.c_str(), &hints, &res);
-    if (status != 0) {
-        std::cerr << "getaddrinfo error: " << gai_strerror(status) << std::endl;
+    if (addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai) != 0) {
+        std::cerr << "getaddrinfo error: " << gai_strerror(addrinfo_status) << std::endl;
         exit(1);
     }
 
-    sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sockfd == -1)
-    {
-        perror("Failed to create socket");
-        exit(1);
-    }
+    // TODO: fixing this block of code in c++
 
-    int opt = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
-    {
-        perror("Setsockopt to reuse ports failed");
-        exit(1);
-    }
+    // for(p = ai; p != NULL; p = p->ai_next) { //loop through the ai ll and try to create a socket 
 
-    if (bind(sockfd, res->ai_addr, res->ai_addrlen) == -1) {
-        perror("Failed to bind");
-        exit(1);
-    }
+    //     sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    //     if (sockfd == -1)
+    //     {
+    //         perror("Failed to create socket");
+    //         exit(1);
+    //     }
+
+    //     int opt = 1;
+    //     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
+    //     {
+    //         perror("Setsockopt to reuse ports failed");
+    //         exit(1);
+    //     }
+
+    //     if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+    //         perror("Failed to bind");
+    //         exit(1);
+    //     }
+    
+    // }
+
+    
 
     if (listen(sockfd, SIMULTANEOUS_CON) == -1) {
         perror("Failed to listen");

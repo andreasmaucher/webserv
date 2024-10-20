@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/20 18:23:13 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/20 19:44:37 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/20 20:03:25 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,6 +23,8 @@
 
 #define SIMULTANEOUS_CON 10
 #define BUFF_SIZE 512
+#define PORT "9036"
+
 
 
 class Server {
@@ -30,7 +32,8 @@ class Server {
 private:
     int sockfd;
     int new_fd;
-    struct addrinfo* res;
+    int addrinfo_status;
+    // struct addrinfo* res;
     
     Server(const Server&other);
     Server& operator=(const Server &other);
