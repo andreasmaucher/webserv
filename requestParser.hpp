@@ -20,6 +20,7 @@ public:
   static bool parseBody(HttpRequest &request, const std::string &raw_request, size_t &position);
   static bool saveChunkedBody(HttpRequest &request, const std::string &raw_request, size_t &position);
   static bool saveContentLengthBody(HttpRequest &request, const std::string &raw_request, size_t &position);
+  static bool mandatoryHeadersPresent(HttpRequest &request);
 
   static std::string readLine(const std::string &raw_request, size_t &position);
   static bool isBodyExpected(HttpRequest &request);

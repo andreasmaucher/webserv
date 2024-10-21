@@ -50,6 +50,38 @@ bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw
   return true; // request complete or error. Stop reading. Handle error code in calling func to create appropriate response & clean resources
 }
 
+bool RequestParser::mandatoryHeadersPresent(HttpRequest &request) {
+
+    // search for in HTTP/1.1 mandatory Host header presence
+  if (request.headers.empty() || request.headers.find("Host") == request.headers.end()) {
+    return false;
+  }
+
+  // if (request.method == "POST" && (request.headers.find("Content-Type") == request.headers.end() || ((request.headers.find("Content-Length") == request.headers.end()) || request.headers.find("Transfer-Encoding") == request.headers.end() || request.headers["Transfer-Encoding"] != "chunked"))) {
+  //   return false;
+  // }
+  if (request.method == "POST") {
+    // Check for the Content-Type header
+    if (request.headers.find("Content-Type") == request.headers.end()) {
+        request.error_code = 400; // Bad Request
+        return false;
+    }
+
+    // Check for Content-Length or Transfer-Encoding: chunked
+    bool has_content_length = request.headers.find("Content-Length") != request.headers.end();
+    bool has_transfer_encoding_chunked = request.headers.find("Transfer-Encoding") != request.headers.end() && 
+                                         request.headers["Transfer-Encoding"] == "chunked";
+
+    if (!has_content_length && !has_transfer_encoding_chunked) {
+        request.error_code = 411; // Length Required or 400 depending on error
+        return false;
+    }
+}
+
+  return true;
+
+}
+
 // define MAX_BODY_SIZE in requestParser.hpp or in config file? 1MB in NGINX
 bool RequestParser::parseBody(HttpRequest &request, const std::string &raw_request, size_t &position) {
 
@@ -176,6 +208,12 @@ void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw
       //return;
     }
     current_line = readLine(raw_request, position);
+  }
+
+  if (!RequestParser::mandatoryHeadersPresent(request)) {
+    request.error_code = 400; //400 BAD_REQUEST
+    throw std::runtime_error("Mandatory headers missing");
+    //return;
   }
 
   request.headers_parsed = true;
