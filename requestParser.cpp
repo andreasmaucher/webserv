@@ -15,11 +15,16 @@ std::string RequestParser::readLine(const std::string &raw_request, size_t &posi
   return line;
 }
 
+bool RequestParser::isBodyExpected(HttpRequest &request) {
+    return ((request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked") ||
+                         (request.headers.find("Content-Length") != request.headers.end()));
+}
+
 bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw_request, size_t &position) { 
   
   try {
     // parse until headers only in 1st iteration
-    if (request.method.empty()) {
+    if (request.headers_parsed == false) {
       RequestParser::tokenizeRequestLine(request, raw_request, position);
       //debugging print
       std::cout << "Method: " << request.method << "\n"
@@ -34,20 +39,7 @@ bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw
       }
     }
 
-    bool body_expected = (request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked") ||
-                         (request.headers.find("Content-Length") != request.headers.end());
-
-    if (!body_expected) {
-      // No body expected but there is extra data in raw_request
-      if (position < raw_request.size()) {
-        request.error_code = 400; // 400 BAD_REQUEST
-        throw std::runtime_error("Body present but not expected");
-      }
-      return true; // Request complete (no body to read)
-    }
-
-    // If the body is expected, handle it
-    return RequestParser::saveValidBody(request, raw_request, position);
+    return RequestParser::parseBody(request, raw_request, position);
 
   } catch (std::exception &e) {
     std::cerr << "Error: " << e.what() << std::endl;
@@ -58,158 +50,110 @@ bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw
   return true; // request complete or error. Stop reading. Handle error code in calling func to create appropriate response & clean resources
 }
 
-// if there is a body expected and no part -> keep reading
-// if there is a body expected and a part -> save the part
-// avoid keep parsing if body exceeds limits
 // define MAX_BODY_SIZE in requestParser.hpp or in config file? 1MB in NGINX
+bool RequestParser::parseBody(HttpRequest &request, const std::string &raw_request, size_t &position) {
 
-struct ChunkState {
-    size_t chunk_size;    // Size of the current chunk
-    size_t bytes_read;    // Bytes of the current chunk that have been read
-    bool in_chunk;        // Indicates whether we are in the middle of reading a chunk
-    bool chunked_done;    // Indicates whether the chunked transfer is complete
-
-    ChunkState() : chunk_size(0), bytes_read(0), in_chunk(false), chunked_done(false) {}
-};
-
-bool RequestParser::saveValidBody(HttpRequest &request, const std::string &raw_request, size_t &position, ChunkState &chunk_state) {
+  // No body expected
+  if (!RequestParser::isBodyExpected(request)) {
+    // No body expected but there is extra data in raw_request
+    if (position < raw_request.size()) {
+      request.error_code = 400; // 400 BAD_REQUEST
+      throw std::runtime_error("Body present but not expected");
+    }
+    return true; // Request complete
+  }
 
   // Handle chunked transfer encoding
   if (request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked") {
+    return saveChunkedBody(request, raw_request, position);
+  }
 
-    while (position < raw_request.size()) {
+  // Handle Content-Length body
+  return saveContentLengthBody(request, raw_request, position);
+}
 
-      // If we're not in the middle of a chunk, read the chunk size
-      if (!chunk_state.in_chunk) {
-        std::string chunk_size_str = readLine(raw_request, position);
-        if (chunk_size_str.empty()) {
-          return false; // Keep reading (incomplete chunk size)
-        }
-
-        std::istringstream(chunk_size_str) >> std::hex >> chunk_state.chunk_size;
-
-        if (chunk_state.chunk_size == 0) {
-          chunk_state.chunked_done = true;
-          return true; // End of chunked transfer
-        }
-
-        if (chunk_state.chunk_size > MAX_BODY_SIZE || request.body.size() + chunk_state.chunk_size > MAX_BODY_SIZE) {
-          request.error_code = 413; // 413 PAYLOAD_TOO_LARGE
-          throw std::runtime_error("Body too large");
-        }
-
-        chunk_state.bytes_read = 0;
-        chunk_state.in_chunk = true; // Mark that we are now inside a chunk
+bool RequestParser::saveChunkedBody(HttpRequest &request, const std::string &raw_request, size_t &position) {
+// If we're not in the middle of a chunk, read the chunk size
+    if (!request.chunk_state.in_chunk) {
+      std::string chunk_size_str = RequestParser::readLine(raw_request, position);
+      if (chunk_size_str.empty()) { // should only happen in 1st iteration (1st chunk size not yet received)
+        return false; // Keep reading (incomplete chunk size) -> avoid infinite loop with timeout in recv loop!
       }
 
-      // Now, read the chunk data
-      size_t remaining_data_in_request = raw_request.size() - position;
-      size_t remaining_data_in_chunk = chunk_state.chunk_size - chunk_state.bytes_read;
+      std::istringstream(chunk_size_str) >> std::hex >> request.chunk_state.chunk_size;
 
-      if (remaining_data_in_request < remaining_data_in_chunk) {
-        // Only part of the chunk is available, append what we can and wait for more data
-        request.body.append(raw_request, position, remaining_data_in_request);
-        chunk_state.bytes_read += remaining_data_in_request;
-        position += remaining_data_in_request;
-        return false; // Keep reading (incomplete chunk data)
+      if (request.chunk_state.chunk_size == 0) {
+        request.chunk_state.chunked_done = true;
+        return true; // End of chunked transfer
       }
 
-      // Full chunk data is available
-      request.body.append(raw_request, position, remaining_data_in_chunk);
-      position += remaining_data_in_chunk;
-      chunk_state.bytes_read += remaining_data_in_chunk;
+      if (request.chunk_state.chunk_size > MAX_BODY_SIZE || request.body.size() + request.chunk_state.chunk_size > MAX_BODY_SIZE) {
+        request.error_code = 413; // 413 PAYLOAD_TOO_LARGE
+        throw std::runtime_error("Body too large");
+      }
 
-      // After reading the chunk, move past the trailing \r\n
-      if (raw_request.substr(position, 2) == "\r\n") {
-        position += 2;
+      request.chunk_state.bytes_read = 0;
+      request.chunk_state.in_chunk = true; // Mark that we are now inside a chunk
+    }
+
+    // Read the actual chunk data
+    size_t available_data_to_be_read = raw_request.size() - position;
+    size_t remaining_data_in_chunk = request.chunk_state.chunk_size - request.chunk_state.bytes_read;
+
+    // Append only the portion of the chunk that is available in the raw_request
+    size_t bytes_to_append = std::min(available_data_to_be_read, remaining_data_in_chunk);
+    request.body.append(raw_request, position, bytes_to_append);
+    request.chunk_state.bytes_read += bytes_to_append;
+    position += bytes_to_append;
+
+    // If we have fully read the chunk, move past the trailing \r\n and reset the chunk state
+    if (request.chunk_state.bytes_read == request.chunk_state.chunk_size) {
+      if (position + 2 <= raw_request.size() && raw_request.substr(position, 2) == "\r\n") {
+        position += 2; // Move past \r\n
+        request.chunk_state.in_chunk = false; // Chunk is fully processed, reset for the next chunk
       } else {
         request.error_code = 400; // 400 BAD_REQUEST
         throw std::runtime_error("Malformed chunked body (missing \r\n after chunk)");
       }
-
-      // Mark that we finished reading this chunk
-      chunk_state.in_chunk = false;
     }
 
-    return false; // Keep reading for the next chunk or to finish current chunk
+  return false; // Keep reading for the next chunk or to finish the current chunk
+}
+
+// Handle non-chunked body when Content-Length header present
+// the body length should match the value of the header
+bool RequestParser::saveContentLengthBody(HttpRequest &request, const std::string &raw_request, size_t &position) {
+  
+  size_t content_length;
+  std::istringstream(request.headers["Content-Length"]) >> content_length;
+
+  if (content_length > MAX_BODY_SIZE || (request.body.size() + (raw_request.size() - position) > content_length)) {
+    request.error_code = 413; // 413 PAYLOAD_TOO_LARGE
+    throw std::runtime_error("Body too large");
   }
-// bool RequestParser::saveValidBody(HttpRequest &request, const std::string &raw_request, size_t &position) {
-//   // if (body.empty()) { // infinite loop if no body present but expected and never received, handle with timeout in recv loop!!
-//   //   return false; // keep reading
-//   // }
 
-//   // If the request has a Transfer-Encoding header with the value "chunked", the body should be read until a chunk size 0 followed by an empty line
-//   if (request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked") {
+  // size_t bytes_to_append = std::min(content_length - request.body.size(), raw_request.size() - position);
+  // request.body.append(raw_request, position, bytes_to_append);
+  // position += bytes_to_append;
 
-//     while (true) {
-//       // Read the chunk size
-//       std::string chunk_size_str = readLine(raw_request, position);
-//       if (chunk_size_str.empty()) {
-//         return false; // Keep reading (1st chunk didn't arrive yet)
-//       }
+  // return request.body.size() == content_length; // Return true if body is complete
 
-//       std::istringstream iss(chunk_size_str);
-//       size_t chunk_size;
-//       // Convert hex string to decimal
-//       iss >> std::hex >> chunk_size;
-
-//       // End of chunked transfer (chunk size 0)
-//       if (chunk_size == 0) {
-//         return true;
-//       }
-
-//       if (chunk_size > MAX_BODY_SIZE || request.body.size() + chunk_size > MAX_BODY_SIZE) {
-//         request.error_code = 413; //413 PAYLOAD_TOO_LARGE
-//         throw std::runtime_error("Body too large");
-//         //return true;
-//       }
-
-//       // Read the chunk data
-//       if (position + chunk_size > raw_request.size()) {
-//         return false; // Keep reading (truncated chunk)
-//       }
-
-//       request.body.append(raw_request, position, chunk_size);
-//       position += chunk_size;
-     
-//       // Skip the trailing \r\n after each chunk
-//       if (raw_request.substr(position, 2) == "\r\n") {
-//         position += 2;
-//       } else {
-//         request.error_code = 400; // 400 BAD_REQUEST
-//         throw std::runtime_error("Malformed chunked body");
-//       }
-//     }
-//   }
-
-  // If the request has a Content-Length header, the body length should match the value of the header
-
-  // Handle non-chunked body with Content-Length
-  else if (request.headers.find("Content-Length") != request.headers.end()) {
-    size_t content_length;
-    std::istringstream(request.headers["Content-Length"]) >> content_length;
-
-    if (content_length > MAX_BODY_SIZE) {
-      request.error_code = 413; // 413 PAYLOAD_TOO_LARGE
-      throw std::runtime_error("Body too large");
-    }
-
-    if (position + content_length > raw_request.size()) {
-      return false; // Keep reading (incomplete body data)
-    }
-
-    // Append the full body
-    request.body.append(raw_request, position, content_length);
-    position += content_length;
-
-    //if there is still content after the body, it is an error
-    if (position < raw_request.size()) {
-      request.error_code = 400; // 400 BAD_REQUEST
-      throw std::runtime_error("Extra data after body");
-    }
-
-    return true; // Full body received
+  if (position + content_length > raw_request.size()) {
+    return false; // Keep reading (incomplete body data)
   }
+
+  // Append the full body
+  request.body.append(raw_request, position, content_length);
+  position += content_length + 2; // Move past the body and the trailing \r\n
+
+  //if there is still content after the body, it is an error
+  if (position < raw_request.size()) {
+    request.error_code = 400; // 400 BAD_REQUEST
+    throw std::runtime_error("Extra data after body");
+  }
+
+  return true; // Full body received
+  
 }
 
 // Extract headers from request until blank line (\r\n)
@@ -233,8 +177,11 @@ void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw
     }
     current_line = readLine(raw_request, position);
   }
+
+  request.headers_parsed = true;
 }
 
+// Save headers in a map avoiding duplicates
 bool RequestParser::validHeaderFormat(std::map<std::string, std::string> &headers, const std::string &current_line, size_t colon_pos)
 {
   if (colon_pos != std::string::npos) {
