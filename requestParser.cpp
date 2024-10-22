@@ -57,21 +57,12 @@ bool RequestParser::mandatoryHeadersPresent(HttpRequest &request) {
     return false;
   }
 
-  // if (request.method == "POST" && (request.headers.find("Content-Type") == request.headers.end() || ((request.headers.find("Content-Length") == request.headers.end()) || request.headers.find("Transfer-Encoding") == request.headers.end() || request.headers["Transfer-Encoding"] != "chunked"))) {
-  //   return false;
-  // }
   if (request.method == "POST") {
     // Check for the Content-Type header
-    if (request.headers.find("Content-Type") == request.headers.end()) {
-        request.error_code = 400; // Bad Request
-        return false;
-    }
-
     // Check for Content-Length or Transfer-Encoding: chunked
     bool has_content_length = request.headers.find("Content-Length") != request.headers.end();
     bool has_transfer_encoding_chunked = request.headers.find("Transfer-Encoding") != request.headers.end() && 
                                          request.headers["Transfer-Encoding"] == "chunked";
-
     if (!has_content_length && !has_transfer_encoding_chunked) {
         request.error_code = 411; // Length Required or 400 depending on error
         return false;
@@ -226,7 +217,8 @@ bool RequestParser::validHeaderFormat(std::map<std::string, std::string> &header
     std::string header_name = current_line.substr(0, colon_pos);
     std::string header_value = current_line.substr(colon_pos + 1);
 
-    if (!header_name.empty() && !header_value.empty() && headers.find(header_name) == headers.end()) {
+    if (!header_name.empty() && !header_value.empty() && (headers.find(header_name) == headers.end()
+      || header_name == "Cookie" || header_name == "Set-Cookie")) {
       headers[header_name] = header_value;
       return true;
     }
