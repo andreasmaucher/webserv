@@ -3,21 +3,24 @@
 // Read a line from the raw request
 std::string RequestParser::readLine(const std::string &raw_request, size_t &position) {
   
+  std::cout << "Position: " << position << std::endl;
   size_t line_end = raw_request.find("\r\n", position); // start searching at position
   std::string line;
+  std::cout << "line_end: " << line_end << std::endl;
   if (line_end != std::string::npos) { // \r\n found
     line = raw_request.substr(position, line_end - position);
+    std::cout << "Line: " << line << std::endl;
     position = line_end + 2; // Move past the '\r\n' so line is pointing to the next line or the end
   }
   else {
-    std::cout << "Line incomplete.\nHint: Is buffer size enough? Or chunked transfer encoding used?" << std::endl;
+    std::cout << "Line incomplete.\nHint: Is buffer size enough? Or chunked transfer encoding used? -> make sure to read until end of headers before starting to parse" << std::endl;
   }
   return line;
 }
 
 bool RequestParser::isBodyExpected(HttpRequest &request) {
-    return ((request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked") ||
-                         (request.headers.find("Content-Length") != request.headers.end()));
+    return ((request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked")
+      || (request.headers.find("Content-Length") != request.headers.end()));
 }
 
 bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw_request, size_t &position) { 
@@ -26,17 +29,19 @@ bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw
     // parse until headers only in 1st iteration
     if (request.headers_parsed == false) {
       RequestParser::tokenizeRequestLine(request, raw_request, position);
-      //debugging print
-      std::cout << "Method: " << request.method << "\n"
-                << "URI: " << request.uri << "\n"
-                << "Version: " << request.version << std::endl;
+      // //debugging print
+      std::cout << "Request Line parsed: " << request.method << " " << request.uri << " " << request.version << std::endl;
+      // std::cout << "Method: " << request.method << "\n"
+      //           << "URI: " << request.uri << "\n"
+      //           << "Version: " << request.version << std::endl;
 
       RequestParser::tokenizeHeaders(request, raw_request, position);
-      //debugging print
-      std::cout << "Headers:\n";
-      for (std::map<std::string, std::string>::iterator header_iter = request.headers.begin(); header_iter != request.headers.end(); ++header_iter) {
-        std::cout << "    " << header_iter->first << " " << header_iter->second << std::endl;
-      }
+      // //debugging print
+      std::cout << "Headers parsed" << std::endl;
+      // std::cout << "Headers:\n";
+      // for (std::map<std::string, std::string>::iterator header_iter = request.headers.begin(); header_iter != request.headers.end(); ++header_iter) {
+      //   std::cout << "    " << header_iter->first << " " << header_iter->second << std::endl;
+      //}
     }
 
     return RequestParser::parseBody(request, raw_request, position);
@@ -78,6 +83,7 @@ bool RequestParser::parseBody(HttpRequest &request, const std::string &raw_reque
 
   // No body expected
   if (!RequestParser::isBodyExpected(request)) {
+    std::cout << "No body expected" << std::endl;
     // No body expected but there is extra data in raw_request
     if (position < raw_request.size()) {
       request.error_code = 400; // 400 BAD_REQUEST
@@ -96,8 +102,10 @@ bool RequestParser::parseBody(HttpRequest &request, const std::string &raw_reque
 }
 
 bool RequestParser::saveChunkedBody(HttpRequest &request, const std::string &raw_request, size_t &position) {
-// If we're not in the middle of a chunk, read the chunk size
+
+    // If we're not in the middle of a chunk, read the chunk size
     if (!request.chunk_state.in_chunk) {
+      std::cout << "Reading chunk size" << std::endl;
       std::string chunk_size_str = RequestParser::readLine(raw_request, position);
       if (chunk_size_str.empty()) { // should only happen in 1st iteration (1st chunk size not yet received)
         return false; // Keep reading (incomplete chunk size) -> avoid infinite loop with timeout in recv loop!
@@ -105,8 +113,11 @@ bool RequestParser::saveChunkedBody(HttpRequest &request, const std::string &raw
 
       std::istringstream(chunk_size_str) >> std::hex >> request.chunk_state.chunk_size;
 
+      std::cout << "Chunk size: " << request.chunk_state.chunk_size << std::endl;
+    
       if (request.chunk_state.chunk_size == 0) {
         request.chunk_state.chunked_done = true;
+        std::cout << "Chunked transfer complete" << std::endl;
         return true; // End of chunked transfer
       }
 
@@ -123,11 +134,25 @@ bool RequestParser::saveChunkedBody(HttpRequest &request, const std::string &raw
     size_t available_data_to_be_read = raw_request.size() - position;
     size_t remaining_data_in_chunk = request.chunk_state.chunk_size - request.chunk_state.bytes_read;
 
+    std::cout << "\nAvailable data: " << available_data_to_be_read << std::endl;
+    std::cout << "Remaining data in chunk: " << remaining_data_in_chunk << std::endl;
+
     // Append only the portion of the chunk that is available in the raw_request
     size_t bytes_to_append = std::min(available_data_to_be_read, remaining_data_in_chunk);
+
+    std::cout << "Bytes to append: " << bytes_to_append << std::endl;
+
     request.body.append(raw_request, position, bytes_to_append);
+
+    std::cout << "Body: " << request.body << std::endl;
+
     request.chunk_state.bytes_read += bytes_to_append;
+
+    std::cout << "Bytes read: " << request.chunk_state.bytes_read << std::endl;
+
     position += bytes_to_append;
+
+    std::cout << "Position: " << position << std::endl;
 
     // If we have fully read the chunk, move past the trailing \r\n and reset the chunk state
     if (request.chunk_state.bytes_read == request.chunk_state.chunk_size) {
@@ -190,7 +215,7 @@ void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw
     //return;
   }
 
-  while (current_line != "\r\n") {
+  while (!current_line.empty()) {
     size_t colon_pos = current_line.find(":");
     
     if (!validHeaderFormat(request.headers, current_line, colon_pos)) {
@@ -199,6 +224,7 @@ void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw
       //return;
     }
     current_line = readLine(raw_request, position);
+    std::cout << "current line: " << current_line << std::endl;
   }
 
   if (!RequestParser::mandatoryHeadersPresent(request)) {
@@ -215,14 +241,19 @@ bool RequestParser::validHeaderFormat(std::map<std::string, std::string> &header
 {
   if (colon_pos != std::string::npos) {
     std::string header_name = current_line.substr(0, colon_pos);
-    std::string header_value = current_line.substr(colon_pos + 1);
+    std::string header_value = current_line.substr(colon_pos + 2);
+
+    //debugging print
+    std::cout << "header name - value:" << header_name << header_value << std::endl;
 
     if (!header_name.empty() && !header_value.empty() && (headers.find(header_name) == headers.end()
       || header_name == "Cookie" || header_name == "Set-Cookie")) {
       headers[header_name] = header_value;
+      std::cout << "header added, returning true" << std::endl;
       return true;
     }
   }
+  std::cout << "header not added, returning false" << std::endl;
   return false;
 }
 
