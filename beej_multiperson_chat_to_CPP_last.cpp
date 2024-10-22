@@ -1,37 +1,19 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   beej_multiperson_chat.c                            :+:      :+:    :+:   */
+/*   beej_multiperson_chat_to_CPP_last.cpp              :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/22 21:46:07 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/22 23:44:43 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <poll.h>
-
-#define PORT "9036"
-
-// add signals so can reuse the port
-// add msgs of which client sent what
-// add msg confirmation to send back to clients
-// add clear msgs of what is happening - ex. added sockets and fd'
-// add cleanup on exit
+#include "beej_multiperson_chat_to_CPP_last.hpp"
 
 
-
-void *get_in_addr(struct sockaddr *sa) {
+void * Server::get_in_addr(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET) {  // Check if using IPv4
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
@@ -40,14 +22,8 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 // Return a listening socket
-int get_listener_socket(void)
+int Server::get_listener_socket(void)
 {
-    int listener;     // Listening socket descriptor
-    int yes=1;        // For setsockopt() SO_REUSEADDR, to allow immediate reuse of socket after close
-    int addrinfo_status; // Return status of getaddrinfo()
-
-    struct addrinfo hints, *ai, *p;
-
     // Get us a socket and bind it
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; // Unspecified IPv4 or IPv6, can use both
@@ -59,26 +35,28 @@ int get_listener_socket(void)
     // hints - criteria to resolve the ip address
     // ai - pointer to a linked list of results returned by getaddrinfo(). 
     // It holds the resolved network addresses that match the criteria specified in hints.
-    
-    
     if ((addrinfo_status = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
         fprintf(stderr, "pollserver: %s\n", gai_strerror(addrinfo_status));
         exit(1);
     }
     // gai_strerror(addrinfo_status) - use this instead of perror() or strerror() since it is designed to describe getaddrinfo() or other network function error codes
     
-    // TODO: fixing this block of code in c++
     for(p = ai; p != NULL; p = p->ai_next) { //loop through the ai ll and try to create a socket 
-        listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (listener < 0) { 
+        listener_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (listener_fd < 0) { 
             continue;
         }
-        
+
         // Lose the pesky "address already in use" error message
-        setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+        // Manually added option to allow to reuse ports straight after closing the server - SO_REUSEADDR
+
+        if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0) {
+            perror("setsockopt(SO_REUSEADDR) failed");
+            exit(1);
+        }
         // tries to bind the socket, otherwise closes it
-        if (bind(listener, p->ai_addr, p->ai_addrlen) < 0) {
-            close(listener);
+        if (bind(listener_fd, p->ai_addr, p->ai_addrlen) < 0) {
+            close(listener_fd);
             continue;
         }
         // breaks loop on success
@@ -91,27 +69,25 @@ int get_listener_socket(void)
     }
     // Cleaning up ai ll
     freeaddrinfo(ai); // All done with this
+    ai = NULL;
 
     // Listening
     // Starts listening for incoming connections on the listener socket, with a maximum backlog of 10 connections waiting to be accepted.
-    if (listen(listener, 10) == -1) {
+    if (listen(listener_fd, MAX_SIM_CONN) == -1) {
         return -1;
     }
     // returns fd of the listening socket
-    return listener;
+    return listener_fd;
 }
 
 // Add a new fd to the set
-void add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size)
+void Server::add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size)
 {   
-    // pfds - struct of fd's
-    // newfd - fd to add
-    // fd_count - fd currently being used
-    // fd_size - size of allocated capacity of the pollfd struct
     // If the pollfd struct doesnt have space, add more space
     if (*fd_count == *fd_size) { // if struct full, add space
         *fd_size *=2; //Double the size
-        *pfds = realloc(*pfds, sizeof(**pfds) * (*fd_size));
+        // TODO: switch  realloc to resize and use vectors instead of array for pfds
+        *pfds = (struct pollfd*)realloc(*pfds, sizeof(**pfds) * (*fd_size));
     }
     (*pfds)[*fd_count].fd = newfd; // add new fd at position fd_count of pfds struct
     (*pfds)[*fd_count].events = POLLIN; //Set the fd for reading
@@ -120,9 +96,8 @@ void add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size)
 }
 
 // Removing and index from the set
-void del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
+void Server::del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
 {
-    // pfds - struct of fd's
     // i - index of fd to be removed
     // fd_count - pointer to number of fd's being monitored
     pfds[i] =  pfds[*fd_count - 1]; // replace the fd to be removed (fd[i]) with the last element of array
@@ -130,18 +105,24 @@ void del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
     // Not doing realloc() to change the actual size of the array, since this can be slow
 }
 
-int main(void)
-{
-    // STEP 1 START: Setup
-    int listener_fd; //Listening socket fd
-    int new_fd; // Newly accepted fd
-    struct sockaddr_storage remoteaddr; // Client address (both IPv4 and IPv6)
-    socklen_t addrlen;
-    char buf[256]; //Buff for client data
-    char remoteIP[INET6_ADDRSTRLEN]; //To store IP address in string form
-    int fd_count = 0; // Current number of used fds
-    int fd_size = 5; // Initial size of struct to hold all fds
-    struct pollfd *pfds = malloc(sizeof *pfds * fd_size);
+Server::Server(const std::string& port) : sockfd(-1), new_fd(-1) {
+    signal(SIGINT, sigintHandler);
+    setup(port);
+}
+
+Server::~Server() {
+    // Added cleanup to exit conditions, need to check if it is always triggered
+    // TODO: Maybe worth puttting back in the destructor
+    // Server::cleanup();
+    std::cout << "Server exited" << std::endl;
+}
+
+
+int Server::setup(const std::string& port) {
+    fd_count = 0; // Current number of used fds
+    fd_size = INIT_FD_SIZE; // Initial size of struct to hold all fds
+    //TODO: change to vector
+    pfds = new struct pollfd[fd_size]();
 
     listener_fd = get_listener_socket();
     if (listener_fd == -1) {
@@ -151,19 +132,12 @@ int main(void)
     pfds[0].fd = listener_fd;
     pfds[0].events = POLLIN; //Watch for incoming data on the listener
     fd_count = 1; // There is only 1 listener on the socket
-
-
-    // Manually added option to allow to reuse ports straight after closing the server - SO_REUSEADDR
-    // If this option is not configured, ports will be in TIME_WAIT state even after they are closed and can be used only after they timeout
-    int opt = 1;
-    if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-        perror("setsockopt(SO_REUSEADDR) failed");
-        exit(1);
-    }
+    return (listener_fd);
     // Step 1 END: SETUP
+}
 
+int Server::start() {
     // STEP 2 START: MAIN LOOP
-
     // Main loop
      while (1)
      {
@@ -208,7 +182,6 @@ int main(void)
                             perror("recv");
                         }
                         close(pfds[i].fd); //Closing fd
-
                         del_from_pfds(pfds, i, &fd_count);
 
                     } else {
@@ -216,6 +189,7 @@ int main(void)
                         // Printing out received data
                         buf[nbytes] = '\0';
                         printf("Received: %s\n", buf);
+                        // TODO: Add parser here to parse received messages
 
                         // sending a msg "close" from the client closes the connection
 
@@ -223,22 +197,20 @@ int main(void)
                         {
                             printf("Received: %s\n", buf); // Print the message.
                             printf("Closing connection\n");   // Print the message.
-                            close(new_fd);
-                            close(listener_fd);
-                            // freeaddrinfo(res); // free the linked list
+                            //TODO: this closing of FD's is doubtful, maybe need to rewrite
+                            for (int j = 0; j < fd_count; j++)
+                            {
+                                close(pfds[j].fd);
+                            }
+                            cleanup();
                             return 0;
                         }
-                        for (int j = 0; j < fd_count; j++) {
-                            
-                            // Send to everyone!
-                            int dest_fd = pfds[j].fd;
-                            // Except the listener and ourselves
-                            if (dest_fd != listener_fd && dest_fd != sender_fd) {
-                                if (send(dest_fd, buf, nbytes, 0) == -1) {
+                        // Sending back simple echo message
+                        send(pfds[i].fd, "Server sent back: ", 19, 0);
+
+                        if (send(pfds[i].fd, buf, nbytes, 0) == -1) {
                                     perror("send");
                                 }
-                            }
-                        }
                     }
                     
                 } // END handle data from client    
@@ -247,7 +219,54 @@ int main(void)
      } // END  while(1) loop 
 
     // Step 2 END: MAIN LOOP
+}
 
-    return 0;
+void Server::cleanup() {
+    if (new_fd != -1) {
+        close(new_fd);
+    }
+    if (sockfd != -1) {
+        close(sockfd);
+    }
+    if (ai != NULL) {
+        freeaddrinfo(ai);
+    }
+    //TODO: change malloc to new and free
+    if (pfds)
+        delete[] pfds;
+}
+
+void Server::sigintHandler(int signal)
+{
+    if (signal == SIGINT)
+    {
+        printf("Ctrl- C Closing connection\n"); // Print the message.
+        //TODO: should figure out a way to cleanup memory and close fd's
+        // cleanup();
+        // close(new_fd);
+        // close(sockfd);
+        
+        printf("Exiting\n"); // Print the message.
+        // Memory leaks will be present, since we can't run freeaddrinfo(res) unless it is declared as a global
+        exit(0);
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc != 2)
+    {
+        printf("Usage: please ./a.out <port number, has to be over 1024>\n");
+        return(1);
+    }
+    try {
+        Server server(argv[1]);
+        server.start();
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Server error: " << e.what() <<std::endl;
+        return 1;
+    }
+    return (0);
 }
 

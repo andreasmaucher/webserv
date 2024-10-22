@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/20 18:23:13 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/20 20:03:25 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/22 15:17:15 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -41,7 +41,7 @@ private:
     // ChadGpt suggested these two lines, not sure for what
     // Server(Server&& other);
     // Server& operator=(Server&& other);
-    void setup(const std::string& port);
+    int setup(const std::string& port);
     void cleanup();
 
 

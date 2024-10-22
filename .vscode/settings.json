@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "in.h": "c"
+        "in.h": "c",
+        "iostream": "cpp"
     }
 }
