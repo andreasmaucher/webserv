@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/23 15:24:47 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/23 15:49:26 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -191,12 +191,16 @@ int Server::start() {
                         // Printing out received data
                         buf[nbytes] = '\0';
                         printf("Received: %s\n", buf);
-                        raw_request +=std::string(buf, nbytes);
-                        if (raw_request.find("\r\n\r\n") != std::string::npos)
-                        {
-                            
-                            //PARSER COMES HERE
-                        }
+                        // raw_requests[i] +=std::string(buf, nbytes);                           
+                        // printf("EROOR HERE\n");
+
+                        // if (raw_requests[i].find("\r\n\r\n") != std::string::npos)
+                        // {
+                        //     printf("OR EROOR HERE\n");
+
+                        //     std::cout << "Full request from client " << i << " is: " << raw_requests[i] <<std::endl;
+                        //     //PARSER COMES HERE
+                        // }
                         // TODO: Add parser here to parse received messages
 
                         // sending a msg "close" from the client closes the connection

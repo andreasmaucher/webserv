@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/23 15:20:44 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/23 15:49:25 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,13 +22,15 @@
 #include <cerrno>
 #include <poll.h>
 #include <arpa/inet.h>
+#include <vector>
+
 
 
 
 
 #define MAX_SIM_CONN 10
 #define BUFFER_SIZE 512
-#define PORT "9036"
+#define PORT "9041"
 #define INIT_FD_SIZE 5
 
 
@@ -62,7 +64,7 @@ private:
     int addrinfo_status; // Return status of getaddrinfo()
 
     struct addrinfo hints, *ai, *p;
-    std::string raw_request;
+    std::vector<std::string> raw_requests;
     // struct addrinfo* res;
     
     Server(const Server&other);
