@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/24 00:08:24 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/24 00:07:42 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,9 +22,8 @@ void * Server::get_in_addr(struct sockaddr *sa) {
 }
 
 // Return a listening socket
-int Server::get_listener_socket(const std::string port)
+int Server::get_listener_socket(std::string port)
 {
-    (void)port;
     // Get us a socket and bind it
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; // Unspecified IPv4 or IPv6, can use both
@@ -38,8 +37,6 @@ int Server::get_listener_socket(const std::string port)
     // hints - criteria to resolve the ip address
     // ai - pointer to a linked list of results returned by getaddrinfo(). 
     // It holds the resolved network addresses that match the criteria specified in hints.
-
-    std::cout << "Going to connect on port " << port << std::endl;
     if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0) {
         fprintf(stderr, "pollserver: %s\n", gai_strerror(addrinfo_status));
         exit(1);
@@ -124,11 +121,8 @@ Server::~Server() {
 
 
 int Server::setup(const std::string& port) {
-    (void)port;
     fd_count = 0; // Current number of used fds
     fd_size = INIT_FD_SIZE; // Initial size of struct to hold all fds
-    std::vector<std::string> raw_requests(fd_size);
-
     //TODO: change to vector
     pfds = new struct pollfd[fd_size]();
 
@@ -270,21 +264,21 @@ void Server::sigintHandler(int signal)
     }
 }
 
-// int main(int argc, char *argv[])
-// {
-//     if (argc != 2)
-//     {
-//         printf("Usage: please ./a.out <port number, has to be over 1024>\n");
-//         return(1);
-//     }
-//     try {
-//         Server server(argv[1]);
-//         server.start();
+int main(int argc, char *argv[])
+{
+    if (argc != 2)
+    {
+        printf("Usage: please ./a.out <port number, has to be over 1024>\n");
+        return(1);
+    }
+    try {
+        Server server(argv[1]);
+        server.start();
         
-//     } catch (const std::exception& e) {
-//         std::cerr << "Server error: " << e.what() <<std::endl;
-//         return 1;
-//     }
-//     return (0);
-// }
+    } catch (const std::exception& e) {
+        std::cerr << "Server error: " << e.what() <<std::endl;
+        return 1;
+    }
+    return (0);
+}
 

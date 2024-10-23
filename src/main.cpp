@@ -13,8 +13,9 @@ int main(int argc, char *argv[])
     {
         std::cerr << "Usage: please ./a.out <port number, has to be over 1024>" <<std::endl;
         port = PORT;
-        std::cerr << "Using default port, since no valid port was specified: 8080" <<std::endl;
-    }
+        std::cerr << "Using default port, since no valid port was specified: " << port <<std::endl;
+    } else
+        port = argv[1];
     try {
         Server server(port);
         server.start();
