@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/23 20:35:15 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/23 21:07:19 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,7 +22,7 @@ void * Server::get_in_addr(struct sockaddr *sa) {
 }
 
 // Return a listening socket
-int Server::get_listener_socket(void)
+int Server::get_listener_socket(const std::string port)
 {
     // Get us a socket and bind it
     memset(&hints, 0, sizeof hints);
@@ -37,7 +37,7 @@ int Server::get_listener_socket(void)
     // hints - criteria to resolve the ip address
     // ai - pointer to a linked list of results returned by getaddrinfo(). 
     // It holds the resolved network addresses that match the criteria specified in hints.
-    if ((addrinfo_status = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
+    if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0) {
         fprintf(stderr, "pollserver: %s\n", gai_strerror(addrinfo_status));
         exit(1);
     }
@@ -127,7 +127,7 @@ int Server::setup(const std::string& port) {
     //TODO: change to vector
     pfds = new struct pollfd[fd_size]();
 
-    listener_fd = get_listener_socket();
+    listener_fd = get_listener_socket(port);
     if (listener_fd == -1) {
         fprintf(stderr, "error getting listening socket\n");
         exit(1);

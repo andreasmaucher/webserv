@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/23 20:36:01 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/23 21:05:32 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,7 +28,7 @@
 
 #define MAX_SIM_CONN 10
 #define BUFFER_SIZE 512
-#define PORT "9041"
+#define PORT "9042"
 #define INIT_FD_SIZE 5
 
 
@@ -73,7 +73,7 @@ private:
     // Server& operator=(Server&& other);
     int setup(const std::string& port);
     void cleanup();
-    int get_listener_socket(void);
+    int get_listener_socket(const std::string port);
     void *get_in_addr(struct sockaddr *sa);
     void add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size);
     void del_from_pfds(struct pollfd pfds[], int i, int *fd_count);
