@@ -1,12 +1,11 @@
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV NORM_VER 3.3.53
 
 WORKDIR /home/root
 VOLUME /home/root
 
-RUN printf "Installing Ubuntu and 42 stuff\n"
+RUN printf "Installing Ubuntu and necessary packages...\n"
 
 # Update and install required packages, including netcat-openbsd
 RUN apt-get update && apt-get install -y \
@@ -18,6 +17,6 @@ RUN apt-get update && apt-get install -y \
 # Install Oh My Zsh
 RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || true
 
-
+# Executes zsh as main process of the container
 CMD ["zsh"]
 
