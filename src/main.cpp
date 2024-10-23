@@ -1,12 +1,35 @@
 #include "http/requestParser.hpp"
 #include "http/httpRequest.hpp"
 #include "../tests/testsHeader.hpp"
+#include "server/server.hpp"
 
-int main() {
-    test_request_parser_simple();
-    test_request_parser_streaming();
-    return 0;
+
+
+int main(int argc, char *argv[])
+{
+    if (argc != 2)
+    {
+        std::cerr << "Usage: please ./a.out <port number, has to be over 1024>" <<std::endl;
+        // printf("Usage: please ./a.out <port number, has to be over 1024>\n");
+        return(1);
+    }
+    try {
+        Server server(argv[1]);
+        server.start();
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Server error: " << e.what() <<std::endl;
+        return 1;
+    }
+    return (0);
 }
+
+
+// int main() {
+//     test_request_parser_simple();
+//     test_request_parser_streaming();
+//     return 0;
+// }
 
 // int main() {
 
