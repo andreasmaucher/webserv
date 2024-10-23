@@ -7,14 +7,16 @@
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2)
+    (void)argc;
+    std::string port;
+    if (!argv[1])
     {
         std::cerr << "Usage: please ./a.out <port number, has to be over 1024>" <<std::endl;
-        // printf("Usage: please ./a.out <port number, has to be over 1024>\n");
-        return(1);
+        port = PORT;
+        std::cerr << "Using default port, since no valid port was specified: 8080" <<std::endl;
     }
     try {
-        Server server(argv[1]);
+        Server server(port);
         server.start();
         
     } catch (const std::exception& e) {
