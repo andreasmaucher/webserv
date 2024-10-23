@@ -1,8 +1,9 @@
 NAME = webserv
 SRC_DIR = src
+SERVER_DIR = $(SRC_DIR)/server
 HTTP_DIR = $(SRC_DIR)/http
 TEST_DIR = tests
-SOURCES = $(SRC_DIR)/main.cpp $(TEST_DIR)/testParser.cpp $(HTTP_DIR)/requestParser.cpp $(HTTP_DIR)/httpRequest.cpp
+SOURCES = $(SRC_DIR)/main.cpp $(SERVER_DIR)/server.cpp $(TEST_DIR)/testParser.cpp $(HTTP_DIR)/requestParser.cpp $(HTTP_DIR)/httpRequest.cpp
 		
 OBJS = $(SOURCES:.cpp=.o)
 
