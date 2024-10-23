@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/23 15:06:00 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/23 15:20:44 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -62,6 +62,7 @@ private:
     int addrinfo_status; // Return status of getaddrinfo()
 
     struct addrinfo hints, *ai, *p;
+    std::string raw_request;
     // struct addrinfo* res;
     
     Server(const Server&other);
