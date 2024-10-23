@@ -29,19 +29,10 @@ bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw
     // parse until headers only in 1st iteration
     if (request.headers_parsed == false) {
       RequestParser::tokenizeRequestLine(request, raw_request, position);
-      // //debugging print
       std::cout << "Request Line parsed: " << request.method << " " << request.uri << " " << request.version << std::endl;
-      // std::cout << "Method: " << request.method << "\n"
-      //           << "URI: " << request.uri << "\n"
-      //           << "Version: " << request.version << std::endl;
 
       RequestParser::tokenizeHeaders(request, raw_request, position);
-      // //debugging print
       std::cout << "Headers parsed" << std::endl;
-      // std::cout << "Headers:\n";
-      // for (std::map<std::string, std::string>::iterator header_iter = request.headers.begin(); header_iter != request.headers.end(); ++header_iter) {
-      //   std::cout << "    " << header_iter->first << " " << header_iter->second << std::endl;
-      //}
     }
 
     return RequestParser::parseBody(request, raw_request, position);
@@ -57,7 +48,7 @@ bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw
 
 bool RequestParser::mandatoryHeadersPresent(HttpRequest &request) {
 
-    // search for in HTTP/1.1 mandatory Host header presence
+  // search for in HTTP/1.1 mandatory Host header presence
   if (request.headers.empty() || request.headers.find("Host") == request.headers.end()) {
     return false;
   }
@@ -244,7 +235,7 @@ bool RequestParser::validHeaderFormat(std::map<std::string, std::string> &header
     std::string header_value = current_line.substr(colon_pos + 2);
 
     //debugging print
-    std::cout << "header name - value:" << header_name << header_value << std::endl;
+    std::cout << "header name - value:" << header_name << " - " << header_value << std::endl;
 
     if (!header_name.empty() && !header_value.empty() && (headers.find(header_name) == headers.end()
       || header_name == "Cookie" || header_name == "Set-Cookie")) {
