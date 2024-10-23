@@ -91,61 +91,61 @@ void test_request_parser_simple() {
     return;
 }
 
-// void test_request_parser_streaming() {
-//     HttpRequest request;
+void test_request_parser_streaming() {
+    HttpRequest request;
 
-//     std::string raw_request_part1 =
-//         "POST /upload HTTP/1.1\r\n"
-//         "Host: localhost\r\n"
-//         "Transfer-Encoding: chunked\r\n\r\n";
+    std::string raw_request_part1 =
+        "POST /upload HTTP/1.1\r\n"
+        "Host: localhost\r\n"
+        "Transfer-Encoding: chunked\r\n\r\n";
 
-//     std::string raw_request_part2 =
-//         "5\r\nHello\r\n"
-//         "6\r\n World\r\n"
-//         "40\r\nlalelilolulalelilolulalelilolulalelilozz\r\n"
-//         "6\r\n World\r\n"
-//         "0\r\n\r\n";
+    std::string raw_request_part2 =
+        "5\r\nHello\r\n"
+        "6\r\n World\r\n"
+        "40\r\nlalelilolulalelilolulalelilolulalelilozz\r\n"
+        "6\r\n World\r\n"
+        "0\r\n\r\n";
 
-//     std::string raw_request = raw_request_part1;
+    std::string raw_request = raw_request_part1;
 
-//     // Simulate recv in chunks
-//     size_t position = 0;
-//     size_t bytes_received;
-//     bool request_complete = false;
-//     size_t chunk_size = 70; // Simulate small chunks (you can adjust this)
+    // Simulate recv in chunks
+    size_t position = 0;
+    size_t bytes_received;
+    bool request_complete = false;
+    size_t chunk_size = 70; // Simulate small chunks (you can adjust this)
     
-//     std::cout << "\n--> Testing streaming: " << std::endl;
+    std::cout << "\n--> Testing streaming: " << std::endl;
 
-//     while (!request_complete) {
-//         // Simulate receiving a chunk of data
-//         if (position < raw_request.size()) {
-//             // Calculate the number of bytes to read (the size of the chunk)
-//             bytes_received = std::min(chunk_size, raw_request.size() - position);
-//             std::cout << "Bytes received: " << bytes_received << std::endl;
-//             // Extract the chunk from the full raw request
-//             std::string chunk = raw_request.substr(position, bytes_received);
-//             position += bytes_received;
+    while (!request_complete) {
+        // Simulate receiving a chunk of data
+        if (position < raw_request.size()) {
+            // Calculate the number of bytes to read (the size of the chunk)
+            bytes_received = std::min(chunk_size, raw_request.size() - position);
+            std::cout << "Bytes received: " << bytes_received << std::endl;
+            // Extract the chunk from the full raw request
+            std::string chunk = raw_request.substr(position, bytes_received);
+            position += bytes_received;
 
-//             // Process the chunk
-//             std::cout << "Received chunk: " << chunk << std::endl;
+            // Process the chunk
+            std::cout << "Received chunk: " << chunk << std::endl;
 
-//             // Parse the chunk (pass the chunk directly to the parser)
-//             request_complete = RequestParser::parseRawRequest(request, chunk, position);
-//             if (!request_complete) {
-//                 raw_request += raw_request_part2;  // Append the next part of the request
-//             }
-//         } else {
-//             break;  // Stop when we've simulated all the data
-//         }
-//     }
+            // Parse the chunk (pass the chunk directly to the parser)
+            request_complete = RequestParser::parseRawRequest(request, chunk, position);
+            if (!request_complete) {
+                raw_request += raw_request_part2;  // Append the next part of the request
+            }
+        } else {
+            break;  // Stop when we've simulated all the data
+        }
+    }
 
-//     if (request_complete) {
-//         std::cout << "Request parsing completed successfully.\n";
-//         std::cout << "Method: " << request.method << "\n";
-//         std::cout << "URI: " << request.uri << "\n";
-//         std::cout << "Version: " << request.version << "\n";
-//         std::cout << "Body: " << request.body << "\n";
-//     } else {
-//         std::cout << "Request parsing failed or incomplete.\n";
-//     }
-// }
+    if (request_complete) {
+        std::cout << "Request parsing completed successfully.\n";
+        std::cout << "Method: " << request.method << "\n";
+        std::cout << "URI: " << request.uri << "\n";
+        std::cout << "Version: " << request.version << "\n";
+        std::cout << "Body: " << request.body << "\n";
+    } else {
+        std::cout << "Request parsing failed or incomplete.\n";
+    }
+}
