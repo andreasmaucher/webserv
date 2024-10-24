@@ -18,6 +18,7 @@ struct ChunkState {
   ChunkState() : chunk_size(0), bytes_read(0), in_chunk(false), chunked_done(false) {}
 };
 
+// Core data structure for incoming requests
 class HttpRequest {
 public:
   std::string method;                         // e.g., GET, POST

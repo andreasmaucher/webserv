@@ -11,6 +11,7 @@
 #include <vector>
 #include "httpRequest.hpp"
 
+// Contains all parsing functions responsible for converting raw HTTP data into a structured HTTPRequest object
 class RequestParser {
 public:
 
