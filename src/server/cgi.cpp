@@ -29,7 +29,7 @@ void CGI::handleCGIRequest() {
         - this output is then returned by executeCGI() and set to response
         ->>> response string contains the output of the CGI script, not the return value of execve itself
     */
-    std::string response = executeCGI();
+    std::string response = executeCGI(); // return value of readFromPipe function
     sendResponse(response);
 }
 
@@ -58,11 +58,14 @@ std::string CGI::executeCGI() {
         close(pipefd[0]);  // Close the reading end of the pipe in the child process
 
         // Redirect the CGI script's stdout to the pipe's writing end
+        // allows the parent process to capture the output of the CGI script
         dup2(pipefd[1], STDOUT_FILENO);
 
         // If it's a POST request, redirect the stdin to handle the request body
+        //! do post requests always have a body?
+        //! probably different approach for post requests needed!
         if (!requestBody.empty()) {
-            dup2(pipefd[1], STDIN_FILENO);
+            dup2(pipefd[1], STDIN_FILENO); //! makes no sense? should probably redirect to fd that provides the request body?
         }
 
         // Execute the CGI script using exec (replace the child process with the CGI script)
@@ -90,17 +93,18 @@ std::string CGI::executeCGI() {
 }
 
 // Reads the CGI script's output from the pipe
-std::string CGI::readFromPipe(int pipefd) const {
-    std::stringstream ss;
+std::string CGI::readFromPipe(int pipefd) const
+{
+    std::stringstream return_string;
     char buffer[1024];
     int bytesRead;
 
     while ((bytesRead = read(pipefd, buffer, sizeof(buffer))) > 0) {
-        ss.write(buffer, bytesRead);
+        return_string.write(buffer, bytesRead);
     }
 
     close(pipefd);
-    return ss.str();
+    return return_string.str();
 }
 
 // Sends the complete response (headers + body) to the client
