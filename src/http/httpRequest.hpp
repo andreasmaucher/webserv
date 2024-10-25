@@ -23,8 +23,10 @@ public:
   std::string version;                        // e.g., HTTP/1.1
   std::map<std::string, std::string> headers; // e.g., Host, User-Agent
   std::string body; // The body of the request (optional, for POST/PUT)
-  
+  std::string raw_request;
+
   int error_code;
+  bool request_completed;
   bool headers_parsed;
   ChunkState chunk_state;
 

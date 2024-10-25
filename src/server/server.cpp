@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/24 00:08:24 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/25 02:02:23 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -91,6 +91,7 @@ void Server::add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *f
     // If the pollfd struct doesnt have space, add more space
     if (*fd_count == *fd_size) { // if struct full, add space
         *fd_size *=2; //Double the size
+        
         // TODO: switch  realloc to resize and use vectors instead of array for pfds
         *pfds = (struct pollfd*)realloc(*pfds, sizeof(**pfds) * (*fd_size));
     }
@@ -127,7 +128,9 @@ int Server::setup(const std::string& port) {
     (void)port;
     fd_count = 0; // Current number of used fds
     fd_size = INIT_FD_SIZE; // Initial size of struct to hold all fds
-    std::vector<std::string> raw_requests(fd_size);
+    HttpRequest newRequest;
+    for (int i = 0; i < fd_size; i++)
+        httpRequests.push_back(newRequest);
 
     //TODO: change to vector
     pfds = new struct pollfd[fd_size]();
@@ -147,6 +150,7 @@ int Server::setup(const std::string& port) {
 int Server::start() {
     // STEP 2 START: MAIN LOOP
     // Main loop
+    // bool request_complete;
      while (1)
      {
         int poll_count = poll(pfds, fd_count, -1);
@@ -159,16 +163,19 @@ int Server::start() {
         for (int i = 0; i < fd_count; i++)
         {
             // Check if an fd is ready to read
-            if (pfds[i].revents & POLLIN) { // Received a connection
+            if (pfds[i].revents & (POLLIN || POLLOUT)) { // Received a connection
                 if (pfds[i].fd == listener_fd) { // If listener is ready to read, handle new connection
+                    printf("Before accept\n");
+
                     addrlen = sizeof remoteaddr;
-                    new_fd = accept(listener_fd, 
-                        (struct sockaddr *)&remoteaddr, 
-                        &addrlen);
+                    new_fd = accept(listener_fd, (struct sockaddr *)&remoteaddr, &addrlen);
                     if (new_fd == -1) {
                         perror("accept");
                     } else {
                         add_to_pfds(&pfds, new_fd, &fd_count, &fd_size);
+                        HttpRequest newRequest;  // Assuming HttpRequest has a default constructor
+                        httpRequests.push_back(newRequest); // Add it to the vector
+
                         
                         printf("pollserver: new connection from %s on socket %d\n",
                             inet_ntop(remoteaddr.ss_family,
@@ -176,11 +183,11 @@ int Server::start() {
                                 remoteIP, INET6_ADDRSTRLEN),
                             new_fd);
                     }
-                } else {
+                } else if (!httpRequests[i].request_completed) {
                     // If not the listener, we're just the regular client
+                    printf("At recv fn \n");
                     int nbytes = recv(pfds[i].fd, buf, sizeof buf, 0);
                     int sender_fd = pfds[i].fd;
-                    
                     if (nbytes <= 0) {
                         // Got error or connection closed by client
                         if (nbytes == 0) {
@@ -191,47 +198,66 @@ int Server::start() {
                         }
                         close(pfds[i].fd); //Closing fd
                         del_from_pfds(pfds, i, &fd_count);
+                        httpRequests.erase(httpRequests.begin() + i); // Erase the HttpRequest for this fd
+
 
                     } else {
                         // Received some good data from the client
                         // Printing out received data
                         buf[nbytes] = '\0';
-                        printf("Received: %s\n", buf);
-                        // raw_requests[i] +=std::string(buf, nbytes);                           
-                        // printf("EROOR HERE\n");
-
-                        // if (raw_requests[i].find("\r\n\r\n") != std::string::npos)
-                        // {
-                        //     printf("OR EROOR HERE\n");
-
-                        //     std::cout << "Full request from client " << i << " is: " << raw_requests[i] <<std::endl;
-                        //     //PARSER COMES HERE
-                        // }
-                        // TODO: Add parser here to parse received messages
-
-                        // sending a msg "close" from the client closes the connection
-
-                        if (strncmp(buf, "close", 5) == 0) 
+                        httpRequests[i].raw_request.append(buf);
+                        if (httpRequests[i].raw_request.find("close") != std::string::npos)
                         {
-                            printf("Received: %s\n", buf); // Print the message.
-                            printf("Closing connection\n");   // Print the message.
-                            //TODO: this closing of FD's is doubtful, maybe need to rewrite
-                            for (int j = 0; j < fd_count; j++)
-                            {
-                                close(pfds[j].fd);
-                            }
-                            cleanup();
-                            return 0;
+                            std::cout << "Full request from client " << i << " is: " << httpRequests[i].raw_request <<std::endl;
+                            std::cout << "Found end of request command \"close\", stopped reading request " <<std::endl;
+                            //PARSER COMES HERE
+                            // httpRequests[i].request_completed = RequestParser::parseRawRequest(httpRequests[i]);
+                            httpRequests[i].request_completed = 1;
+                            break;
                         }
-                        // Sending back simple echo message
-                        send(pfds[i].fd, "Server sent back: ", 19, 0);
+                        printf("Im here \n"); // Print the message.
+                        // sending a msg "close" from the client closes the connection
+                        // if (strncmp(buf, "close", 5) == 0) 
+                        // {
+                        //     printf("Received: %s\n", buf); // Print the message.
+                        //     printf("Closing connection\n");   // Print the message.
+                        //     //TODO: this closing of FD's is doubtful, maybe need to rewrite
+                        //     for (int j = 0; j < fd_count; j++)
+                        //     {
+                        //         close(pfds[j].fd);
+                        //     }
+                        //     cleanup();
+                        //     httpRequests.erase(httpRequests.begin() + i);
 
-                        if (send(pfds[i].fd, buf, nbytes, 0) == -1) {
-                                    perror("send");
-                                }
+                        //     return 0;
+                        // }
+                        // Sending back simple echo message
+                        // std::cout << "Server sending back response : " <<std::endl;
+
+                        // send(pfds[i].fd, "Server sent back: ", 19, 0);
+
+                        // if (send(pfds[i].fd, buf, nbytes, 0) == -1) {
+                        //             perror("send");
+                        //         }
                     }
-                    
+                printf("or here \n"); // Print the message.
+
                 } // END handle data from client    
+                else if (httpRequests[i].request_completed) {
+                    printf("not here \n"); // Print the message.
+
+                    std::cout << "Server response (echo original request): " << httpRequests[i].raw_request <<std::endl;
+
+                    // send(pfds[i].fd, "Server response (echo original request):  ", 42, 0);
+                    std::string response = "Server response (echo original request):  " + httpRequests[i].raw_request;
+
+                    if (send(pfds[i].fd, response.c_str(), response.size(), 0) == -1) {
+                        perror("send");
+                    }
+                    httpRequests[i].request_completed = 0;
+                    httpRequests[i].raw_request = "";
+
+                }
             } // END got ready-to-read from poll()
         } // END looping through file descriptors
      } // END  while(1) loop 

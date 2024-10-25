@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/23 21:16:17 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/24 18:46:40 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,6 +24,8 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <cstdio>
+#include "../http/httpRequest.hpp"
+#include "../http/requestParser.hpp"
 
 
 #define MAX_SIM_CONN 10
@@ -62,7 +64,6 @@ private:
     int addrinfo_status; // Return status of getaddrinfo()
 
     struct addrinfo hints, *ai, *p;
-    std::vector<std::string> raw_requests;
     // struct addrinfo* res;
     
     Server(const Server&other);
@@ -71,6 +72,7 @@ private:
     // ChadGpt suggested these two lines, not sure for what
     // Server(Server&& other);
     // Server& operator=(Server&& other);
+    std::vector<HttpRequest> httpRequests;
     int setup(const std::string& port);
     void cleanup();
     int get_listener_socket(const std::string port);
