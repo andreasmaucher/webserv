@@ -1,6 +1,9 @@
 #ifndef RESPONSEHANDLER_HPP
 #define RESPONSEHANDLER_HPP
 
+#define ROOT_DIR "www"
+#define DEFAULT_FILE "index.html"
+
 #include <iostream>
 #include <string>
 // #include <cstring>
@@ -20,6 +23,8 @@ class ResponseHandler {
         static void routeRequest(HttpRequest &request, HttpResponse &response);
         static void populateResponse(HttpRequest &request, HttpResponse &response);
 
+        static void handleGet(HttpRequest &request, HttpResponse &response);
+        
         static std::string getStatusMessage(int code);
         static void createHtmlBody(HttpResponse &response);
 

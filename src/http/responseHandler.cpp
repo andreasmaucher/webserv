@@ -2,7 +2,9 @@
 
 void ResponseHandler::processRequest(HttpRequest &request, HttpResponse &response) {
 
-    if (request.error_code == 0) {
+    response.status_code = request.error_code;
+
+    if (response.status_code == 0) {
         // serve_file, process_api_request & populate response body (content) or error code  
         ResponseHandler::routeRequest(request, response);
     }
@@ -13,62 +15,73 @@ void ResponseHandler::processRequest(HttpRequest &request, HttpResponse &respons
 
 }
 
-void ResponseHandler::routeRequest() {
-    if request_method == GET
-        error = serve_file(request.uri, response.content)
-        if (error == 0)
-            send_response(200, "OK", request.headers["Content-Type"], file_content)
-        else
-            send_error_response(error)
-    
-    else if request_method == POST
-        if request_path == "/api"
-            api_response = process_api_request(request_body)
-            send_response(200, "OK", "application/json", api_response)
-        else
-            send_error_response(404)
-    else // if DELETE
-        try to go to directory
-            if permissions ok
-                delete file
-                send_response(200, "OK", "text/html", "File deleted")
-            else
-                send_error_response(403)
+void ResponseHandler::routeRequest(HttpRequest &request, HttpResponse &response) {
+  
+  if (request.method == "GET") {
+    ResponseHandler::handleGet(request, response);
+  }
+
+  else if (request.method == "POST") {
+    ResponseHandler::handlePost(request, response);
+    // if request_path == "/api"
+    //     api_response = process_api_request(request_body)
+    //     send_response(200, "OK", "application/json", api_response)
+    // else
+    //     send_error_response(404)
+  }
+
+  else // if DELETE
+    ResponseHandler::handleDelete(request, response);
+    // try to go to directory
+    //     if permissions ok
+    //         delete file
+    //         send_response(200, "OK", "text/html", "File deleted")
+    //     else
+    //         send_error_response(403)
 }
 
-// if request_path == "/" || request_path == "/index.html"
-//             response.body = read_file(index.html)
-//             send_response(200, "OK", "text/html", index_html)
-// else if request_path == "/favicon.ico"
-//     serve_file(favicon.ico)
-//     send_response(200, "OK", "image/x-icon", favicon_ico)
-// else
-//     if path does not exist
-//         send_error_response(404)
-//     if method no permissions
-//         send_error_response(403)    
+void ResponseHandler::handleGet(HttpRequest &request, HttpResponse &response) {
 
-// // include Content-Type Validation
-// void serveStaticFile(uri, content){
-// if file_exists(uri)
-//     content = read_file(uri)
-//     return 0
-// else
-//     return 404
-// }
+  if (request.uri == "/" || request.uri == "/index.html") {
+    response.content = serveStaticFile(DEFAULT_FILE);
+    if (response.content.empty()) {
+        response.status_code = 404;
+        return;
+    }
+    response.status_code = 200;
+    return;
+  }
+  else if request_path == "/favicon.ico"
+      serve_file(favicon.ico)
+      send_response(200, "OK", "image/x-icon", favicon_ico)
+  else
+      if path does not exist
+          send_error_response(404)
+      if method no permissions
+          send_error_response(403)    
+}
 
-// void serveErrorPage(error_code, content){
-//   switch (code) {
-//       case 400:
-//           content = read_file("400.html")
-//           return 0
-//       case 404:
-//           content = read_file("404.html")
-//           return 0
-//       default:
-//           content = read_file("404.html")
-//           return 0;
-//   }
+// include Content-Type Validation
+void ResponseHandler::serveStaticFile(std::string &uri, HttpResponse &response) {
+  
+  std::string path = ROOT_DIR + '/' + uri;
+
+  //set status code in validation functions to indicate error
+  if (is_file(path, response) && file_exists(path, response) && has_read_permissions(path, response)) {
+    content = read_file(path)
+  }
+  
+  return;
+
+}
+
+
+// void ResponseHandler::serveErrorPage(HttpResponse &response){
+//
+//   std::string file_path = ROOT_DIR + "/html/errors/" + response.status_code + ".html";
+//
+//   response.content = read_file(file_path);
+//   return;
 // }
 
 // void handleFileUpload(const HttpRequest& request, HttpResponse& response) {
@@ -105,18 +118,36 @@ void ResponseHandler::routeRequest() {
 //     }
 // }
 
-// void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &response) {
-    
-//     response.version = "HTTP/1.1";
-//     response.status_code = request.error_code;
-//     response.reason_phrase = getStatusMessage(request.error_code);
-//     response.body = ResponseHandler::createHtmlBody(response);
-//     response.headers["Content-Type"] = content_type;
-//     response.headers["Content-Length"] = body.length();
+// if error -> has a body with error message
+// if 200/201 -> has a body with content
+//             -> has no body (POST, DELETE)???
 
-// }
+
+// Populates the response object. The formatted response function is in the response class
+void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &response) {
+    
+    response.version = "HTTP/1.1";
+
+    response.reason_phrase = getStatusMessage(response.status_code);
+
+    ResponseHandler::createHtmlBody(response);
+
+    if (response.file_content.empty()) {
+        response.headers["Content-Type"] = "text/html";
+        response.headers["Content-Length"] = std::to_string(response.body.length());
+    }
+    else {
+      response.headers["Content-Type"] = response.file_content_type;
+      response.headers["Content-Length"] = response.body.length();
+    } 
+
+}
 
 void ResponseHandler::createHtmlBody(HttpResponse &response) {
+
+    // request correct but no content to return (e.g., DELETE or POST)
+
+    //request correct and content to return
 
     response.body = "<html><body><h1>";
 
@@ -129,9 +160,10 @@ void ResponseHandler::createHtmlBody(HttpResponse &response) {
         response.body += " ";
         response.body += response.reason_phrase;
     }
+
     else {
-        //response.body += response.content;
-        response.body += "Hello, World!";
+      //response.body += response.content;
+      response.body += "Hello, World!";
     }
 
     response.body += "</h1></body></html>";
@@ -204,10 +236,38 @@ Status-Code    =
           | extension-code
 */
 
-
 //-----------------
 
 // // add to connection class (communication layer) and call from recv loop
 // void sendResponse(int clientSocket, HTTPResponse &response) {
 //     send(clientSocket, responseStr.c_str(), responseStr.size(), 0);
+// }
+
+
+//add to parser!!!
+// bool RequestParser::validatePath(HttpRequest &request) {
+//     // Check for empty URI or starting character
+//     if (request.uri.empty() || request.uri[0] != '/') {
+//         request.error_code = 400; // 400 BAD_REQUEST
+//         return false; // Invalid format
+//     }
+
+//     // Check for invalid characters and patterns
+//     const std::string invalidChars = "~$:*?#[{]}>|;`'\"\\ ";
+
+//     if (request.uri.find("..") != std::string::npos || // Directory traversal
+//         request.uri.find("//") != std::string::npos)  // Double slashes
+//     {
+//         request.error_code = 400; // 400 BAD_REQUEST
+//         return false; // Invalid path
+//     }
+
+//     for (char c : request.uri) {
+//         if (invalidChars.find(c) != std::string::npos) {
+//             request.error_code = 400; // 400 BAD_REQUEST
+//             return false; // Invalid character found
+//         }
+//     }
+
+//     return true; // URI is valid
 // }

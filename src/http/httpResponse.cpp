@@ -1,6 +1,6 @@
 #include "httpResponse.hpp"
 
-HttpResponse::HttpResponse() : version(""), status_code(0), reason_phrase(""), body("") {}
+HttpResponse::HttpResponse() : version(""), status_code(0), reason_phrase(""), body(""), file_content(""), file_content_type("") {}
 
 // generates final response (formatted as one string)
 std::string HttpResponse::generateResponseStr() {
