@@ -13,39 +13,28 @@ void ResponseHandler::processRequest(HttpRequest &request, HttpResponse &respons
 
 }
 
-
-// void ResponseHandler::routeRequest() {
-//     if request_method == GET
-//         error = serve_file(request.uri, response.content)
-//         if (error == 0)
-//             send_response(200, "OK", request.headers["Content-Type"], file_content)
-//         else
-//             send_error_response(error)
+void ResponseHandler::routeRequest() {
+    if request_method == GET
+        error = serve_file(request.uri, response.content)
+        if (error == 0)
+            send_response(200, "OK", request.headers["Content-Type"], file_content)
+        else
+            send_error_response(error)
     
-//     else if request_method == POST
-//         if request_path == "/api"
-//             api_response = process_api_request(request_body)
-//             send_response(200, "OK", "application/json", api_response)
-//         else
-//             send_error_response(404)
-//     else // if DELETE
-//         try to go to directory
-//             if permissions ok
-//                 delete file
-//                 send_response(200, "OK", "text/html", "File deleted")
-//             else
-//                 send_error_response(403)
-// }
-
-
-// // include Content-Type Validation
-// serve_file(uri, content){
-// if file_exists(uri)
-//     content = read_file(uri)
-//     return 0
-// else
-//     return 404
-// }
+    else if request_method == POST
+        if request_path == "/api"
+            api_response = process_api_request(request_body)
+            send_response(200, "OK", "application/json", api_response)
+        else
+            send_error_response(404)
+    else // if DELETE
+        try to go to directory
+            if permissions ok
+                delete file
+                send_response(200, "OK", "text/html", "File deleted")
+            else
+                send_error_response(403)
+}
 
 // if request_path == "/" || request_path == "/index.html"
 //             response.body = read_file(index.html)
@@ -59,28 +48,105 @@ void ResponseHandler::processRequest(HttpRequest &request, HttpResponse &respons
 //     if method no permissions
 //         send_error_response(403)    
 
+// // include Content-Type Validation
+// void serveStaticFile(uri, content){
+// if file_exists(uri)
+//     content = read_file(uri)
+//     return 0
+// else
+//     return 404
+// }
 
-void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &response) {
+// void serveErrorPage(error_code, content){
+//   switch (code) {
+//       case 400:
+//           content = read_file("400.html")
+//           return 0
+//       case 404:
+//           content = read_file("404.html")
+//           return 0
+//       default:
+//           content = read_file("404.html")
+//           return 0;
+//   }
+// }
+
+// void handleFileUpload(const HttpRequest& request, HttpResponse& response) {
+//     // was checked in the parser alredy
+//     // // Ensure request has body data
+//     // if (request.body.empty()) {
+//     //     response.status_code = 400; // Bad Request
+//     //     response.body = "400 Bad Request: No data in request body";
+//     //     return;
+//     // }
+
+//     // Process upload (e.g., save to server)
+//     std::ofstream file("/var/uploads/uploaded_file.txt");
+//     if (file.is_open()) {
+//         file << request.body;
+//         file.close();
+//         response.status_code = 201; // Created
+//         response.body = "File uploaded successfully";
+//     } else {
+//         response.status_code = 500; // Internal Server Error
+//         response.body = "500 Internal Server Error";
+//     }
+// }
+
+// void handleDeleteFile(const HttpRequest& request, HttpResponse& response) {
+//     std::string path = "/var/uploads" + request.uri; // example path resolution
+
+//     if (remove(path.c_str()) == 0) {
+//         response.status_code = 200;
+//         response.body = "File deleted successfully";
+//     } else {
+//         response.status_code = 404; // Not Found
+//         response.body = "404 Not Found";
+//     }
+// }
+
+// void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &response) {
     
-    response.version = "HTTP/1.1";
-    response.status_code = request.error_code;
-    response.reason_phrase = getStatusMessage(request.error_code);
-    response.body = body;
-    response.headers["Content-Type"] = content_type;
-    response.headers["Content-Length"] = body.length();
+//     response.version = "HTTP/1.1";
+//     response.status_code = request.error_code;
+//     response.reason_phrase = getStatusMessage(request.error_code);
+//     response.body = ResponseHandler::createHtmlBody(response);
+//     response.headers["Content-Type"] = content_type;
+//     response.headers["Content-Length"] = body.length();
 
-}
+// }
 
-// Convert status code to status message
-std::string ResponseHandler::getStatusMessage(int code) {
-    switch (code) {
-        case 200: return "OK";
-        case 404: return "Not Found";
-        case 400: return "Bad Request";
-        // Add other statuses as needed
-        default: return "Unknown";
+void ResponseHandler::createHtmlBody(HttpResponse &response) {
+
+    response.body = "<html><body><h1>";
+
+    if (response.status_code != 200) {
+        response.body += "Error ";
+        std::ostringstream oss;
+        oss << response.status_code;
+
+        response.body += oss.str();
+        response.body += " ";
+        response.body += response.reason_phrase;
     }
+    else {
+        //response.body += response.content;
+        response.body += "Hello, World!";
+    }
+
+    response.body += "</h1></body></html>";
 }
+
+// // Convert status code to status message
+// std::string ResponseHandler::getStatusMessage(int code) {
+//     switch (code) {
+//         case 200: return "OK";
+//         case 404: return "Not Found";
+//         case 400: return "Bad Request";
+//         // Add other statuses as needed
+//         default: return "Unknown";
+//     }
+// }
 
 // ----------------
 

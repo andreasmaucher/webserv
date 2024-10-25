@@ -21,6 +21,7 @@ class ResponseHandler {
         static void populateResponse(HttpRequest &request, HttpResponse &response);
 
         static std::string getStatusMessage(int code);
+        static void createHtmlBody(HttpResponse &response);
 
 };
 
