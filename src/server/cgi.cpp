@@ -1,5 +1,6 @@
 #include "cgi.hpp"
 
+//! I need to fill all those fields!
 // Constructor for the CGI class
 // Initializes all member variables with the provided parameters
 CGI::CGI(int clientSocket, const std::string& scriptPath, const std::string& method,
@@ -7,6 +8,7 @@ CGI::CGI(int clientSocket, const std::string& scriptPath, const std::string& met
     : clientSocket(clientSocket), scriptPath(scriptPath), method(method),
       queryString(queryString), requestBody(requestBody) {}
 
+//! env setup still lacking, dependent on parser output & structure
 //! probably needs to go into the parser, not used in my code
 // Static method to check if a given path is a CGI request
 // Returns true if the path contains "/cgi-bin/", ".py", or ".cgi"
@@ -34,7 +36,9 @@ void CGI::handleCGIRequest() {
 }
 
 // Sets up the environment variables for the CGI script
-void CGI::setCGIEnvironment() const {
+//! this needs to change so it gets this info directly from the config file
+void CGI::setCGIEnvironment() const
+{
     setenv("REQUEST_METHOD", method.c_str(), 1);
     setenv("QUERY_STRING", queryString.c_str(), 1);
     setenv("CONTENT_LENGTH", std::to_string(requestBody.length()).c_str(), 1);
@@ -76,7 +80,10 @@ std::string CGI::executeCGI() {
             c_str: because execve is a c function and expects a c-style string
         */
         char *const args[] = {const_cast<char*>(scriptPath.c_str()), NULL};
-        // NULL would normally be envs but here just means use the current environment
+        /* 
+            NULL would normally be envs but here just means use the current environment, meaning
+            all variables set by setCGIEnvironment()
+        */
         execve(scriptPath.c_str(), args, NULL);
 
         // If execve fails, exit the child process (if successful, execve never returns)
@@ -108,7 +115,8 @@ std::string CGI::readFromPipe(int pipefd) const
 }
 
 // Sends the complete response (headers + body) to the client
-void CGI::sendResponse(const std::string& response) const {
+void CGI::sendResponse(const std::string& response) const
+{
     std::string fullResponse = response;
     
     // Check if the CGI script provided headers
