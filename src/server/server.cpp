@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/25 02:02:23 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/25 16:58:12 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -96,7 +96,7 @@ void Server::add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *f
         *pfds = (struct pollfd*)realloc(*pfds, sizeof(**pfds) * (*fd_size));
     }
     (*pfds)[*fd_count].fd = newfd; // add new fd at position fd_count of pfds struct
-    (*pfds)[*fd_count].events = POLLIN; //Set the fd for reading
+    (*pfds)[*fd_count].events = POLLIN | POLLOUT; //Set the fd for reading
     
     (*fd_count)++; // add fd_count to keep track of used fd's in pfds struct
 }
@@ -141,7 +141,7 @@ int Server::setup(const std::string& port) {
         exit(1);
     }
     pfds[0].fd = listener_fd;
-    pfds[0].events = POLLIN; //Watch for incoming data on the listener
+    pfds[0].events = POLLIN | POLLOUT;; //Watch for incoming data on the listener
     fd_count = 1; // There is only 1 listener on the socket
     return (listener_fd);
     // Step 1 END: SETUP
@@ -163,10 +163,8 @@ int Server::start() {
         for (int i = 0; i < fd_count; i++)
         {
             // Check if an fd is ready to read
-            if (pfds[i].revents & (POLLIN || POLLOUT)) { // Received a connection
+            if (pfds[i].revents & (POLLIN | POLLOUT)) { // Received a connection
                 if (pfds[i].fd == listener_fd) { // If listener is ready to read, handle new connection
-                    printf("Before accept\n");
-
                     addrlen = sizeof remoteaddr;
                     new_fd = accept(listener_fd, (struct sockaddr *)&remoteaddr, &addrlen);
                     if (new_fd == -1) {
@@ -175,8 +173,6 @@ int Server::start() {
                         add_to_pfds(&pfds, new_fd, &fd_count, &fd_size);
                         HttpRequest newRequest;  // Assuming HttpRequest has a default constructor
                         httpRequests.push_back(newRequest); // Add it to the vector
-
-                        
                         printf("pollserver: new connection from %s on socket %d\n",
                             inet_ntop(remoteaddr.ss_family,
                                 get_in_addr((struct sockaddr*)&remoteaddr),
@@ -185,7 +181,7 @@ int Server::start() {
                     }
                 } else if (!httpRequests[i].request_completed) {
                     // If not the listener, we're just the regular client
-                    printf("At recv fn \n");
+                    // printf("At recv fn \n");
                     int nbytes = recv(pfds[i].fd, buf, sizeof buf, 0);
                     int sender_fd = pfds[i].fd;
                     if (nbytes <= 0) {
@@ -199,14 +195,12 @@ int Server::start() {
                         close(pfds[i].fd); //Closing fd
                         del_from_pfds(pfds, i, &fd_count);
                         httpRequests.erase(httpRequests.begin() + i); // Erase the HttpRequest for this fd
-
-
                     } else {
                         // Received some good data from the client
                         // Printing out received data
                         buf[nbytes] = '\0';
                         httpRequests[i].raw_request.append(buf);
-                        if (httpRequests[i].raw_request.find("close") != std::string::npos)
+                        if (httpRequests[i].raw_request.find("\r\n\r\n") != std::string::npos)
                         {
                             std::cout << "Full request from client " << i << " is: " << httpRequests[i].raw_request <<std::endl;
                             std::cout << "Found end of request command \"close\", stopped reading request " <<std::endl;
@@ -215,7 +209,7 @@ int Server::start() {
                             httpRequests[i].request_completed = 1;
                             break;
                         }
-                        printf("Im here \n"); // Print the message.
+                        // printf("Im here \n"); // Print the message.
                         // sending a msg "close" from the client closes the connection
                         // if (strncmp(buf, "close", 5) == 0) 
                         // {
@@ -240,23 +234,20 @@ int Server::start() {
                         //             perror("send");
                         //         }
                     }
-                printf("or here \n"); // Print the message.
+                // printf("or here \n"); // Print the message.
 
                 } // END handle data from client    
                 else if (httpRequests[i].request_completed) {
-                    printf("not here \n"); // Print the message.
-
                     std::cout << "Server response (echo original request): " << httpRequests[i].raw_request <<std::endl;
-
-                    // send(pfds[i].fd, "Server response (echo original request):  ", 42, 0);
-                    std::string response = "Server response (echo original request):  " + httpRequests[i].raw_request;
-
+                    // std::string response = "Server response (echo original request):  " + httpRequests[i].raw_request;
+                    std::string response = 
+                    "HTTP/1.1 200 OK\r\nDate: Fri, 27 Oct 2023 14:30:00 GMT\r\nServer: CustomServer/1.0\r\nContent-Type: text/plain\r\nContent-Length: 13\r\nConnection: keep-alive\r\n\r\nHello, World!\r\n";
+                    // TODO: RESPONSE GOES HERE
                     if (send(pfds[i].fd, response.c_str(), response.size(), 0) == -1) {
                         perror("send");
                     }
                     httpRequests[i].request_completed = 0;
                     httpRequests[i].raw_request = "";
-
                 }
             } // END got ready-to-read from poll()
         } // END looping through file descriptors
