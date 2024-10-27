@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/25 16:58:12 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/27 18:56:49 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -163,7 +163,7 @@ int Server::start() {
         for (int i = 0; i < fd_count; i++)
         {
             // Check if an fd is ready to read
-            if (pfds[i].revents & (POLLIN | POLLOUT)) { // Received a connection
+            if (pfds[i].revents & (POLLIN || POLLOUT)) { // Received a connection
                 if (pfds[i].fd == listener_fd) { // If listener is ready to read, handle new connection
                     addrlen = sizeof remoteaddr;
                     new_fd = accept(listener_fd, (struct sockaddr *)&remoteaddr, &addrlen);
