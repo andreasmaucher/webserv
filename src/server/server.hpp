@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/24 18:46:40 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/27 20:12:17 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,6 +32,9 @@
 #define BUFFER_SIZE 512
 #define PORT "8080"
 #define INIT_FD_SIZE 5
+// #define END_HEADER "\r\n\r\n"
+#define END_HEADER "close"
+
 
 
 
@@ -62,6 +65,9 @@ private:
     
     int reuse_socket_opt;
     int addrinfo_status; // Return status of getaddrinfo()
+    bool request_fully_received;
+    bool response_ready_to_send;
+    int poll_count;
 
     struct addrinfo hints, *ai, *p;
     // struct addrinfo* res;
@@ -89,6 +95,9 @@ public:
     ~Server();
 
     int        start();
+    void        request(int i);
+    void        response(int i);
+    void        new_connection(int i);
     void        handleSigint(int signal);
     static void sigintHandler(int signal);
 };
