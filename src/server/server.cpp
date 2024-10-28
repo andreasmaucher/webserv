@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/27 20:20:43 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/28 21:26:25 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -139,14 +139,38 @@ int Server::setup(const std::string &port)
     (void)port;
     fd_count = 0;           // Current number of used fds
     fd_size = INIT_FD_SIZE; // Initial size of struct to hold all fds
+
+    std::vector<pollfd> pfds_vec(1);
+
     HttpRequest newRequest;
-    for (int i = 0; i < fd_size; i++)
-        httpRequests.push_back(newRequest);
+    // pollfd pfd;
+    // pfd.fd = 0;
+    // pfds_vec[0].events = POLLIN | POLLOUT;
+    // pfds_vec.push_back(pfd);
+    httpRequests.push_back(newRequest);
+    
+    // for (size_t i = 0; i < pfds_vec.size(); i++) {
+    //     pollfd pfd;
+    //     pfd.fd = i;
+    //     pfd.events = POLLIN | POLLOUT;
+    //     pfds_vec.push_back(pfd);
+    //     httpRequests.push_back(newRequest);
+    // }
+    // std::vector<pollfd> pfds_vec(INIT_FD_SIZE);
+
+    // HttpRequest newRequest;
+    // for (size_t i = 0; i < pfds_vec.size(); i++) {
+    //     pollfd pfd;
+    //     pfd.fd = i;
+    //     pfd.events = POLLIN | POLLOUT;
+    //     pfds_vec.push_back(pfd);
+    //     httpRequests.push_back(newRequest);
+    // }
     request_fully_received = 0;
     response_ready_to_send = 0;
 
     // TODO: change to vector
-    pfds = new struct pollfd[fd_size]();
+    // pfds = new struct pollfd[fd_size]();
 
     listener_fd = get_listener_socket(port);
     if (listener_fd == -1)
@@ -154,10 +178,11 @@ int Server::setup(const std::string &port)
         fprintf(stderr, "error getting listening socket\n");
         exit(1);
     }
-    pfds[0].fd = listener_fd;
-    pfds[0].events = POLLIN | POLLOUT;
-    ;             // Watch for incoming data on the listener
+    pfds_vec[0].fd = listener_fd;
+    pfds_vec[0].events = POLLIN | POLLOUT;
+                 // Watch for incoming data on the listener
     fd_count = 1; // There is only 1 listener on the socket
+    printf("in setup () pfds_vec.size() %lu\n", pfds_vec.size());
     return (listener_fd);
     // Step 1 END: SETUP
 }
@@ -169,7 +194,10 @@ int Server::start()
     // bool request_complete;
     while (1)
     {
-        poll_count = poll(pfds, fd_count, -1);
+        printf("in start()  pfds_vec.size() %lu\n", pfds_vec.size());
+        printf("fd_count is %i\n", fd_count);
+
+        poll_count = poll(pfds_vec.data(), fd_count, -1);
         if (poll_count == -1)
         {
             perror("poll");
@@ -177,19 +205,19 @@ int Server::start()
         }
 
         // Run through the existing connections looking for data to read
-        for (int i = 0; i < fd_count; i++)
+        for (size_t i = 0; i < pfds_vec.size(); i++)
         {
-            if ((pfds[i].revents & POLLIN) && pfds[i].fd == listener_fd)
+            if ((pfds_vec[i].revents & POLLIN) && pfds_vec[i].fd == listener_fd)
             {
                 new_connection(i);
             }
             // Check if an fd is ready to read
-            if (pfds[i].revents & POLLIN)
+            if (pfds_vec[i].revents & POLLIN)
             {
                 request(i);
             }
             // Received a connection
-            if (pfds[i].revents & POLLOUT)
+            if (pfds_vec[i].revents & POLLOUT)
             {
                 response(i);
             } // END got ready-to-read from poll()
@@ -210,7 +238,7 @@ void Server::new_connection(int i)
     }
     else
     {
-        add_to_pfds(&pfds, new_fd, &fd_count, &fd_size);
+        // add_to_pfds(&pfd_, new_fd, &fd_count, &fd_size);
         HttpRequest newRequest;             // Assuming HttpRequest has a default constructor
         httpRequests.push_back(newRequest); // Add it to the vector
         printf("pollserver: new connection from %s on socket %d\n",
@@ -227,8 +255,8 @@ void Server::request(int i)
     {
         // If not the listener, we're just the regular client
         // printf("At recv fn \n");
-        int nbytes = recv(pfds[i].fd, buf, sizeof buf, 0);
-        int sender_fd = pfds[i].fd;
+        int nbytes = recv(pfds_vec[i].fd, buf, sizeof buf, 0);
+        int sender_fd = pfds_vec[i].fd;
         if (nbytes <= 0)
         {
             // Got error or connection closed by client
@@ -241,8 +269,8 @@ void Server::request(int i)
             {
                 perror("recv");
             }
-            close(pfds[i].fd); // Closing fd
-            del_from_pfds(pfds, i, &fd_count);
+            close(pfds_vec[i].fd); // Closing fd
+            // del_from_pfds(pfds, i, &fd_count);
             httpRequests.erase(httpRequests.begin() + i); // Erase the HttpRequest for this fd
         }
         else
@@ -273,7 +301,7 @@ void Server::response(int i)
         std::string response =
             "HTTP/1.1 200 OK\r\nDate: Fri, 27 Oct 2023 14:30:00 GMT\r\nServer: CustomServer/1.0\r\nContent-Type: text/plain\r\nContent-Length: 13\r\nConnection: keep-alive\r\n\r\nHello, World!\r\n";
         // TODO: RESPONSE GOES HERE
-        if (send(pfds[i].fd, response.c_str(), response.size(), 0) == -1)
+        if (send(pfds_vec[i].fd, response.c_str(), response.size(), 0) == -1)
         {
             perror("send");
         }
@@ -297,8 +325,8 @@ void Server::cleanup()
         freeaddrinfo(ai);
     }
     // TODO: change malloc to new and free
-    if (pfds)
-        delete[] pfds;
+    // if (pfds_vec)
+    //     delete[] pfds;
 }
 
 void Server::sigintHandler(int signal)

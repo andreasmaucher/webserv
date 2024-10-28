@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/27 20:12:17 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/28 20:47:01 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -52,7 +52,8 @@ private:
     // newfd - fd to add
     // fd_count - fd currently being used
     // fd_size - size of allocated capacity of the pollfd struct
-    struct pollfd *pfds;
+    // struct pollfd *pfds;
+    std::vector<pollfd> pfds_vec;
     int fd_count;
     int fd_size;
     int new_fd; // Newly accepted fd
