@@ -1,6 +1,6 @@
 #include "httpRequest.hpp"
 
-HttpRequest::HttpRequest() : method(""), uri(""), version(""), body(""), error_code(0), headers_parsed(false), chunk_state() {}
+HttpRequest::HttpRequest() : method(""), uri(""), version(""), body(""), raw_request(""), error_code(0), headers_parsed(false), chunk_state()  {}
 
 void HttpRequest::printRequest() {
     std::cout << "Method: " << this->method << "\n";
