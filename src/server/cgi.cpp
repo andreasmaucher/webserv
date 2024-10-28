@@ -1,5 +1,48 @@
 #include "cgi.hpp"
 
+/*
+    - have a parser object and a server_config object
+    Parser object:
+        - method: get / post / delete
+        - path
+        - protocol: http version
+        - a map of headers (each header name is associated with its value)
+        - body: body of the request may contain data if POST request
+        - CGI: if cgi request this contains paramters from query string or body
+        - if applicable upload information (upload filename)
+        -> access to all these fields via getter functions
+
+    Server_config object:
+        - I need root: root directory where the php scripts are located
+        - 
+        
+
+
+    addENVfunction:
+        - extract info from parser object and formats them into env variable strings
+        1. check if request body is empty
+            - if empty set CONTENT_LENGTH to 0
+            - else set CONTENT_LENGTH to length of request body
+        2. determine http method (get.method)
+            - assign corresponding value to method variable (GET, POST, DELETE)
+        3. set upload path
+            - add a dot to the requested path
+        4. get CGI parameters:
+            - CGI parameters are key-value pairs that are passed to a CGI script when it is executed
+            - one function to retrieve CGI parameters from the map
+            - convert the parameters into string format and add them to env table (format: KEY=VALUE)
+            Example:
+            request URL is http://example.com/script.php?username=john_doe&age=30, the CGI parameters would include:
+                - username=john_doe
+                - age=30
+        ///? I take from Carina her HTTP Object with all fields
+        ///? which fields exist in the cgi mapping?
+
+
+*/
+
+CGI::CGI() {}
+
 //! I need to fill all those fields!
 // Constructor for the CGI class
 // Initializes all member variables with the provided parameters
