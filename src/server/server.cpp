@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "server.hpp"
+#include "cgi.hpp"
 
 void *Server::get_in_addr(struct sockaddr *sa)
 {
@@ -256,6 +257,14 @@ void Server::request(int i)
                 std::cout << "Full request from client " << i << " is: " << httpRequests[i].raw_request << std::endl;
                 std::cout << "Found end of request command \"close\", stopped reading request " << std::endl;
                 // PARSER COMES HERE
+                //! ANDY
+                // Check if the request is a CGI request
+                if (CGI::isCGIRequest(httpRequests[i].uri))
+                {
+                    // Create a CGI object and handle the request
+                    CGI cgi(sender_fd, httpRequests[i].uri, httpRequests[i].method, httpRequests[i].queryString, httpRequests[i].body);
+                    cgi.handleCGIRequest(httpRequests[i]);
+                }
                 //  httpRequests[i].request_completed = RequestParser::parseRawRequest(httpRequests[i]);
                 httpRequests[i].request_completed = 1;
                 // break;

@@ -1,4 +1,5 @@
 #include "cgi.hpp"
+#include "HttpRequest.hpp"
 
 /*
     - have a parser object and a server_config object
@@ -64,8 +65,9 @@ bool CGI::isCGIRequest(const std::string& path) {
 // Main method to handle a CGI request
 // it was determined before if CGI request or not
 // Sets up the environment, executes the CGI script and sends the response
-void CGI::handleCGIRequest() {
-    setCGIEnvironment();
+void CGI::handleCGIRequest(HttpRequest httpRequest)
+{
+    setCGIEnvironment(httpRequest);
     /*
         To understand what will be returned if execve is successfully called:
         - response will not be directly set by the execve call, since it never returns
@@ -79,14 +81,22 @@ void CGI::handleCGIRequest() {
 }
 
 // Sets up the environment variables for the CGI script
-//! this needs to change so it gets this info directly from the config file
-void CGI::setCGIEnvironment() const
+void CGI::setCGIEnvironment(const HttpRequest& httpRequest) const
 {
-    setenv("REQUEST_METHOD", method.c_str(), 1);
-    setenv("QUERY_STRING", queryString.c_str(), 1);
-    setenv("CONTENT_LENGTH", std::to_string(requestBody.length()).c_str(), 1);
-    setenv("SCRIPT_NAME", scriptPath.c_str(), 1);
-    setenv("SERVER_PROTOCOL", "HTTP/1.1", 1);
+    setenv("REQUEST_METHOD", httpRequest.method.c_str(), 1);
+    setenv("QUERY_STRING", httpRequest.queryString.c_str(), 1);
+    setenv("CONTENT_LENGTH", std::to_string(httpRequest.body.length()).c_str(), 1);
+    setenv("SCRIPT_NAME", httpRequest.uri.c_str(), 1);
+    setenv("SERVER_PROTOCOL", httpRequest.version.c_str(), 1);
+    setenv("CONTENT_TYPE", httpRequest.contentType.c_str(), 1);
+
+    // Set additional headers as environment variables if needed
+    for (const auto& header : httpRequest.headers) {
+        std::string envName = "HTTP_" + header.first;
+        std::replace(envName.begin(), envName.end(), '-', '_'); // Replace '-' with '_'
+        std::transform(envName.begin(), envName.end(), envName.begin(), ::toupper); // Convert to uppercase
+        setenv(envName.c_str(), header.second.c_str(), 1);
+    }
 }
 
 
@@ -109,11 +119,23 @@ std::string CGI::executeCGI() {
         dup2(pipefd[1], STDOUT_FILENO);
 
         // If it's a POST request, redirect the stdin to handle the request body
+        if (method == "POST" && !requestBody.empty()) {
+            int bodyPipe[2];
+            if (pipe(bodyPipe) == -1) {
+                perror("pipe");
+                exit(1);
+            }
+            write(bodyPipe[1], requestBody.c_str(), requestBody.size());
+            close(bodyPipe[1]);
+            dup2(bodyPipe[0], STDIN_FILENO);
+            close(bodyPipe[0]);
+        }
         //! do post requests always have a body?
         //! probably different approach for post requests needed!
-        if (!requestBody.empty()) {
+        // do i need the case below????
+       /*  if (!requestBody.empty()) {
             dup2(pipefd[1], STDIN_FILENO); //! makes no sense? should probably redirect to fd that provides the request body?
-        }
+        } */
 
         // Execute the CGI script using exec (replace the child process with the CGI script)
         /*
@@ -127,11 +149,12 @@ std::string CGI::executeCGI() {
             NULL would normally be envs but here just means use the current environment, meaning
             all variables set by setCGIEnvironment()
         */
-        execve(scriptPath.c_str(), args, NULL);
+        execve(scriptPath.c_str(), args, NULL); //! use environ instead of NULL??? // are variables actually passed here, since they are only set with setenv
 
         // If execve fails, exit the child process (if successful, execve never returns)
+        perror("execve");
         exit(1);
-    } else if (pid > 0) {  // Parent process (captures output)
+    } else if (pid > 0) {  // Parent process (captures output) / do I need this condition or could I just use else????
         close(pipefd[1]);  // Close the writing end in the parent
 
         // Wait for the child process (CGI script) to complete
@@ -169,9 +192,12 @@ void CGI::sendResponse(const std::string& response) const
         fullResponse = "Status: 200 OK\r\nContent-Type: text/html\r\n\r\n" + fullResponse;
     } else if (fullResponse.find("\r\n\r\n") == std::string::npos) {
         // If headers are present but no empty line, add it
-        fullResponse = fullResponse + "\r\n";
+        fullResponse += "\r\n";
     }
 
     // Send the full response to the client
-    send(clientSocket, fullResponse.c_str(), fullResponse.length(), 0);
+    // Log errors if sending the response fails.
+     if (send(clientSocket, fullResponse.c_str(), fullResponse.length(), 0) == -1) {
+        perror("send");
+    }
 }

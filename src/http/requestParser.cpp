@@ -196,7 +196,8 @@ bool RequestParser::saveContentLengthBody(HttpRequest &request, const std::strin
 }
 
 // Extract headers from request until blank line (\r\n)
-void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw_request, size_t &position) {
+void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw_request, size_t &position)
+{
   
   std::string current_line = readLine(raw_request, position);
   
@@ -213,6 +214,12 @@ void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw
       request.error_code = 400; //400 BAD_REQUEST
       throw std::runtime_error("Bad header format"); // bad formatted header (twice same name, no ":")
       //return;
+    }
+    //! ANDY
+    // Check if the current header is Content-Type and store it
+    std::string header_name = current_line.substr(0, colon_pos);
+    if (header_name == "Content-Type") {
+      request.contentType = current_line.substr(colon_pos + 2);
     }
     current_line = readLine(raw_request, position);
     std::cout << "current line: " << current_line << std::endl;
@@ -263,6 +270,20 @@ void RequestParser::tokenizeRequestLine(HttpRequest &request, const std::string 
   stream >> request.method >> request.uri >> request.version;
   if (stream.fail() || !validRequestLine(request)) {
     return;
+  }
+  //! ANDY
+  // Extract query string from URI
+  /*
+    If a question mark (?) is found in the uri, the code extracts the query string (everything after the ?) and assigns it to request.queryString.
+  It then updates request.uri to only include the part before the ?, effectively removing the query string from the uri.
+If no ? is found, request.queryString is set to an empty string, and request.uri remains unchanged.
+  */
+  size_t questionMarkPos = request.uri.find('?');
+  if (questionMarkPos != std::string::npos) {
+    request.queryString = request.uri.substr(questionMarkPos + 1);
+    request.uri = request.uri.substr(0, questionMarkPos); // Update URI to exclude query string
+  } else {
+    request.queryString = ""; // No query string present
   }
 }
 

@@ -16,7 +16,7 @@ class CGI
         CGI(int clientSocket, const std::string& scriptPath, const std::string& method,
             const std::string& queryString, const std::string& requestBody);
 
-        void handleCGIRequest();
+        void handleCGIRequest(HttpRequest httpRequest);
 
         static bool isCGIRequest(const std::string& path);
 
@@ -29,7 +29,7 @@ class CGI
         std::string queryString;
         std::string requestBody;
 
-        void setCGIEnvironment() const;
+        void setCGIEnvironment(const HttpRequest& httpRequest) const;
         std::string executeCGI();
         void sendCGIOutputToClient(int pipefd) const;
         void sendHttpResponseHeaders(const std::string& contentType) const;
