@@ -1,6 +1,6 @@
 #include "httpRequest.hpp"
 
-HttpRequest::HttpRequest() : method(""), uri(""), version(""), body(""), raw_request(""), error_code(0), headers_parsed(false), chunk_state()  {}
+HttpRequest::HttpRequest() : method(""), uri(""), version(""), body(""), raw_request(""), position(0), error_code(0), complete(false), headers_parsed(false), chunk_state()  {}
 
 void HttpRequest::printRequest() {
     std::cout << "Method: " << this->method << "\n";
@@ -12,5 +12,19 @@ void HttpRequest::printRequest() {
     }
     std::cout << "Body: " << this->body << "\n";
     std::cout << "Error Code: " << this->error_code << "\n";
-    std::cout << "Headers Parsed: " << (this->headers_parsed ? "Yes" : "No") << "\n";
+    //std::cout << "Headers Parsed: " << (this->headers_parsed ? "Yes" : "No") << "\n";
+}
+
+void HttpRequest::reset() {
+  method.clear();
+  uri.clear();
+  version.clear();
+  headers.clear();
+  body.clear();
+  raw_request.clear();
+  position = 0;
+  error_code = 0;
+  complete = false;
+  headers_parsed = false;
+  chunk_state.reset(); 
 }

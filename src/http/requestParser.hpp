@@ -14,12 +14,12 @@
 class RequestParser {
 public:
 
-  static bool parseRawRequest(HttpRequest &request, const std::string &raw_request, size_t &position);
-  static void tokenizeRequestLine(HttpRequest &request, const std::string &raw_request, size_t &position);
-  static void tokenizeHeaders(HttpRequest &request, const std::string &raw_request, size_t &position);
-  static bool parseBody(HttpRequest &request, const std::string &raw_request, size_t &position);
-  static bool saveChunkedBody(HttpRequest &request, const std::string &raw_request, size_t &position);
-  static bool saveContentLengthBody(HttpRequest &request, const std::string &raw_request, size_t &position);
+  static void parseRawRequest(HttpRequest &request);
+  static void tokenizeRequestLine(HttpRequest &request);
+  static void tokenizeHeaders(HttpRequest &request);
+  static void parseBody(HttpRequest &request);
+  static void saveChunkedBody(HttpRequest &request);
+  static void saveContentLengthBody(HttpRequest &request);
   static bool mandatoryHeadersPresent(HttpRequest &request);
 
   static std::string readLine(const std::string &raw_request, size_t &position);

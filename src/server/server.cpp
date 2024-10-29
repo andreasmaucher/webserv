@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/29 15:44:42 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/29 17:56:28 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -270,10 +270,10 @@ int Server::start()
             {
                 if (pfds_vec[i].fd == listener_fd)
                 {
-                    printf("New connection!\n");
+                    printf("\nNew connection!\n");
                     new_connection(i);
                 } else {
-                    printf("Request!\n");
+                    printf("Processing Request!\n");
                     request(i);
                 }
             }
@@ -304,7 +304,7 @@ void Server::new_connection(int i)
         // add_to_pfds(&pfd_, new_fd, &fd_count, &fd_size);
         HttpRequest newRequest;             // Assuming HttpRequest has a default constructor
         httpRequests.push_back(newRequest); // Add it to the vector
-        httpRequests[i].request_completed = 0;
+        //httpRequests[i].complete = 0; // is initiated to false in the constructor already!
         printf("pollserver: new connection from %s on socket %d\n",
                inet_ntop(remoteaddr.ss_family,
                          get_in_addr((struct sockaddr *)&remoteaddr),
@@ -315,7 +315,7 @@ void Server::new_connection(int i)
 
 void Server::request(int i)
 {
-    if (!httpRequests[i].request_completed)
+    if (!httpRequests[i].complete)
     {
         // If not the listener, we're just the regular client
         // printf("At recv fn \n");
@@ -345,12 +345,10 @@ void Server::request(int i)
             httpRequests[i].raw_request.append(buf);
             if (httpRequests[i].raw_request.find(END_HEADER) != std::string::npos)
             {
-                std::cout << "Full request from client " << i << " is: " << httpRequests[i].raw_request << std::endl;
-                std::cout << "Found end of request command \"close\", stopped reading request " << std::endl;
+                //std::cout << "Full request from client " << i << " is: " << httpRequests[i].raw_request << std::endl;
+                //std::cout << "Found end of request command \"close\", stopped reading request " << std::endl;
                 // PARSER COMES HERE
-                //  httpRequests[i].request_completed = RequestParser::parseRawRequest(httpRequests[i]);
-                httpRequests[i].request_completed = 1;
-                // break;
+                RequestParser::parseRawRequest(httpRequests[i]);
             }
         } // END handle data from client
     } // END got ready-to-read from poll()
@@ -358,10 +356,12 @@ void Server::request(int i)
 
 void Server::response(int i)
 {
-    if (httpRequests[i].request_completed)
+    if (httpRequests[i].complete)
     {
-        std::cout << "Server response (echo original request): " << httpRequests[i].raw_request << std::endl;
-        // std::string response = "Server response (echo original request):  " + httpRequests[i].raw_request;
+        //HttpResponse response; // (or instantiate at the same time as HttpRequest)
+        //ResponseHandler::processRequest(httprequests[i],response); // processes the request and creates a response
+        //from this point the response is ready, you can access it calling response.generateResponseStr(), which resturns the whole response as a single std::string for sending
+
         std::string response =
             "HTTP/1.1 200 OK\r\nDate: Fri, 27 Oct 2023 14:30:00 GMT\r\nServer: CustomServer/1.0\r\nContent-Type: text/plain\r\nContent-Length: 13\r\nConnection: keep-alive\r\n\r\nHello, World!\r\n";
         // TODO: RESPONSE GOES HERE
@@ -369,8 +369,9 @@ void Server::response(int i)
         {
             perror("send");
         }
-        httpRequests[i].request_completed = 0;
-        httpRequests[i].raw_request = "";
+        std::cout << "Response sent to client " << i << " after receiving following request: " << std::endl;
+        httpRequests[i].printRequest();
+        httpRequests[i].reset(); // cleans up the request
     }
 }
 

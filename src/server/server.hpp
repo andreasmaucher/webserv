@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/29 15:48:23 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/29 17:48:45 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,11 +29,11 @@
 
 
 #define MAX_SIM_CONN 10
-#define BUFFER_SIZE 512
+#define BUFFER_SIZE 100
 #define PORT "8080"
 #define INIT_FD_SIZE 2
-// #define END_HEADER "\r\n\r\n"
-#define END_HEADER "close"
+#define END_HEADER "\r\n\r\n"
+// #define END_HEADER "close"
 
 
 

@@ -13,6 +13,13 @@ struct ChunkState {
     bool in_chunk;        // Indicates whether we are in the middle of reading a chunk
     bool chunked_done;    // Indicates whether the chunked transfer is complete
 
+    void reset() {
+      chunk_size = 0;
+      bytes_read = 0;
+      in_chunk = false;
+      chunked_done = false;
+    }
+  
   ChunkState() : chunk_size(0), bytes_read(0), in_chunk(false), chunked_done(false) {}
 };
 
@@ -25,13 +32,16 @@ public:
   std::string body; // The body of the request (optional, for POST/PUT)
   std::string raw_request;
 
+  size_t position;
   int error_code;
-  bool request_completed;
+  bool complete;
   bool headers_parsed;
   ChunkState chunk_state;
 
   HttpRequest();
+  //~HttpRequest() = default;
   void printRequest();
+  void reset();
   
 };
 
