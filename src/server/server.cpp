@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/28 23:26:34 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2024/10/29 15:44:42 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -115,6 +115,8 @@ void Server::add_to_pfds_vec(int newfd)
     struct pollfd new_pollfd;
     new_pollfd.fd = newfd;
     new_pollfd.events = POLLIN | POLLOUT;
+    new_pollfd.revents = 0;
+
     pfds_vec.push_back(new_pollfd);
     fd_count++;
     
@@ -228,6 +230,7 @@ int Server::setup(const std::string &port)
     }
     pfds_vec[0].fd = listener_fd;
     pfds_vec[0].events = POLLIN | POLLOUT;
+    pfds_vec[0].revents = 0;
                  // Watch for incoming data on the listener
     fd_count = 1; // There is only 1 listener on the socket
     // printf("in setup () pfds_vec.size() %lu\n", pfds_vec.size());
