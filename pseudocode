@@ -1,0 +1,15 @@
+processRequest:
+- sends the valid requests to processing and the rest  directly to the responseBuilder
+
+if status code == 0
+    routeRequest
+
+else
+    responseBuilder
+
+
+routeRequest:
+- checks if the uri exists in the server map
+- creates the relative path to the actual location in the server if it does
+- checks if the path accepts the requested method
+

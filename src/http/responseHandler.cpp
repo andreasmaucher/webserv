@@ -143,31 +143,41 @@ void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &respo
 
 }
 
-void ResponseHandler::createHtmlBody(HttpResponse &response) {
+//not needed bc we will have the custom html error pages ready to serve
+// void ResponseHandler::createHtmlBody(HttpResponse &response) {
 
-    // request correct but no content to return (e.g., DELETE or POST)
+//     // request correct but no content to return (e.g., DELETE or POST)
 
-    //request correct and content to return
+//     //request correct and content to return
 
-    response.body = "<html><body><h1>";
+//     response.body = "<html><body><h1>";
 
-    if (response.status_code != 200) {
-        response.body += "Error ";
-        std::ostringstream oss;
-        oss << response.status_code;
+//     if (response.status_code != 200) {
+//         response.body += "Error ";
+//         std::ostringstream oss;
+//         oss << response.status_code;
 
-        response.body += oss.str();
-        response.body += " ";
-        response.body += response.reason_phrase;
-    }
+//         response.body += oss.str();
+//         response.body += " ";
+//         response.body += response.reason_phrase;
+//     }
 
-    else {
-      //response.body += response.content;
-      response.body += "Hello, World!";
-    }
+//     else {
+//       //response.body += response.content;
+//       response.body += "Hello, World!";
+//     }
 
-    response.body += "</h1></body></html>";
-}
+//     response.body += "</h1></body></html>";
+// }
+
+// to fill the content type header of the response
+// std::string determineContentType(const std::string& path) {
+//     if (path.ends_with(".html")) return "text/html";
+//     else if (path.ends_with(".ico")) return "image/x-icon";
+//     else if (path.ends_with(".json")) return "application/json";
+//     // Add more types as needed
+//     return "text/plain";
+// }
 
 // // Convert status code to status message
 // std::string ResponseHandler::getStatusMessage(int code) {
