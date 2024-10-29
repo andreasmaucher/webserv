@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/28 21:26:25 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/28 23:26:34 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -94,23 +94,70 @@ int Server::get_listener_socket(const std::string port)
 }
 
 // Add a new fd to the set
-void Server::add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size)
+// void Server::add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size)
+// {
+//     // If the pollfd struct doesnt have space, add more space
+//     if (*fd_count == *fd_size)
+//     {                  // if struct full, add space
+//         *fd_size *= 2; // Double the size
+
+//         // TODO: switch  realloc to resize and use vectors instead of array for pfds
+//         *pfds = (struct pollfd *)realloc(*pfds, sizeof(**pfds) * (*fd_size));
+//     }
+//     (*pfds)[*fd_count].fd = newfd;                // add new fd at position fd_count of pfds struct
+//     (*pfds)[*fd_count].events = POLLIN | POLLOUT; // Set the fd for reading
+
+//     (*fd_count)++; // add fd_count to keep track of used fd's in pfds struct
+// }
+
+void Server::add_to_pfds_vec(int newfd)
 {
-    // If the pollfd struct doesnt have space, add more space
-    if (*fd_count == *fd_size)
-    {                  // if struct full, add space
-        *fd_size *= 2; // Double the size
+    struct pollfd new_pollfd;
+    new_pollfd.fd = newfd;
+    new_pollfd.events = POLLIN | POLLOUT;
+    pfds_vec.push_back(new_pollfd);
+    fd_count++;
+    
+    // pfds_vec[pfds_vec.size()];
+    
+    // // If the pollfd struct doesnt have space, add more space
+    // if (*fd_count == *fd_size)
+    // {                  // if struct full, add space
+    //     *fd_size *= 2; // Double the size
 
-        // TODO: switch  realloc to resize and use vectors instead of array for pfds
-        *pfds = (struct pollfd *)realloc(*pfds, sizeof(**pfds) * (*fd_size));
-    }
-    (*pfds)[*fd_count].fd = newfd;                // add new fd at position fd_count of pfds struct
-    (*pfds)[*fd_count].events = POLLIN | POLLOUT; // Set the fd for reading
+    //     // TODO: switch  realloc to resize and use vectors instead of array for pfds
+    //     *pfds = (struct pollfd *)realloc(*pfds, sizeof(**pfds) * (*fd_size));
+    // }
+    // (*pfds)[*fd_count].fd = newfd;                // add new fd at position fd_count of pfds struct
+    // (*pfds)[*fd_count].events = POLLIN | POLLOUT; // Set the fd for reading
 
-    (*fd_count)++; // add fd_count to keep track of used fd's in pfds struct
+    // (*fd_count)++; // add fd_count to keep track of used fd's in pfds struct
 }
 
 // Removing and index from the set
+void Server::del_from_pfds_vec(int fd)
+{
+    for (size_t i = 0; i < pfds_vec.size(); i++)
+    {
+        if (pfds_vec[i].fd == fd)
+        {
+            send(pfds_vec[i].fd, "Closing connection. Goodbye!", 29, 0);
+            close(pfds_vec[i].fd);
+            pfds_vec.erase(pfds_vec.begin() + i);
+
+        }
+
+    }
+    fd_count--;
+    // i - index of fd to be removed
+    // fd_count - pointer to number of fd's being monitored
+    // pfds[i] = pfds[*fd_count - 1]; // replace the fd to be removed (fd[i]) with the last element of array
+    // (*fd_count)--;                 // make the size of the array smaller by one
+    // // Not doing realloc() to change the actual size of the array, since this can be slow
+}
+
+
+
 void Server::del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
 {
     // i - index of fd to be removed
@@ -120,7 +167,7 @@ void Server::del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
     // Not doing realloc() to change the actual size of the array, since this can be slow
 }
 
-Server::Server(const std::string &port) : sockfd(-1), new_fd(-1)
+Server::Server(const std::string &port) : sockfd(-1), pfds_vec(1), new_fd(-1) 
 {
     signal(SIGINT, sigintHandler);
     setup(port);
@@ -140,7 +187,7 @@ int Server::setup(const std::string &port)
     fd_count = 0;           // Current number of used fds
     fd_size = INIT_FD_SIZE; // Initial size of struct to hold all fds
 
-    std::vector<pollfd> pfds_vec(1);
+    // std::vector<pollfd> pfds_vec(1);
 
     HttpRequest newRequest;
     // pollfd pfd;
@@ -168,6 +215,7 @@ int Server::setup(const std::string &port)
     // }
     request_fully_received = 0;
     response_ready_to_send = 0;
+    
 
     // TODO: change to vector
     // pfds = new struct pollfd[fd_size]();
@@ -182,7 +230,7 @@ int Server::setup(const std::string &port)
     pfds_vec[0].events = POLLIN | POLLOUT;
                  // Watch for incoming data on the listener
     fd_count = 1; // There is only 1 listener on the socket
-    printf("in setup () pfds_vec.size() %lu\n", pfds_vec.size());
+    // printf("in setup () pfds_vec.size() %lu\n", pfds_vec.size());
     return (listener_fd);
     // Step 1 END: SETUP
 }
@@ -194,10 +242,11 @@ int Server::start()
     // bool request_complete;
     while (1)
     {
-        printf("in start()  pfds_vec.size() %lu\n", pfds_vec.size());
-        printf("fd_count is %i\n", fd_count);
+        // printf("in start()  pfds_vec.size() %lu\n", pfds_vec.size());
+        // printf("fd_count is %i\n", fd_count);
+        poll_count = poll(pfds_vec.data(), pfds_vec.size(), -1);
+        // printf("in start()  pfds_vec.size() %lu\n", pfds_vec.size());
 
-        poll_count = poll(pfds_vec.data(), fd_count, -1);
         if (poll_count == -1)
         {
             perror("poll");
@@ -207,18 +256,28 @@ int Server::start()
         // Run through the existing connections looking for data to read
         for (size_t i = 0; i < pfds_vec.size(); i++)
         {
-            if ((pfds_vec[i].revents & POLLIN) && pfds_vec[i].fd == listener_fd)
-            {
-                new_connection(i);
-            }
-            // Check if an fd is ready to read
+            // printf("in main loop  pfds_vec.size() %lu\n", pfds_vec.size());
+            
+
+            // printf("i is %li\n", i);
+            // printf("pfds_vec.size() is %li\n", pfds_vec.size());
+
+
             if (pfds_vec[i].revents & POLLIN)
             {
-                request(i);
+                if (pfds_vec[i].fd == listener_fd)
+                {
+                    printf("New connection!\n");
+                    new_connection(i);
+                } else {
+                    printf("Request!\n");
+                    request(i);
+                }
             }
             // Received a connection
             if (pfds_vec[i].revents & POLLOUT)
             {
+                // printf("Response!\n");
                 response(i);
             } // END got ready-to-read from poll()
         } // END looping through file descriptors
@@ -238,9 +297,11 @@ void Server::new_connection(int i)
     }
     else
     {
+        add_to_pfds_vec(new_fd);
         // add_to_pfds(&pfd_, new_fd, &fd_count, &fd_size);
         HttpRequest newRequest;             // Assuming HttpRequest has a default constructor
         httpRequests.push_back(newRequest); // Add it to the vector
+        httpRequests[i].request_completed = 0;
         printf("pollserver: new connection from %s on socket %d\n",
                inet_ntop(remoteaddr.ss_family,
                          get_in_addr((struct sockaddr *)&remoteaddr),

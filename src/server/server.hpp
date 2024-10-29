@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/28 20:47:01 by mrizakov         ###   ########.fr       */
+/*   Updated: 2024/10/28 22:24:49 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -85,6 +85,9 @@ private:
     int get_listener_socket(const std::string port);
     void *get_in_addr(struct sockaddr *sa);
     void add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size);
+    void add_to_pfds_vec(int newfd);
+    void del_from_pfds_vec(int fd);
+
     void del_from_pfds(struct pollfd pfds[], int i, int *fd_count);
 
 
