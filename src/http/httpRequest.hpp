@@ -6,7 +6,6 @@
 #include <map>
 #include <sstream>
 #include <string>
-#include <vector>
 
 struct ChunkState {
     size_t chunk_size;    // Size of the current chunk
@@ -14,7 +13,13 @@ struct ChunkState {
     bool in_chunk;        // Indicates whether we are in the middle of reading a chunk
     bool chunked_done;    // Indicates whether the chunked transfer is complete
 
-
+    void reset() {
+      chunk_size = 0;
+      bytes_read = 0;
+      in_chunk = false;
+      chunked_done = false;
+    }
+  
   ChunkState() : chunk_size(0), bytes_read(0), in_chunk(false), chunked_done(false) {}
 };
 
@@ -26,10 +31,18 @@ public:
   std::string version;                        // e.g., HTTP/1.1
   std::map<std::string, std::string> headers; // e.g., Host, User-Agent
   std::string body; // The body of the request (optional, for POST/PUT)
-  int error_code;
+  std::string raw_request;
 
+  size_t position;
+  int error_code;
+  bool complete;
   bool headers_parsed;
   ChunkState chunk_state;
+
+  HttpRequest();
+  //~HttpRequest() = default;
+  void printRequest();
+  void reset();
   
 };
 

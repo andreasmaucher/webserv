@@ -1,5 +1,9 @@
 NAME = webserv
-SOURCES = main.cpp requestParser.cpp
+SRC_DIR = src
+HTTP_DIR = $(SRC_DIR)/http
+SERV_DIR = $(SRC_DIR)/server
+TEST_DIR = tests
+SOURCES = $(SRC_DIR)/main.cpp $(SERV_DIR)/server.cpp $(TEST_DIR)/testParser.cpp $(HTTP_DIR)/requestParser.cpp $(HTTP_DIR)/httpRequest.cpp
 		
 OBJS = $(SOURCES:.cpp=.o)
 
@@ -10,7 +14,7 @@ CXXFLAGS = -g -Wall -Wextra -Werror -std=c++98
 all: $(NAME)	
 
 $(NAME): $(OBJS)
-	$(CXX) $(CXXLAGS) $(OBJS) -o $(NAME)
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -21,6 +25,6 @@ clean:
 fclean: clean
 	$(RM) $(NAME)
 
-re: fclean $(NAME)
+re: fclean all
 
 .PHONY: all clean fclean re
