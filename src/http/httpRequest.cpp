@@ -30,4 +30,3 @@ void HttpRequest::reset() {
   headers_parsed = false;
   chunk_state.reset(); 
 }
->>>>>>> sockets_parser_integration
