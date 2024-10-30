@@ -6,7 +6,7 @@
 /*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/29 17:56:28 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/10/30 12:33:16 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -145,6 +145,7 @@ void Server::del_from_pfds_vec(int fd)
         {
             send(pfds_vec[i].fd, "Closing connection. Goodbye!", 29, 0);
             close(pfds_vec[i].fd);
+            std::cout << "Closing connection on fd: " << pfds_vec[i].fd << " index: " << i << " of pfds vector" << std::endl;
             pfds_vec.erase(pfds_vec.begin() + i);
 
         }
@@ -197,7 +198,7 @@ int Server::setup(const std::string &port)
     // pfds_vec[0].events = POLLIN | POLLOUT;
     // pfds_vec.push_back(pfd);
     httpRequests.push_back(newRequest);
-    
+    std::cout << "httpRequest vector size in setup: " << httpRequests.size() << std::endl;
     // for (size_t i = 0; i < pfds_vec.size(); i++) {
     //     pollfd pfd;
     //     pfd.fd = i;
@@ -260,7 +261,6 @@ int Server::start()
         for (size_t i = 0; i < pfds_vec.size(); i++)
         {
             // printf("in main loop  pfds_vec.size() %lu\n", pfds_vec.size());
-            
 
             // printf("i is %li\n", i);
             // printf("pfds_vec.size() is %li\n", pfds_vec.size());
@@ -268,6 +268,7 @@ int Server::start()
 
             if (pfds_vec[i].revents & POLLIN)
             {
+                std::cout << "i is " << i << " in POLLIN" << std::endl;
                 if (pfds_vec[i].fd == listener_fd)
                 {
                     printf("\nNew connection!\n");
@@ -280,6 +281,7 @@ int Server::start()
             // Received a connection
             if (pfds_vec[i].revents & POLLOUT)
             {
+                std::cout << "i is " << i << " in POLLOUT" << std::endl;
                 // printf("Response!\n");
                 response(i);
             } // END got ready-to-read from poll()
@@ -302,8 +304,10 @@ void Server::new_connection(int i)
     {
         add_to_pfds_vec(new_fd);
         // add_to_pfds(&pfd_, new_fd, &fd_count, &fd_size);
+        std::cout << "Added new fd to pollfd struct, new fd is: " << new_fd << std::endl;
         HttpRequest newRequest;             // Assuming HttpRequest has a default constructor
         httpRequests.push_back(newRequest); // Add it to the vector
+        std::cout << "httpRequest vector size: " << httpRequests.size() << std::endl;
         //httpRequests[i].complete = 0; // is initiated to false in the constructor already!
         printf("pollserver: new connection from %s on socket %d\n",
                inet_ntop(remoteaddr.ss_family,
@@ -315,6 +319,7 @@ void Server::new_connection(int i)
 
 void Server::request(int i)
 {
+    std::cout << "Request function called for client i:" << i << ". Accessing request with same index" << std::endl;
     if (!httpRequests[i].complete)
     {
         // If not the listener, we're just the regular client
@@ -335,7 +340,9 @@ void Server::request(int i)
             }
             close(pfds_vec[i].fd); // Closing fd
             // del_from_pfds(pfds, i, &fd_count);
+            std::cout << "Deleting client i:" << i << " from pfds vector" << std::endl;
             httpRequests.erase(httpRequests.begin() + i); // Erase the HttpRequest for this fd
+            std::cout << "Erased request i:" << i << " from httpRequests vector" << std::endl;
         }
         else
         {
@@ -356,6 +363,7 @@ void Server::request(int i)
 
 void Server::response(int i)
 {
+    std::cout << "Response function called for client i:" << i << ". Accessing request with same index" << std::endl;
     if (httpRequests[i].complete)
     {
         //HttpResponse response; // (or instantiate at the same time as HttpRequest)

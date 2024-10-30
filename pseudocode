@@ -1,15 +1,87 @@
 processRequest:
-- sends the valid requests to processing and the rest  directly to the responseBuilder
-
-if status code == 0
+if valid request (status code == 0)
     routeRequest
 
-else
+else (error)
     responseBuilder
-
+-----------------------------------
 
 routeRequest:
-- checks if the uri exists in the server map
-- creates the relative path to the actual location in the server if it does
-- checks if the path accepts the requested method
+if the uri exists in the server map created from the config file
+    - creates the relative path to the actual location in the server
+    if the path accepts the requested method
+        - continues
+    else   
+        - sets the status code to the specific error
+    if status code is still 0
+        if the requested content is static
+            - call staticContentHandler
+        else
+            - call CGI module
 
+else
+    - sets the status code to the specific error
+(goes back to processRequest and calls responseBuilder)
+-----------------------------------
+
+
+staticContentHandler:
+if GET
+    - serveStaticFile
+
+else if POST
+    - uploadFile
+
+else (DELETE)
+    - deleteFile
+(goes back to routeRequest, from there to processRequest and calls responseBuilder)
+-----------------------------------
+
+serveStaticFile:
+if file can be opened
+    - read the file into a buffer or the body variable of response object
+    - sets the status code to 200
+else
+    - sets the status code to forbidden
+(returns to staticContentHandler and from there to routeRequest to processRequest and continues calls responseBuilder)
+-----------------------------------
+
+uploadFile:
+create file with the in the request specified name at the specified location
+opens the file
+writes the body of the request to the file
+sets status code to 201 (created)
+
+-----------------------------------
+
+deleteFile:
+if file doesn't exist (might not be needed since if the uri doesn't exist in the server map, the status code is set to 404 before already)
+    - sets status code to 404 (not found)
+else
+    - tries to delete the file specified in the request
+        - if successfully deleted sets status code to 204 (no content)
+        - if not sets status code to 403 (forbidden) if no permissions 
+
+
+-----------------------------------
+
+
+serveErrorFile:
+get path to error file using created map from config file
+if error code doesn't exist in map
+    - createDefaultErrorFile
+else
+    - serveStaticFile
+-----------------------------------
+
+
+createDefaultErrorFile:
+
+-----------------------------------
+
+
+responseBuilder:
+
+
+
+*** set 500 (internal server error) if other errors happen during execution?
