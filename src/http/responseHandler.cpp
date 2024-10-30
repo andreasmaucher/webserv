@@ -1,79 +1,91 @@
 #include "responseHandler.hpp"
 
-void ResponseHandler::processRequest(HttpRequest &request, HttpResponse &response) {
+void ResponseHandler::processRequest(ServerConfig &config, HttpRequest &request, HttpResponse &response) {
 
-    response.status_code = request.error_code;
+    // from here on, we will populate & use the response object status code only
+    response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
 
     if (response.status_code == 0) {
         // serve_file, process_api_request & populate response body (content) or error code  
-        ResponseHandler::routeRequest(request, response);
+        ResponseHandler::routeRequest(config, request, response);
     }
 
-    // fill the rest of the response fields
+    // fill the rest of the response fields to create the final response
     // the ones with error code from parser go directly here
     ResponseHandler::populateResponse(request, response);
 
 }
 
-void ResponseHandler::routeRequest(HttpRequest &request, HttpResponse &response) {
-  
-  if (request.method == "GET") {
-    ResponseHandler::handleGet(request, response);
-  }
+void ResponseHandler::routeRequest(ServerConfig &config, HttpRequest &request, HttpResponse &response) {
 
-  else if (request.method == "POST") {
-    ResponseHandler::handlePost(request, response);
-    // if request_path == "/api"
-    //     api_response = process_api_request(request_body)
-    //     send_response(200, "OK", "application/json", api_response)
-    // else
-    //     send_error_response(404)
-  }
+  //needs to be adjusted since the URI might contain file name+extension etc
+  if (config.routes.find(request.uri) != config.routes.end()) {
+    Route route = config.routes.at(request.uri);
 
-  else // if DELETE
-    ResponseHandler::handleDelete(request, response);
-    // try to go to directory
-    //     if permissions ok
-    //         delete file
-    //         send_response(200, "OK", "text/html", "File deleted")
-    //     else
-    //         send_error_response(403)
-}
-
-void ResponseHandler::handleGet(HttpRequest &request, HttpResponse &response) {
-
-  if (request.uri == "/" || request.uri == "/index.html") {
-    response.content = serveStaticFile(DEFAULT_FILE);
-    if (response.content.empty()) {
-        response.status_code = 404;
+    request.path = route.path; // + file_name // sets the full path to the content requested
+    // Verify the requested method is allowed searching in the set
+    if (route.methods.find(request.method) == route.methods.end()) {
+        response.status_code = 405; // Method Not Allowed
+        std::string header_key = "Allow";
+        std::string header_value = ResponseHandler::createAllowedMethodsStr(route.methods);
+        response.setHeader(header_key, header_value);
         return;
     }
-    response.status_code = 200;
-    return;
-  }
-  else if request_path == "/favicon.ico"
-      serve_file(favicon.ico)
-      send_response(200, "OK", "image/x-icon", favicon_ico)
-  else
-      if path does not exist
-          send_error_response(404)
-      if method no permissions
-          send_error_response(403)    
-}
-
-// include Content-Type Validation
-void ResponseHandler::serveStaticFile(std::string &uri, HttpResponse &response) {
-  
-  std::string path = ROOT_DIR + '/' + uri;
-
-  //set status code in validation functions to indicate error
-  if (is_file(path, response) && file_exists(path, response) && has_read_permissions(path, response)) {
-    content = read_file(path)
-  }
-  
-  return;
 
 }
+
+//--------------------------------------------------------------------------
+
+// HELPER FUNCTIONS
+
+std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string> &methods) {
+    std::string allowed;
+    for (std::set<std::string>::iterator it = methods.begin(); it != methods.end(); ++it) {
+        allowed += *it;
+        allowed += ", ";
+    }
+    allowed.pop_back(); // Remove trailing comma
+    allowed.pop_back(); // Remove trailing space
+    return allowed;
+}
+
+//--------------------------------------------------------------------------
+
+
+// void ResponseHandler::handleGet(HttpRequest &request, HttpResponse &response) {
+
+//   if (request.uri == "/" || request.uri == "/index.html") {
+//     response.content = serveStaticFile(DEFAULT_FILE);
+//     if (response.content.empty()) {
+//         response.status_code = 404;
+//         return;
+//     }
+//     response.status_code = 200;
+//     return;
+//   }
+//   else if request_path == "/favicon.ico"
+//       serve_file(favicon.ico)
+//       send_response(200, "OK", "image/x-icon", favicon_ico)
+//   else
+//       if path does not exist
+//           send_error_response(404)
+//       if method no permissions
+//           send_error_response(403)    
+// }
+
+// // include Content-Type Validation
+// void ResponseHandler::serveStaticFile(std::string &uri, HttpResponse &response) {
+  
+//   std::string path = ROOT_DIR + '/' + uri;
+
+//   //set status code in validation functions to indicate error
+//   if (is_file(path, response) && file_exists(path, response) && has_read_permissions(path, response)) {
+//     content = read_file(path)
+//   }
+  
+//   return;
+
+// }
 
 
 // void ResponseHandler::serveErrorPage(HttpResponse &response){
@@ -123,25 +135,25 @@ void ResponseHandler::serveStaticFile(std::string &uri, HttpResponse &response) 
 //             -> has no body (POST, DELETE)???
 
 
-// Populates the response object. The formatted response function is in the response class
-void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &response) {
+// // Populates the response object. The formatted response function is in the response class
+// void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &response) {
     
-    response.version = "HTTP/1.1";
+//     response.version = "HTTP/1.1";
 
-    response.reason_phrase = getStatusMessage(response.status_code);
+//     response.reason_phrase = getStatusMessage(response.status_code);
 
-    ResponseHandler::createHtmlBody(response);
+//     ResponseHandler::createHtmlBody(response);
 
-    if (response.file_content.empty()) {
-        response.headers["Content-Type"] = "text/html";
-        response.headers["Content-Length"] = std::to_string(response.body.length());
-    }
-    else {
-      response.headers["Content-Type"] = response.file_content_type;
-      response.headers["Content-Length"] = response.body.length();
-    } 
+//     if (response.file_content.empty()) {
+//         response.headers["Content-Type"] = "text/html";
+//         response.headers["Content-Length"] = std::to_string(response.body.length());
+//     }
+//     else {
+//       response.headers["Content-Type"] = response.file_content_type;
+//       response.headers["Content-Length"] = response.body.length();
+//     } 
 
-}
+// }
 
 //not needed bc we will have the custom html error pages ready to serve
 // void ResponseHandler::createHtmlBody(HttpResponse &response) {
@@ -179,20 +191,34 @@ void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &respo
 //     return "text/plain";
 // }
 
-// // Convert status code to status message
+// Convert status code to status message
 // std::string ResponseHandler::getStatusMessage(int code) {
-//     switch (code) {
-//         case 200: return "OK";
-//         case 404: return "Not Found";
-//         case 400: return "Bad Request";
-//         // Add other statuses as needed
-//         default: return "Unknown";
-//     }
+//   switch (code) {
+//     case 200: return "OK";
+//     case 201: return "Created";
+//     case 202: return "Accepted";
+//     case 204: return "No Content";
+//     case 301: return "Moved Permanently";
+//     case 400: return "Bad Request";
+//     case 401: return "Unauthorized";
+//     case 403: return "Forbidden";
+//     case 404: return "Not Found";
+//     case 405: return "Method Not Allowed";
+//     case 408: return "Request Time-out";
+//     case 415: return " Unsupported Media Type";
+//     case 500: return "Internal Server Error";
+//     case 501: return "Not Implemented";
+//     case 502: return "Bad Gateway";
+//     case 503: return "Service Unavailable";
+//     case 504: return "Gateway Time-out";
+//     case 505: return "HTTP Version not supported";
+//     default: return "Unknown";
+//   }
 // }
 
 // ----------------
 
-/*      - 1xx: Informational - Request received, continuing process
+/*    - 1xx: Informational - Request received, continuing process
       - 2xx: Success - The action was successfully received,
         understood, and accepted
       - 3xx: Redirection - Further action must be taken in order to
@@ -201,60 +227,13 @@ void ResponseHandler::populateResponse(HttpRequest &request, HttpResponse &respo
         be fulfilled
       - 5xx: Server Error - The server failed to fulfill an apparently
         valid request
-
-Status-Code    =
-            "100"  ; Section 10.1.1: Continue
-          | "101"  ; Section 10.1.2: Switching Protocols
-          | "200"  ; Section 10.2.1: OK
-          | "201"  ; Section 10.2.2: Created
-          | "202"  ; Section 10.2.3: Accepted
-          | "203"  ; Section 10.2.4: Non-Authoritative Information
-          | "204"  ; Section 10.2.5: No Content
-          | "205"  ; Section 10.2.6: Reset Content
-          | "206"  ; Section 10.2.7: Partial Content
-          | "300"  ; Section 10.3.1: Multiple Choices
-          | "301"  ; Section 10.3.2: Moved Permanently
-          | "302"  ; Section 10.3.3: Found
-          | "303"  ; Section 10.3.4: See Other
-          | "304"  ; Section 10.3.5: Not Modified
-          | "305"  ; Section 10.3.6: Use Proxy
-          | "307"  ; Section 10.3.8: Temporary Redirect
-          | "400"  ; Section 10.4.1: Bad Request
-          | "401"  ; Section 10.4.2: Unauthorized
-          | "402"  ; Section 10.4.3: Payment Required
-          | "403"  ; Section 10.4.4: Forbidden
-          | "404"  ; Section 10.4.5: Not Found
-          | "405"  ; Section 10.4.6: Method Not Allowed
-          | "406"  ; Section 10.4.7: Not Acceptable
-          | "407"  ; Section 10.4.8: Proxy Authentication Required
-          | "408"  ; Section 10.4.9: Request Time-out
-          | "409"  ; Section 10.4.10: Conflict
-          | "410"  ; Section 10.4.11: Gone
-          | "411"  ; Section 10.4.12: Length Required
-          | "412"  ; Section 10.4.13: Precondition Failed
-          | "413"  ; Section 10.4.14: Request Entity Too Large
-          | "414"  ; Section 10.4.15: Request-URI Too Large
-          | "415"  ; Section 10.4.16: Unsupported Media Type
-          | "416"  ; Section 10.4.17: Requested range not satisfiable
-          | "417"  ; Section 10.4.18: Expectation Failed
-          | "500"  ; Section 10.5.1: Internal Server Error
-          | "501"  ; Section 10.5.2: Not Implemented
-          | "502"  ; Section 10.5.3: Bad Gateway
-          | "503"  ; Section 10.5.4: Service Unavailable
-          | "504"  ; Section 10.5.5: Gateway Time-out
-          | "505"  ; Section 10.5.6: HTTP Version not supported
-          | extension-code
 */
-
 //-----------------
-
-// // add to connection class (communication layer) and call from recv loop
-// void sendResponse(int clientSocket, HTTPResponse &response) {
-//     send(clientSocket, responseStr.c_str(), responseStr.size(), 0);
-// }
 
 
 //add to parser!!!
+
+//URI Path Validation: If you haven’t already, ensure that the URI path is validated early on (for malicious paths like ../ or symbols that could attempt directory traversal)
 // bool RequestParser::validatePath(HttpRequest &request) {
 //     // Check for empty URI or starting character
 //     if (request.uri.empty() || request.uri[0] != '/') {

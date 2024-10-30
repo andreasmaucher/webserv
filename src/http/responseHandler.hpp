@@ -12,6 +12,7 @@
 // #include <vector>
 #include "httpRequest.hpp"
 #include "httpResponse.hpp"
+#include "../server/serverConfig.hpp"
 
 // Processes the HTTP request and generates the HTTP response. Includes logic for:
 // - Routing the request
@@ -19,12 +20,13 @@
 // *(Sending the response back to the client is done in a separate function called from the recv() loop)
 class ResponseHandler {
     public:
-        static void processRequest(HttpRequest &request, HttpResponse &response);
-        static void routeRequest(HttpRequest &request, HttpResponse &response);
+        static void processRequest(ServerConfig &config, HttpRequest &request, HttpResponse &response);
+        static void routeRequest(ServerConfig &config, HttpRequest &request, HttpResponse &response);
         static void populateResponse(HttpRequest &request, HttpResponse &response);
 
         static void handleGet(HttpRequest &request, HttpResponse &response);
         
+        static std::string createAllowedMethodsStr(const std::set<std::string> &methods);
         static std::string getStatusMessage(int code);
         static void createHtmlBody(HttpResponse &response);
 

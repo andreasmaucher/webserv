@@ -1,6 +1,6 @@
 #include "httpRequest.hpp"
 
-HttpRequest::HttpRequest() : method(""), uri(""), version(""), body(""), raw_request(""), position(0), error_code(0), complete(false), headers_parsed(false), chunk_state()  {}
+HttpRequest::HttpRequest() : method(""), uri(""), path(""), version(""), body(""), raw_request(""), position(0), error_code(0), complete(false), headers_parsed(false), chunk_state()  {}
 
 void HttpRequest::printRequest() {
     std::cout << "Method: " << this->method << "\n";
@@ -18,6 +18,7 @@ void HttpRequest::printRequest() {
 void HttpRequest::reset() {
   method.clear();
   uri.clear();
+  path.clear();
   version.clear();
   headers.clear();
   body.clear();

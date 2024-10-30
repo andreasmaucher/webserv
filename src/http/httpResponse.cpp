@@ -14,3 +14,7 @@ std::string HttpResponse::generateResponseStr() {
         raw_response << this->body;
     return raw_response.str();
 }
+
+void HttpResponse::setHeader(std::string &header_name, std::string &header_value) {
+  this->headers[header_name] = header_value;
+}

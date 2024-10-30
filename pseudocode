@@ -2,14 +2,14 @@ processRequest:
 if valid request (status code == 0)
     routeRequest
 
-else (error)
-    responseBuilder
+responseBuilder (errors comming from calling function go directly here)
 -----------------------------------
 
+
 routeRequest:
-if the uri exists in the server map created from the config file
+if the uri (location) exists in the server map (or vector of Route class) created from the config file
     - creates the relative path to the actual location in the server
-    if the path accepts the requested method
+    if the path accepts the requested method (check also in the map or set created from config file)
         - continues
     else   
         - sets the status code to the specific error
@@ -37,31 +37,35 @@ else (DELETE)
 (goes back to routeRequest, from there to processRequest and calls responseBuilder)
 -----------------------------------
 
+
 serveStaticFile:
-if file can be opened
-    - read the file into a buffer or the body variable of response object
+if file exists & can be opened
+    - read the file into a buffer or the body variable of response object (files won't be too big, so no chunking needed)
     - sets the status code to 200
+    - set content type based on the file extension or MIME type
 else
-    - sets the status code to forbidden
+    - sets the status code to forbidden or not found
 (returns to staticContentHandler and from there to routeRequest to processRequest and continues calls responseBuilder)
 -----------------------------------
+
 
 uploadFile:
 create file with the in the request specified name at the specified location
 opens the file
 writes the body of the request to the file
 sets status code to 201 (created)
+//serveStaticFile (passing path to 201.html) // avoid using this function and create a specific function for custom html pages like for errors?
 
 -----------------------------------
 
+
 deleteFile:
-if file doesn't exist (might not be needed since if the uri doesn't exist in the server map, the status code is set to 404 before already)
+if file doesn't exist
     - sets status code to 404 (not found)
 else
     - tries to delete the file specified in the request
         - if successfully deleted sets status code to 204 (no content)
         - if not sets status code to 403 (forbidden) if no permissions 
-
 
 -----------------------------------
 
@@ -69,19 +73,22 @@ else
 serveErrorFile:
 get path to error file using created map from config file
 if error code doesn't exist in map
-    - createDefaultErrorFile
-else
-    - serveStaticFile
------------------------------------
+    get path to 666 Random Error (create custom html file for this)
+serveStaticFile 
+-----------------------------------------------------------------------------------
 
 
-createDefaultErrorFile:
 
------------------------------------
+responseBuilder: (CGI module will also call this function)
+(for successful GET at this point body of response object should be filled with the content of the requested file to serve unless it's an error)
+(for successful POST or DELETE at this point body of response object should be empty and status code should be set to 200, 201 or 204)
+if status code is != 0 (also exclude 200 and other success codes??!)
+    - call serveErrorFile
+populate response line with request status code & message (from map or switch case)
+set headers (check for mandatory, content type, content length (size of ready body),  connection etc. &  specific headers like allow for 405)
 
 
-responseBuilder:
-
-
+-----------------------------------------------------------------------------------
 
 *** set 500 (internal server error) if other errors happen during execution?
+*** create custom HTML files for errors, default error and 200, 201, 204 (body of response)
