@@ -1,6 +1,4 @@
 #include "httpRequest.hpp"
-<<<<<<< HEAD
-=======
 
 HttpRequest::HttpRequest() : method(""), uri(""), version(""), body(""), raw_request(""), position(0), error_code(0), complete(false), headers_parsed(false), chunk_state()  {}
 
