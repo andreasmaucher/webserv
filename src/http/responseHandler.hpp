@@ -6,13 +6,12 @@
 
 #include <iostream>
 #include <string>
-// #include <cstring>
-// #include <map>
-// #include <sstream>
-// #include <vector>
 #include "httpRequest.hpp"
 #include "httpResponse.hpp"
 #include "../server/serverConfig.hpp"
+#include "mimeTypeMapper.hpp"
+#include <sys/stat.h>
+
 
 // Processes the HTTP request and generates the HTTP response. Includes logic for:
 // - Routing the request
@@ -22,6 +21,11 @@ class ResponseHandler {
     public:
         static void processRequest(ServerConfig &config, HttpRequest &request, HttpResponse &response);
         static void routeRequest(ServerConfig &config, HttpRequest &request, HttpResponse &response);
+        static bool findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response);
+        static bool isMethodAllowed(const HttpRequest &request, HttpResponse &response);
+        static std::string getFileName(HttpRequest &request);
+        static void setPathToContent(HttpRequest &request, std::string &file_name);
+        static bool isCGIRequest(const std::string& path);
         static void populateResponse(HttpRequest &request, HttpResponse &response);
 
         static void handleGet(HttpRequest &request, HttpResponse &response);

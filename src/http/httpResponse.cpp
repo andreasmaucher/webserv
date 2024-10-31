@@ -15,6 +15,6 @@ std::string HttpResponse::generateResponseStr() {
     return raw_response.str();
 }
 
-void HttpResponse::setHeader(std::string &header_name, std::string &header_value) {
+void HttpResponse::setHeader(const std::string &header_name, std::string &header_value) {
   this->headers[header_name] = header_value;
 }

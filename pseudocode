@@ -8,16 +8,14 @@ responseBuilder (errors comming from calling function go directly here)
 
 routeRequest:
 if the uri (location) exists in the server map (or vector of Route class) created from the config file
-    - creates the relative path to the actual location in the server
     if the path accepts the requested method (check also in the map or set created from config file)
-        - continues
+        - creates the relative path to the actual location in the server
     else   
-        - sets the status code to the specific error
-    if status code is still 0
-        if the requested content is static
-            - call staticContentHandler
-        else
-            - call CGI module
+        - sets the status code to the specific error and returns
+    if the requested content is static
+        - call staticContentHandler
+    else
+        - call CGI module
 
 else
     - sets the status code to the specific error

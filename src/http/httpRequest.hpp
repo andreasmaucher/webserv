@@ -33,6 +33,7 @@ public:
   std::map<std::string, std::string> headers; // e.g., Host, User-Agent
   std::string body; // The body of the request (optional, for POST/PUT)
   std::string raw_request;
+  const Route *route;
 
   size_t position;
   int error_code;

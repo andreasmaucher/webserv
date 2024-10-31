@@ -10,6 +10,7 @@ void ResponseHandler::processRequest(ServerConfig &config, HttpRequest &request,
         ResponseHandler::routeRequest(config, request, response);
     }
 
+
     // fill the rest of the response fields to create the final response
     // the ones with error code from parser go directly here
     ResponseHandler::populateResponse(request, response);
@@ -18,37 +19,167 @@ void ResponseHandler::processRequest(ServerConfig &config, HttpRequest &request,
 
 void ResponseHandler::routeRequest(ServerConfig &config, HttpRequest &request, HttpResponse &response) {
 
-  //needs to be adjusted since the URI might contain file name+extension etc
-  if (config.routes.find(request.uri) != config.routes.end()) {
-    Route route = config.routes.at(request.uri);
+  MimeTypeMapper mapper;
+  // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
+  if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response)) {
 
-    request.path = route.path; // + file_name // sets the full path to the content requested
-    // Verify the requested method is allowed searching in the set
-    if (route.methods.find(request.method) == route.methods.end()) {
-        response.status_code = 405; // Method Not Allowed
-        std::string header_key = "Allow";
-        std::string header_value = ResponseHandler::createAllowedMethodsStr(route.methods);
-        response.setHeader(header_key, header_value);
-        return;
+    std::string file_name = mapper.getFileName(request);
+    ResponseHandler::setPathToContent(request, file_name);
+
+    if (mapper.isCGIRequest(request)) { // at this point its been routed already and checked if (CGI)extension is allowed
+      //if (request.route->is_cgi) { // not needed, has been checked in the mapper
+        std::cout << "calling CGI handler" << std::endl;
+        //CGI::handleCGIRequest(request, response);
     }
+    else {
+      std::cout << "calling static content handler" << std::endl;
+      //staticContentHandler(request, response);
+    }
+  }
 
 }
+
+void staticContentHandler(HttpRequest &request, HttpResponse &response) {
+
+  if (request.method == "GET") {
+    serveStaticFile(request, response);
+  }
+  // else if (request.method == "POST") {
+  //   handleFileUpload(request, response);
+  // }
+  // else if (request.method == "DELETE") {
+  //   handleDeleteFile(request, response);
+  // }
+  else { // checked already in parser
+    response.status_code = 405; // Method Not Allowed
+  }
+}
+
+//at this point the path is set in the request!
+void serveStaticFile(HttpRequest &request, HttpResponse &response) {
+
+  MimeTypeMapper mapper;
+
+  if (!fileExists(file_path)) {
+      response.setStatusCode(404); // Not Found
+      return false;
+  }
+
+
+  if (file_exists(file_path, response) && has_read_permissions(file_path, response)) {
+    response.file_content = read_file(file_path);
+    response.status_code = 200;
+   
+    std::string content_type = mapper.getContentType(mapper.getFileExtension(request));
+    response.setHeader("Content-Type", content_type);
+  }
+  else {
+    response.status_code = 404; // Not Found
+  }
+}
+
+// bool serveStaticFile(const std::string &file_path, HttpResponse &response) {
+//     // Check if the file exists and can be opened
+//     if (!fileExists(file_path)) {
+//         response.setStatusCode(404); // Not Found
+//         return false;
+//     }
+
+//     std::ifstream file(file_path.c_str(), std::ios::in | std::ios::binary);
+//     if (!file.is_open()) {
+//         response.setStatusCode(403); // Forbidden
+//         return false;
+//     }
+
+//     // Read file into response body
+//     std::ostringstream buffer;
+//     buffer << file.rdbuf(); // Load entire file content into buffer
+//     response.body = buffer.str();
+
+//     // Set status code and content type
+//     response.setStatusCode(200);
+//     std::string extension = getFileExtension(file_path);
+//     response.setHeader("Content-Type", getContentType(extension));
+
+//     file.close(); // Close the file after reading
+//     return true;
+// }
+
+
 
 //--------------------------------------------------------------------------
 
 // HELPER FUNCTIONS
 
-std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string> &methods) {
-    std::string allowed;
-    for (std::set<std::string>::iterator it = methods.begin(); it != methods.end(); ++it) {
-        allowed += *it;
-        allowed += ", ";
-    }
-    allowed.pop_back(); // Remove trailing comma
-    allowed.pop_back(); // Remove trailing space
-    return allowed;
+
+bool fileExists(const std::string &path) {
+    struct stat buffer;
+    return (stat(path.c_str(), &buffer) == 0);
 }
 
+// Store the best match if there are multiple matches (longest prefix match)
+bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
+  
+  const Route *best_match = NULL;
+  size_t longest_match_length = 0;
+
+  for (std::map<std::string, Route>::const_iterator it = config.routes.begin(); it != config.routes.end(); ++it) {
+    const std::string &route_uri = it->first;
+    const Route &route_object = it->second;
+
+  //searches for the first occurrence of the substring saved in the config route_uri within the request string uri.
+    if (request.uri.find(route_uri) == 0) {
+      size_t match_length = route_uri.size();//some uris might have more than one directory, so the longest match is the good one
+      if (match_length > longest_match_length) {//save until there is a better match in another Route object
+        best_match = &route_object;
+        longest_match_length = match_length;
+      }
+    }
+  }
+
+  if (best_match == NULL) {
+    response.status_code = 404; // Not Found
+    return false;
+  }
+  
+  request.route = best_match;
+  return true;
+}
+
+bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &response) {
+  // Verify the requested method is allowed in that route searching in the set
+ if (request.route->methods.find(request.method) == request.route->methods.end()) { // not found
+      response.status_code = 405; // Method Not Allowed
+      // set header specifiying the allowed methods
+      std::string header_key = "Allow";
+      std::string header_value = ResponseHandler::createAllowedMethodsStr(request.route->methods);
+      response.setHeader(header_key, header_value);
+      return false;
+  }
+  return true;
+}
+
+void ResponseHandler::setPathToContent(HttpRequest &request, std::string &file_name) {
+  // Ensure the extracted file path starts with a '/' to avoid path issues
+  if (!file_name.empty() && file_name[0] != '/') {
+    file_name = "/" + file_name;
+  }
+
+  // Set the full path to the content requested
+  request.path = request.route->path + file_name;
+}
+
+std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string> &methods) {
+  
+  std::string allowed;
+  for (std::set<std::string>::iterator it = methods.begin(); it != methods.end(); ++it) {
+      allowed += *it;
+      allowed += ", ";
+  }
+  allowed.pop_back(); // Remove trailing comma
+  allowed.pop_back(); // Remove trailing space
+  return allowed;
+}
 //--------------------------------------------------------------------------
 
 
@@ -182,14 +313,6 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 //     response.body += "</h1></body></html>";
 // }
 
-// to fill the content type header of the response
-// std::string determineContentType(const std::string& path) {
-//     if (path.ends_with(".html")) return "text/html";
-//     else if (path.ends_with(".ico")) return "image/x-icon";
-//     else if (path.ends_with(".json")) return "application/json";
-//     // Add more types as needed
-//     return "text/plain";
-// }
 
 // Convert status code to status message
 // std::string ResponseHandler::getStatusMessage(int code) {
@@ -240,23 +363,21 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 //         request.error_code = 400; // 400 BAD_REQUEST
 //         return false; // Invalid format
 //     }
-
-//     // Check for invalid characters and patterns
-//     const std::string invalidChars = "~$:*?#[{]}>|;`'\"\\ ";
-
 //     if (request.uri.find("..") != std::string::npos || // Directory traversal
 //         request.uri.find("//") != std::string::npos)  // Double slashes
 //     {
 //         request.error_code = 400; // 400 BAD_REQUEST
 //         return false; // Invalid path
 //     }
-
-//     for (char c : request.uri) {
-//         if (invalidChars.find(c) != std::string::npos) {
-//             request.error_code = 400; // 400 BAD_REQUEST
-//             return false; // Invalid character found
-//         }
+//     // Check for invalid characters and patterns
+//     const std::string forbidden_chars = "~$:*?#[{]}>|;`'\"\\ "; // "*?|<>:\"\\"
+//     if (path.find_first_of(forbidden_chars) != std::string::npos) {
+//       request.error_code = 400; // 400 BAD_REQUEST
+//       return false; // Invalid character found}
 //     }
-
+//     if (path.length() > MAX_PATH_LENGTH)) {
+//       request.error_code = 414; // 414 URI_TOO_LONG}
+//       return false; // Path too long
+//     } 
 //     return true; // URI is valid
 // }

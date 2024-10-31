@@ -23,7 +23,7 @@ public:
     std::string file_content_type;              // e.g., text/html
     std::string generateResponseStr();
 
-    void setHeader(std::string &header_name, std::string &header_value);
+    void setHeader(const std::string &header_name, std::string &header_value);
 };
 
 #endif
