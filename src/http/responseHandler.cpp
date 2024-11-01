@@ -23,7 +23,17 @@ void ResponseHandler::routeRequest(ServerConfig &config, HttpRequest &request, H
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
   if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response)) {
 
-    std::string file_name = mapper.getFileName(request);
+    std::string file_name;
+    //handle directory listing?
+    // bool directory_listing_enabled = config.routes[request.uri].directory_listing;
+    // if (directory_listing_enabled && isDirectory(request.path)) {
+    //     // Generate directory listing
+    // } else {
+    //     response.setStatusCode(403);  // Forbidden if no file is found and listing is off
+    // }
+    
+    file_name = mapper.getFileName(request); // handling directories inside here already by adding default file in case of GET?
+
     ResponseHandler::setPathToContent(request, file_name);
 
     if (mapper.isCGIRequest(request)) { // at this point its been routed already and checked if (CGI)extension is allowed
@@ -39,14 +49,14 @@ void ResponseHandler::routeRequest(ServerConfig &config, HttpRequest &request, H
 
 }
 
-void staticContentHandler(HttpRequest &request, HttpResponse &response) {
+void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &response) {
 
   if (request.method == "GET") {
-    serveStaticFile(request, response);
+    ResponseHandler::serveStaticFile(request, response);
   }
-  // else if (request.method == "POST") {
-  //   handleFileUpload(request, response);
-  // }
+  else if (request.method == "POST") {
+    ResponseHandler::handleFileUpload(request, response);
+  }
   // else if (request.method == "DELETE") {
   //   handleDeleteFile(request, response);
   // }
@@ -56,67 +66,137 @@ void staticContentHandler(HttpRequest &request, HttpResponse &response) {
 }
 
 //at this point the path is set in the request!
-void serveStaticFile(HttpRequest &request, HttpResponse &response) {
+void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &response) {
 
-  MimeTypeMapper mapper;
-
-
-  if (!fileExists(file_path)) {
-      response.setStatusCode(404); // Not Found
-      return false;
-  }
-
-
-  if (file_exists(file_path, response) && has_read_permissions(file_path, response)) {
-    response.file_content = read_file(file_path);
-    response.status_code = 200;
-   
-    std::string content_type = mapper.getContentType(mapper.getFileExtension(request));
-    response.setHeader("Content-Type", content_type);
-  }
-  else {
-    response.status_code = 404; // Not Found
-  }
+  if (ResponseHandler::fileExists(request.path, response) && ResponseHandler::hasReadPermission(request.path, response))
+    readFile(request, response);
 }
 
-// bool serveStaticFile(const std::string &file_path, HttpResponse &response) {
-//     // Check if the file exists and can be opened
-//     if (!fileExists(file_path)) {
-//         response.setStatusCode(404); // Not Found
-//         return false;
-//     }
+void ResponseHandler::handleFileUpload(const HttpRequest& request, HttpResponse& response) {
+    // was checked in the parser alredy
+    // // Ensure request has body data
+    // if (request.body.empty()) {
+    //     response.status_code = 400; // Bad Request
+    //     return;
+    // }
 
-//     std::ifstream file(file_path.c_str(), std::ios::in | std::ios::binary);
-//     if (!file.is_open()) {
-//         response.setStatusCode(403); // Forbidden
-//         return false;
-//     }
+    // Process upload (save to server)
+    // Construct full path for upload 
+    // if no name spacified in uri either find in headers or generate timestamp name for avoiding repetitions
+  // std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Disposition");
+  //     if (it != request.headers.end()) {
+  //         // Basic parsing, assuming format: Content-Disposition: attachment; filename="myfile.txt"
+  //         size_t pos = it->second.find("filename=");
+  //         if (pos != std::string::npos) {
+  //             filename = it->second.substr(pos + 9); // Skip "filename="
+  //             filename.erase(std::remove(filename.begin(), filename.end(), '\"'), filename.end()); // Remove quotes
+  //         }
+  //     }
+    // file_name = request.headers.find("filename");
+    // std::string file_path = request.path + "/" + request.headers["filename"];
 
-//     // Read file into response body
-//     std::ostringstream buffer;
-//     buffer << file.rdbuf(); // Load entire file content into buffer
-//     response.body = buffer.str();
-
-//     // Set status code and content type
-//     response.setStatusCode(200);
-//     std::string extension = getFileExtension(file_path);
-//     response.setHeader("Content-Type", getContentType(extension));
-
-//     file.close(); // Close the file after reading
-//     return true;
-// }
+    std::string filename = extractOrGenerateFilename(request);
+    std::string file_path = upload_directory + "/" + filename;
+    // Step 1: Check if the path already exists and is a file
+    struct stat path_stat;
+    if (stat(file_path.c_str(), &path_stat) == 0 && S_ISREG(path_stat.st_mode)) {
+        response.status_code = 409; // Conflict
+        response.body = "A file already exists at the specified URI.";
+        return;
+    }
 
 
+    std::ofstream file;
+    file.open("file_path.c_str(), std::ios::binary");
+
+    if (file.is_open()) {
+        file << request.body;
+        file.close();
+        response.status_code = 201; // Created
+        response.body = "File uploaded successfully";
+    } else {
+        response.status_code = 500; // Internal Server Error
+        response.body = "500 Internal Server Error";
+    }
+}
 
 //--------------------------------------------------------------------------
 
 // HELPER FUNCTIONS
 
+// // Helper function to extract the filename from headers or generate one
+// std::string extractOrGenerateFilename(const HttpRequest &request) {
+//     std::string filename;
+    
+//     // Check if filename exists in headers (e.g., Content-Disposition)
+//     std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Disposition");
+//     if (it != request.headers.end()) {
+//         // Basic parsing, assuming format: Content-Disposition: attachment; filename="myfile.txt"
+//         size_t pos = it->second.find("filename=");
+//         if (pos != std::string::npos) {
+//             filename = it->second.substr(pos + 9); // Skip "filename="
+//             filename.erase(std::remove(filename.begin(), filename.end(), '\"'), filename.end()); // Remove quotes
+//         }
+//     }
+    
+//     // If no filename found in headers, check if it's embedded in the URI
+//     if (filename.empty()) {
+//         size_t pos = request.uri.find_last_of('/');
+//         if (pos != std::string::npos) {
+//             filename = request.uri.substr(pos + 1);
+//         }
+//     }
+
+//     // Generate unique filename if still not set
+//     if (filename.empty()) {
+//         filename = "upload_" + std::to_string(std::time(0));
+//     }
+    
+//     return filename;
+// }
+
+bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response) {
+
+  std::ifstream file;
+  file.open(request.path.c_str(), std::ios::in | std::ios::binary);
+
+  if (!file.is_open()) { //has been checked in hasReadPermission already
+      response.status_code = 403; // Forbidden
+      return false;
+  }
+
+  // Read file into response body
+  std::ostringstream buffer;
+  buffer << file.rdbuf(); // Load entire file content into buffer
+  response.body = buffer.str();
+
+  file.close(); // Close the file after reading
+  
+  // Set status code and content type
+  response.status_code = 200;
+  MimeTypeMapper mapper;
+  std::string content_type = mapper.getContentType(mapper.getFileExtension(request));
+  response.setHeader("Content-Type", content_type);
+
+  return true;
+}
+
 //make sure the path is sanitized to avoid security breaches!
 //stat system call return 0 if file is accessible
-bool fileExists(const std::string &path) {
-    struct stat buffer;
-    return (stat(path.c_str(), &buffer) == 0);
+bool ResponseHandler::fileExists(const std::string &path, HttpResponse &response) {
+  struct stat buffer;
+  if (stat(path.c_str(), &buffer) == 0)
+      return true;
+  response.status_code = 404; // Not Found
+  return false;
+}
+
+bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpResponse &response) {
+
+  if (access(file_path.c_str(), R_OK) == 0) // R_OK checks read access
+    return true;
+  response.status_code = 403; // Forbidden
+  return false;
 }
 
 // Store the best match if there are multiple matches (longest prefix match)
@@ -144,6 +224,7 @@ bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest 
     return false;
   }
 
+  //if route indicates a redirect, pass new location in response so that client can create a new request
   if (!best_match->redirect_uri.empty()) {
     response.status_code = 301; // Moved Permanently
     // set header specifiying new location
@@ -152,7 +233,6 @@ bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest 
     response.setHeader(header_key, header_value);
     return false;
   }
-
   
   request.route = best_match;
   return true;
@@ -194,43 +274,6 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 }
 //--------------------------------------------------------------------------
 
-
-// void ResponseHandler::handleGet(HttpRequest &request, HttpResponse &response) {
-
-//   if (request.uri == "/" || request.uri == "/index.html") {
-//     response.content = serveStaticFile(DEFAULT_FILE);
-//     if (response.content.empty()) {
-//         response.status_code = 404;
-//         return;
-//     }
-//     response.status_code = 200;
-//     return;
-//   }
-//   else if request_path == "/favicon.ico"
-//       serve_file(favicon.ico)
-//       send_response(200, "OK", "image/x-icon", favicon_ico)
-//   else
-//       if path does not exist
-//           send_error_response(404)
-//       if method no permissions
-//           send_error_response(403)    
-// }
-
-// // include Content-Type Validation
-// void ResponseHandler::serveStaticFile(std::string &uri, HttpResponse &response) {
-  
-//   std::string path = ROOT_DIR + '/' + uri;
-
-//   //set status code in validation functions to indicate error
-//   if (is_file(path, response) && file_exists(path, response) && has_read_permissions(path, response)) {
-//     content = read_file(path)
-//   }
-  
-//   return;
-
-// }
-
-
 // void ResponseHandler::serveErrorPage(HttpResponse &response){
 //
 //   std::string file_path = ROOT_DIR + "/html/errors/" + response.status_code + ".html";
@@ -239,27 +282,6 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 //   return;
 // }
 
-// void handleFileUpload(const HttpRequest& request, HttpResponse& response) {
-//     // was checked in the parser alredy
-//     // // Ensure request has body data
-//     // if (request.body.empty()) {
-//     //     response.status_code = 400; // Bad Request
-//     //     response.body = "400 Bad Request: No data in request body";
-//     //     return;
-//     // }
-
-//     // Process upload (e.g., save to server)
-//     std::ofstream file("/var/uploads/uploaded_file.txt");
-//     if (file.is_open()) {
-//         file << request.body;
-//         file.close();
-//         response.status_code = 201; // Created
-//         response.body = "File uploaded successfully";
-//     } else {
-//         response.status_code = 500; // Internal Server Error
-//         response.body = "500 Internal Server Error";
-//     }
-// }
 
 // void handleDeleteFile(const HttpRequest& request, HttpResponse& response) {
 //     std::string path = "/var/uploads" + request.uri; // example path resolution

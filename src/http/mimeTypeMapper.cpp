@@ -50,9 +50,11 @@ std::string MimeTypeMapper::getFileName(HttpRequest &request) {
   std::string file_name;
   if (request.uri.length() > request.route->uri.length()) {
     file_name = request.uri.substr(request.route->uri.length());
-  } else {
+  } else if (request.method == "GET") {
+    file_name = DEFAULT_FILE; // alternatively respond with a default file when asking for a directory
+  }
+  else {
     file_name = ""; // No additional file specified. Only valid for POST requests? or allow DELETING a directory?
-    //file_name = DEFAULT_FILE; // alternatively respond with a default file or 404
   }
   return file_name;
 }

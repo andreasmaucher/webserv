@@ -11,6 +11,9 @@
 #include "../server/serverConfig.hpp"
 #include "mimeTypeMapper.hpp"
 #include <sys/stat.h>
+#include <unistd.h>
+#include <fstream>
+#include <map>
 
 
 // Processes the HTTP request and generates the HTTP response. Includes logic for:
@@ -25,7 +28,14 @@ class ResponseHandler {
         static bool isMethodAllowed(const HttpRequest &request, HttpResponse &response);
         static std::string getFileName(HttpRequest &request);
         static void setPathToContent(HttpRequest &request, std::string &file_name);
-        static bool isCGIRequest(const std::string& path);
+        //static bool isCGIRequest(const std::string& path);
+        static void staticContentHandler(HttpRequest &request, HttpResponse &response);
+        static void serveStaticFile(HttpRequest &request, HttpResponse &response);
+        static void handleFileUpload(const HttpRequest& request, HttpResponse& response);
+
+        static bool hasReadPermission(const std::string &file_path, HttpResponse &response);
+        static bool fileExists(const std::string &path, HttpResponse &response);
+        static bool readFile(HttpRequest &request, HttpResponse &response);
         static void populateResponse(HttpRequest &request, HttpResponse &response);
 
         static void handleGet(HttpRequest &request, HttpResponse &response);

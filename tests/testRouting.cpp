@@ -81,7 +81,7 @@ ServerConfig createFakeServerConfig()
     cgiRoute.uri = "/cgi-bin";
     cgiRoute.path = config.root_directory + "/cgi-bin";
     cgiRoute.methods = {"GET", "POST"};
-    cgiRoute.content_type = "application/octet-stream";
+    cgiRoute.content_type = {"application/octet-stream"};
     cgiRoute.is_cgi = true;
     
     config.routes[cgiRoute.uri] = cgiRoute;
