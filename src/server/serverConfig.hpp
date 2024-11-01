@@ -9,7 +9,8 @@ struct Route {
     std::string path;                      // Physical directory path, e.g., "/var/www/static"
     std::set<std::string> methods;         // Allowed HTTP methods, e.g., {"GET", "HEAD"}
     std::set<std::string> content_type;              // MIME type, e.g., "text/html"
-    bool is_cgi;                           // Is it a CGI route?
+    std::string redirect_uri;                   // Is it a CGI route?
+    bool is_cgi;        
 
     Route() : is_cgi(false) {}
 };

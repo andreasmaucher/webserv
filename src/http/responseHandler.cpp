@@ -60,6 +60,7 @@ void serveStaticFile(HttpRequest &request, HttpResponse &response) {
 
   MimeTypeMapper mapper;
 
+
   if (!fileExists(file_path)) {
       response.setStatusCode(404); // Not Found
       return false;
@@ -111,7 +112,8 @@ void serveStaticFile(HttpRequest &request, HttpResponse &response) {
 
 // HELPER FUNCTIONS
 
-
+//make sure the path is sanitized to avoid security breaches!
+//stat system call return 0 if file is accessible
 bool fileExists(const std::string &path) {
     struct stat buffer;
     return (stat(path.c_str(), &buffer) == 0);
@@ -141,6 +143,16 @@ bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest 
     response.status_code = 404; // Not Found
     return false;
   }
+
+  if (!best_match->redirect_uri.empty()) {
+    response.status_code = 301; // Moved Permanently
+    // set header specifiying new location
+    std::string header_key = "Location";
+    std::string header_value = best_match->redirect_uri;
+    response.setHeader(header_key, header_value);
+    return false;
+  }
+
   
   request.route = best_match;
   return true;

@@ -61,7 +61,10 @@ deleteFile:
 if file doesn't exist
     - sets status code to 404 (not found)
 else
-    - tries to delete the file specified in the request
+    - tries to delete the file (or empty directories only) specified in the request
+    --> (remove(file_path.c_str()) checks if file exists & permissions and deletes it) returns 0 on success
+    --> check for file existence and permissions before trying to delete to set the error code accordingly, since not allowed to use errno
+    --> implement full directory deleteion if full?
         - if successfully deleted sets status code to 204 (no content)
         - if not sets status code to 403 (forbidden) if no permissions 
 
