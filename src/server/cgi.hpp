@@ -9,10 +9,13 @@
 #include <sys/socket.h> // For send()
 #include <string.h>    // For memset
 #include <sstream>  // For std::stringstream
+#include "../http/httpRequest.hpp"
+#include "../http/requestParser.hpp"
 
 class CGI 
 {
     public:
+        CGI();
         CGI(int clientSocket, const std::string& scriptPath, const std::string& method,
             const std::string& queryString, const std::string& requestBody);
 
@@ -34,6 +37,7 @@ class CGI
         void sendCGIOutputToClient(int pipefd) const;
         void sendHttpResponseHeaders(const std::string& contentType) const;
         std::string readFromPipe(int pipefd) const;
+        std::string resolveCGIPath(const std::string& uri);
 };
 
 #endif

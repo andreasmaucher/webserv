@@ -226,65 +226,97 @@ void Server::request(int i)
 {
     if (!httpRequests[i].request_completed)
     {
-        // If not the listener, we're just the regular client
-        // printf("At recv fn \n");
+        std::cout << "\n=== Starting Request Processing ===" << std::endl;
         int nbytes = recv(pfds[i].fd, buf, sizeof buf, 0);
-        int sender_fd = pfds[i].fd;
+        std::cout << "Received " << nbytes << " bytes" << std::endl;
+        
         if (nbytes <= 0)
         {
-            // Got error or connection closed by client
-            if (nbytes == 0)
-            {
-                // Connection closed
-                printf("pollserver: socket %d hung up \n", sender_fd);
+            if (nbytes == 0) {
+                std::cout << "Client disconnected normally" << std::endl;
+            } else {
+                std::cerr << "recv error: " << strerror(errno) << std::endl;
             }
-            else
-            {
-                perror("recv");
-            }
-            close(pfds[i].fd); // Closing fd
-            del_from_pfds(pfds, i, &fd_count);
-            httpRequests.erase(httpRequests.begin() + i); // Erase the HttpRequest for this fd
+            close_connection(i);
+            return;
         }
-        else
+        
+        buf[nbytes] = '\0';
+        httpRequests[i].raw_request.append(buf);
+        
+        if (httpRequests[i].raw_request.find(END_HEADER) != std::string::npos)
         {
-            // Received some good data from the client
-            // Printing out received data
-            buf[nbytes] = '\0';
-            httpRequests[i].raw_request.append(buf);
-            if (httpRequests[i].raw_request.find(END_HEADER) != std::string::npos)
-            {
-                std::cout << "Full request from client " << i << " is: " << httpRequests[i].raw_request << std::endl;
-                std::cout << "Found end of request command \"close\", stopped reading request " << std::endl;
-                // PARSER COMES HERE
-                //! ANDY
-                // Check if the request is a CGI request
-                if (CGI::isCGIRequest(httpRequests[i].uri))
+            std::cout << "\n=== Complete Request Received ===" << std::endl;
+            
+            try {
+                size_t position = 0;
+                if (RequestParser::parseRawRequest(httpRequests[i], httpRequests[i].raw_request, position))
                 {
-                    // Create a CGI object and handle the request
-                    CGI cgi(sender_fd, httpRequests[i].uri, httpRequests[i].method, httpRequests[i].queryString, httpRequests[i].body);
-                    cgi.handleCGIRequest(httpRequests[i]);
+                    if (httpRequests[i].uri == "/cgi-bin/test.py")
+                    {
+                        std::cout << "CGI request detected!" << std::endl;
+                        CGI cgi(pfds[i].fd, httpRequests[i].uri, httpRequests[i].method, 
+                               httpRequests[i].queryString, httpRequests[i].body);
+                        cgi.handleCGIRequest(httpRequests[i]);
+                        
+                        // After CGI handling, close the connection properly
+                        std::cout << "CGI request completed, closing connection" << std::endl;
+                        close_connection(i);
+                    }
+                    else
+                    {
+                        // Handle non-CGI request
+                        std::cout << "Not a CGI request. URI: '" << httpRequests[i].uri << "'" << std::endl;
+                        // ... handle normal request ...
+                    }
                 }
-                //  httpRequests[i].request_completed = RequestParser::parseRawRequest(httpRequests[i]);
-                httpRequests[i].request_completed = 1;
-                // break;
+            } catch (const std::exception& e) {
+                std::cerr << "Error processing request: " << e.what() << std::endl;
+                std::string errorResponse = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\n\r\nError: " + std::string(e.what());
+                send(pfds[i].fd, errorResponse.c_str(), errorResponse.length(), 0);
+                close_connection(i);
             }
-        } // END handle data from client
-    } // END got ready-to-read from poll()
+            
+            // Reset the request state
+            httpRequests[i].request_completed = 1;
+            httpRequests[i].raw_request.clear();
+        }
+    }
 }
 
+void Server::close_connection(int index)
+{
+    std::cout << "Closing connection on socket " << pfds[index].fd << std::endl;
+    close(pfds[index].fd);
+    // Remove the closed fd from the array
+    pfds[index] = pfds[fd_count - 1];
+    fd_count--;
+    // Clear the request data
+    httpRequests[index].request_completed = 0;
+    httpRequests[index].raw_request.clear();
+}
+
+//! ANDY CHANGED RESPONSE WITH CHAT GTP
 void Server::response(int i)
 {
     if (httpRequests[i].request_completed)
     {
-        std::cout << "Server response (echo original request): " << httpRequests[i].raw_request << std::endl;
-        // std::string response = "Server response (echo original request):  " + httpRequests[i].raw_request;
-        std::string response =
-            "HTTP/1.1 200 OK\r\nDate: Fri, 27 Oct 2023 14:30:00 GMT\r\nServer: CustomServer/1.0\r\nContent-Type: text/plain\r\nContent-Length: 13\r\nConnection: keep-alive\r\n\r\nHello, World!\r\n";
-        // TODO: RESPONSE GOES HERE
-        if (send(pfds[i].fd, response.c_str(), response.size(), 0) == -1)
+        if (CGI::isCGIRequest(httpRequests[i].uri))
         {
-            perror("send");
+            // Create CGI object with proper path resolution
+            std::string fullPath = "/path/to/cgi-bin" + httpRequests[i].uri; // Define proper path
+            CGI cgi(pfds[i].fd, 
+                   fullPath,
+                   httpRequests[i].method,
+                   httpRequests[i].queryString,
+                   httpRequests[i].body);
+            cgi.handleCGIRequest(httpRequests[i]);
+        }
+        else
+        {
+            // Your existing static response code
+            std::string response = "HTTP/1.1 200 OK\r\n...";
+            // ...
         }
         httpRequests[i].request_completed = 0;
         httpRequests[i].raw_request = "";

@@ -32,8 +32,9 @@
 #define BUFFER_SIZE 512
 #define PORT "8080"
 #define INIT_FD_SIZE 5
-// #define END_HEADER "\r\n\r\n"
+/* #define END_HEADER "\r\n\r\n" */
 #define END_HEADER "close"
+
 
 
 
@@ -85,6 +86,7 @@ private:
     void *get_in_addr(struct sockaddr *sa);
     void add_to_pfds(struct pollfd *pfds[], int newfd, int *fd_count, int *fd_size);
     void del_from_pfds(struct pollfd pfds[], int i, int *fd_count);
+    void close_connection(int index);
 
 
 

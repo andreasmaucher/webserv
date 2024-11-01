@@ -24,26 +24,72 @@ bool RequestParser::isBodyExpected(HttpRequest &request) {
 }
 
 bool RequestParser::parseRawRequest(HttpRequest &request, const std::string &raw_request, size_t &position) { 
-  
-  try {
-    // parse until headers only in 1st iteration
-    if (request.headers_parsed == false) {
-      RequestParser::tokenizeRequestLine(request, raw_request, position);
-      std::cout << "Request Line parsed: " << request.method << " " << request.uri << " " << request.version << std::endl;
-
-      RequestParser::tokenizeHeaders(request, raw_request, position);
-      std::cout << "Headers parsed" << std::endl;
+    std::cout << "\n=== Parse Request Debug ===" << std::endl;
+    std::cout << "Raw request to parse:\n" << raw_request << std::endl;
+    std::cout << "Starting position: " << position << std::endl;
+    
+    try {
+        // Parse the first line manually
+        size_t firstLineEnd = raw_request.find("\r\n");
+        if (firstLineEnd == std::string::npos) {
+            throw std::runtime_error("Invalid request format - no first line");
+        }
+        
+        std::string firstLine = raw_request.substr(0, firstLineEnd);
+        std::cout << "First line: '" << firstLine << "'" << std::endl;
+        
+        // Split the first line into method, URI, and version
+        size_t first_space = firstLine.find(' ');
+        size_t second_space = firstLine.find(' ', first_space + 1);
+        
+        if (first_space == std::string::npos || second_space == std::string::npos) {
+            throw std::runtime_error("Invalid request line format");
+        }
+        
+        request.method = firstLine.substr(0, first_space);
+        request.uri = firstLine.substr(first_space + 1, second_space - first_space - 1);
+        request.version = firstLine.substr(second_space + 1);
+        
+        std::cout << "Parsed request line:" << std::endl;
+        std::cout << "Method: '" << request.method << "'" << std::endl;
+        std::cout << "URI: '" << request.uri << "'" << std::endl;
+        std::cout << "Version: '" << request.version << "'" << std::endl;
+        
+        // Move position past the first line
+        position = firstLineEnd + 2;
+        
+        // Parse headers
+        std::cout << "\nParsing headers..." << std::endl;
+        while (position < raw_request.length()) {
+            size_t lineEnd = raw_request.find("\r\n", position);
+            if (lineEnd == std::string::npos) {
+                break;
+            }
+            
+            std::string line = raw_request.substr(position, lineEnd - position);
+            if (line.empty()) {
+                break;  // Empty line marks end of headers
+            }
+            
+            size_t colonPos = line.find(':');
+            if (colonPos != std::string::npos) {
+                std::string name = line.substr(0, colonPos);
+                std::string value = line.substr(colonPos + 1);
+                // Trim leading spaces from value
+                value = value.substr(value.find_first_not_of(" "));
+                request.headers[name] = value;
+                std::cout << "Header: '" << name << "' = '" << value << "'" << std::endl;
+            }
+            
+            position = lineEnd + 2;
+        }
+        
+        request.headers_parsed = true;
+        return true;
+    } catch (const std::exception &e) {
+        std::cerr << "Error in parseRawRequest: " << e.what() << std::endl;
+        throw;
     }
-
-    return RequestParser::parseBody(request, raw_request, position);
-
-  } catch (std::exception &e) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    std::cerr << "HTTP Error Code: " << request.error_code << std::endl;
-
-  }
-
-  return true; // request complete or error. Stop reading. Handle error code in calling func to create appropriate response & clean resources
 }
 
 bool RequestParser::mandatoryHeadersPresent(HttpRequest &request) {
@@ -198,40 +244,21 @@ bool RequestParser::saveContentLengthBody(HttpRequest &request, const std::strin
 // Extract headers from request until blank line (\r\n)
 void RequestParser::tokenizeHeaders(HttpRequest &request, const std::string &raw_request, size_t &position)
 {
-  
-  std::string current_line = readLine(raw_request, position);
-  
-  if (current_line.empty()){
-    request.error_code = 400; //400 BAD_REQUEST
-    throw std::runtime_error("Empty headers");
-    //return;
-  }
-
-  while (!current_line.empty()) {
-    size_t colon_pos = current_line.find(":");
+    std::cout << "Starting header parsing from position: " << position << std::endl;
+    std::string current_line;
     
-    if (!validHeaderFormat(request.headers, current_line, colon_pos)) {
-      request.error_code = 400; //400 BAD_REQUEST
-      throw std::runtime_error("Bad header format"); // bad formatted header (twice same name, no ":")
-      //return;
+    while ((current_line = readLine(raw_request, position)) != "") {
+        std::cout << "Parsing header line: '" << current_line << "'" << std::endl;
+        size_t colon_pos = current_line.find(":");
+        if (colon_pos != std::string::npos) {
+            std::string name = current_line.substr(0, colon_pos);
+            std::string value = current_line.substr(colon_pos + 1);
+            // Trim leading/trailing whitespace
+            value = value.substr(value.find_first_not_of(" "));
+            request.headers[name] = value;
+            std::cout << "Added header: '" << name << "' = '" << value << "'" << std::endl;
+        }
     }
-    //! ANDY
-    // Check if the current header is Content-Type and store it
-    std::string header_name = current_line.substr(0, colon_pos);
-    if (header_name == "Content-Type") {
-      request.contentType = current_line.substr(colon_pos + 2);
-    }
-    current_line = readLine(raw_request, position);
-    std::cout << "current line: " << current_line << std::endl;
-  }
-
-  if (!RequestParser::mandatoryHeadersPresent(request)) {
-    request.error_code = 400; //400 BAD_REQUEST
-    throw std::runtime_error("Mandatory headers missing");
-    //return;
-  }
-
-  request.headers_parsed = true;
 }
 
 // Save headers in a map avoiding duplicates
@@ -257,34 +284,38 @@ bool RequestParser::validHeaderFormat(std::map<std::string, std::string> &header
 
 // Extract method, URI, and version from the request line
 void RequestParser::tokenizeRequestLine(HttpRequest &request, const std::string &raw_request, size_t &position) {
-  
-  std::string current_line = readLine(raw_request, position);
-  if (current_line.empty()){
-    request.error_code = 400; //400 BAD_REQUEST
-    throw std::runtime_error("Empty request line");
-    //return;
-  }
-  
-  std::istringstream stream(current_line);
-  
-  stream >> request.method >> request.uri >> request.version;
-  if (stream.fail() || !validRequestLine(request)) {
-    return;
-  }
-  //! ANDY
-  // Extract query string from URI
-  /*
-    If a question mark (?) is found in the uri, the code extracts the query string (everything after the ?) and assigns it to request.queryString.
-  It then updates request.uri to only include the part before the ?, effectively removing the query string from the uri.
-If no ? is found, request.queryString is set to an empty string, and request.uri remains unchanged.
-  */
-  size_t questionMarkPos = request.uri.find('?');
-  if (questionMarkPos != std::string::npos) {
-    request.queryString = request.uri.substr(questionMarkPos + 1);
-    request.uri = request.uri.substr(0, questionMarkPos); // Update URI to exclude query string
-  } else {
-    request.queryString = ""; // No query string present
-  }
+    std::cout << "tokenizeRequestLine starting at position: " << position << std::endl;
+    
+    std::string current_line = readLine(raw_request, position);
+    std::cout << "Read line: '" << current_line << "'" << std::endl;
+    
+    if (current_line.empty()) {
+        request.error_code = 400; //400 BAD_REQUEST
+        throw std::runtime_error("Empty request line");
+    }
+    
+    std::istringstream stream(current_line);
+    stream >> request.method >> request.uri >> request.version;
+    
+    std::cout << "Parsed values:" << std::endl;
+    std::cout << "Method: '" << request.method << "'" << std::endl;
+    std::cout << "URI: '" << request.uri << "'" << std::endl;
+    std::cout << "Version: '" << request.version << "'" << std::endl;
+    
+    if (stream.fail() || !validRequestLine(request)) {
+        request.error_code = 400;
+        throw std::runtime_error("Invalid request line format");
+    }
+
+    // Extract query string from URI
+    size_t questionMarkPos = request.uri.find('?');
+    if (questionMarkPos != std::string::npos) {
+        request.queryString = request.uri.substr(questionMarkPos + 1);
+        request.uri = request.uri.substr(0, questionMarkPos);
+        std::cout << "Extracted query string: '" << request.queryString << "'" << std::endl;
+    } else {
+        request.queryString = "";
+    }
 }
 
 bool RequestParser::validRequestLine(HttpRequest &request)

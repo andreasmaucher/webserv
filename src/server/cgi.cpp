@@ -1,5 +1,8 @@
 #include "cgi.hpp"
-#include "HttpRequest.hpp"
+#include <unistd.h>     // for execve
+#include <cstdlib>      // for environ
+
+extern char **environ;  //! am I allowed to use this?
 
 /*
     - have a parser object and a server_config object
@@ -42,8 +45,6 @@
 
 */
 
-CGI::CGI() {}
-
 //! I need to fill all those fields!
 // Constructor for the CGI class
 // Initializes all member variables with the provided parameters
@@ -57,27 +58,78 @@ CGI::CGI(int clientSocket, const std::string& scriptPath, const std::string& met
 // Static method to check if a given path is a CGI request
 // Returns true if the path contains "/cgi-bin/", ".py", or ".cgi"
 bool CGI::isCGIRequest(const std::string& path) {
-    return path.find("/cgi-bin/") != std::string::npos || 
-           path.find(".py") != std::string::npos || 
-           path.find(".cgi") != std::string::npos;
+    size_t len = path.length();
+    return (len > 3 && path.substr(len - 3) == ".py") ||
+           (len > 4 && path.substr(len - 4) == ".php");
+}
+
+std::string CGI::resolveCGIPath(const std::string& uri) {
+    char buffer[PATH_MAX];
+    getcwd(buffer, PATH_MAX);
+    std::string projectRoot = std::string(buffer);
+    
+    // Debug print
+    std::cout << "Project root: " << projectRoot << std::endl;
+    std::cout << "URI: " << uri << std::endl;
+    
+    // Remove the leading "/cgi-bin" from uri and combine with project root
+    std::string relativePath = uri.substr(8); // remove "/cgi-bin"
+    std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
+    
+    // Debug print
+    std::cout << "Full resolved path: " << fullPath << std::endl;
+    
+    return fullPath;
 }
 
 // Main method to handle a CGI request
 // it was determined before if CGI request or not
 // Sets up the environment, executes the CGI script and sends the response
-void CGI::handleCGIRequest(HttpRequest httpRequest)
-{
-    setCGIEnvironment(httpRequest);
-    /*
-        To understand what will be returned if execve is successfully called:
-        - response will not be directly set by the execve call, since it never returns
-        - instead executeCGI() function forks the current process before calling execve
-        - The parent process waits for the child to complete and captures its output.
-        - this output is then returned by executeCGI() and set to response
-        ->>> response string contains the output of the CGI script, not the return value of execve itself
-    */
-    std::string response = executeCGI(); // return value of readFromPipe function
-    sendResponse(response);
+void CGI::handleCGIRequest(HttpRequest request) {
+    std::cerr << "1. Starting handleCGIRequest..." << std::endl;
+    std::cerr << "Request URI: " << request.uri << std::endl;
+    std::cerr.flush();
+    
+    try {
+        // Resolve the actual path to the script
+        std::string fullScriptPath = resolveCGIPath(request.uri);
+        std::cerr << "2. Resolved path: " << fullScriptPath << std::endl;
+        
+        std::cerr << "File exists? " << (access(fullScriptPath.c_str(), F_OK) == 0 ? "Yes" : "No") << std::endl;
+        std::cerr << "File executable? " << (access(fullScriptPath.c_str(), X_OK) == 0 ? "Yes" : "No") << std::endl;
+        
+        // Update the scriptPath member variable
+        scriptPath = fullScriptPath;
+
+        if (access(fullScriptPath.c_str(), F_OK | X_OK) == -1) {
+            std::cerr << "Error: " << strerror(errno) << std::endl;
+            throw std::runtime_error("Script not found or not executable: " + fullScriptPath);
+        }
+        
+        std::cerr << "3. Setting environment..." << std::endl;
+        std::cerr.flush();
+        setCGIEnvironment(request);
+        
+        std::cerr << "4. About to execute CGI..." << std::endl;
+        std::cerr.flush();
+        std::string response = executeCGI();
+        
+        std::cerr << "5. Sending response..." << std::endl;
+        std::cerr.flush();
+        sendResponse(response);
+        
+        std::cerr << "6. CGI request completed" << std::endl;
+        std::cerr.flush();
+        return; // Make sure we return after sending the response
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error in handleCGIRequest: " << e.what() << std::endl;
+        std::cerr.flush();
+        // Send error response to client
+        std::string errorResponse = "Status: 500\r\nContent-Type: text/plain\r\n\r\nCGI Error: " + std::string(e.what());
+        sendResponse(errorResponse);
+        throw; // Re-throw to let the server handle the connection cleanup
+    }
 }
 
 // Sets up the environment variables for the CGI script
@@ -90,82 +142,129 @@ void CGI::setCGIEnvironment(const HttpRequest& httpRequest) const
     setenv("SERVER_PROTOCOL", httpRequest.version.c_str(), 1);
     setenv("CONTENT_TYPE", httpRequest.contentType.c_str(), 1);
 
-    // Set additional headers as environment variables if needed
-    for (const auto& header : httpRequest.headers) {
-        std::string envName = "HTTP_" + header.first;
-        std::replace(envName.begin(), envName.end(), '-', '_'); // Replace '-' with '_'
-        std::transform(envName.begin(), envName.end(), envName.begin(), ::toupper); // Convert to uppercase
-        setenv(envName.c_str(), header.second.c_str(), 1);
+    // Replace modern range-based for loop with C++98 iterator-based loop
+    std::map<std::string, std::string>::const_iterator it;
+    for (it = httpRequest.headers.begin(); it != httpRequest.headers.end(); ++it) {
+        std::string envName = "HTTP_" + it->first;
+        std::replace(envName.begin(), envName.end(), '-', '_');
+        std::transform(envName.begin(), envName.end(), envName.begin(), ::toupper);
+        setenv(envName.c_str(), it->second.c_str(), 1);
     }
 }
 
 
 // Executes the CGI script and handles its output
 std::string CGI::executeCGI() {
-    int pipefd[2];   // Pipe to capture the CGI output
-    pipe(pipefd);    // Create a pipe (pipefd[0] for reading, pipefd[1] for writing)
+    std::cerr << "A. Starting executeCGI..." << std::endl;
+    std::cerr.flush();
 
-    /* 
-        - in a parent processfork() always returns a positive integer (pid of the child process)
-        - in the child process, fork() returns 0
-    */
-    pid_t pid = fork();  // Fork a new process to run CGI script
-
-    if (pid == 0) {  // Child process (executes the CGI script)
-        close(pipefd[0]);  // Close the reading end of the pipe in the child process
-
-        // Redirect the CGI script's stdout to the pipe's writing end
-        // allows the parent process to capture the output of the CGI script
-        dup2(pipefd[1], STDOUT_FILENO);
-
-        // If it's a POST request, redirect the stdin to handle the request body
-        if (method == "POST" && !requestBody.empty()) {
-            int bodyPipe[2];
-            if (pipe(bodyPipe) == -1) {
-                perror("pipe");
-                exit(1);
-            }
-            write(bodyPipe[1], requestBody.c_str(), requestBody.size());
-            close(bodyPipe[1]);
-            dup2(bodyPipe[0], STDIN_FILENO);
-            close(bodyPipe[0]);
-        }
-        //! do post requests always have a body?
-        //! probably different approach for post requests needed!
-        // do i need the case below????
-       /*  if (!requestBody.empty()) {
-            dup2(pipefd[1], STDIN_FILENO); //! makes no sense? should probably redirect to fd that provides the request body?
-        } */
-
-        // Execute the CGI script using exec (replace the child process with the CGI script)
-        /*
-            args array to hold the arguments for the CGI script;
-            first argument: script path, second argument: NULL (indicating the end of the argument list)
-            const cast: execve expects non-const array
-            c_str: because execve is a c function and expects a c-style string
-        */
-        char *const args[] = {const_cast<char*>(scriptPath.c_str()), NULL};
-        /* 
-            NULL would normally be envs but here just means use the current environment, meaning
-            all variables set by setCGIEnvironment()
-        */
-        execve(scriptPath.c_str(), args, NULL); //! use environ instead of NULL??? // are variables actually passed here, since they are only set with setenv
-
-        // If execve fails, exit the child process (if successful, execve never returns)
-        perror("execve");
-        exit(1);
-    } else if (pid > 0) {  // Parent process (captures output) / do I need this condition or could I just use else????
-        close(pipefd[1]);  // Close the writing end in the parent
-
-        // Wait for the child process (CGI script) to complete
-        waitpid(pid, NULL, 0);
-
-        return readFromPipe(pipefd[0]);
+    // Create pipe
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        throw std::runtime_error("Pipe creation failed");
     }
-    return "Status: 500 Internal Server Error\r\n\r\nCGI execution failed";
+
+    std::cerr << "B. Pipe created, forking..." << std::endl;
+    std::cerr.flush();
+    
+    pid_t pid = fork();
+    std::cerr << "C. Fork result: " << pid << std::endl;
+    std::cerr.flush();
+
+    if (pid == -1) {
+        throw std::runtime_error("Fork failed");
+    }
+
+    if (pid == 0) {  // Child process
+        std::cerr << "D. Child process starting..." << std::endl;
+        std::cerr << "Script path: " << scriptPath << std::endl;
+        std::cerr.flush();
+        
+        close(pipefd[0]);  // Close read end
+        
+        if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
+            std::cerr << "dup2 failed: " << strerror(errno) << std::endl;
+            exit(1);
+        }
+        
+        close(pipefd[1]);
+
+        // Use your specific Python path
+        const char* pythonPath = "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3";
+        char *const args[] = {
+            const_cast<char*>(pythonPath),
+            const_cast<char*>(scriptPath.c_str()),
+            NULL
+        };
+
+        std::cerr << "About to execve with:" << std::endl;
+        std::cerr << "Python path: " << pythonPath << std::endl;
+        std::cerr << "Script path: " << scriptPath << std::endl;
+        std::cerr.flush();
+
+        execve(pythonPath, args, environ);
+        
+        // If we get here, execve failed
+        std::cerr << "execve failed: " << strerror(errno) << std::endl;
+        exit(1);
+    }
+    
+    // Parent process
+    std::cout << "Parent process waiting (Child PID: " << pid << ")" << std::endl;
+    
+    // Close write end
+    close(pipefd[1]);
+    
+    // Read response with timeout
+    std::string response;
+    char buffer[4096];
+    fd_set readfds;
+    struct timeval tv;
+    
+    FD_ZERO(&readfds);
+    FD_SET(pipefd[0], &readfds);
+    tv.tv_sec = 5;  // 5 second timeout
+    tv.tv_usec = 0;
+
+    while (1) {
+        int ready = select(pipefd[0] + 1, &readfds, NULL, NULL, &tv);
+        if (ready == -1) {
+            perror("select failed");
+            break;
+        }
+        if (ready == 0) {
+            std::cout << "Read timeout" << std::endl;
+            break;
+        }
+        
+        ssize_t bytes_read = read(pipefd[0], buffer, sizeof(buffer) - 1);
+        if (bytes_read <= 0) break;
+        
+        buffer[bytes_read] = '\0';
+        response += buffer;
+    }
+
+    // Close read end
+    close(pipefd[0]);
+
+    // Wait for child process
+    int status;
+    waitpid(pid, &status, 0);
+    std::cout << "Child process exited with status: " << status << std::endl;
+    
+    if (response.empty()) {
+        std::cout << "No response received from CGI script" << std::endl;
+        return "Status: 500\r\nContent-Type: text/plain\r\n\r\nNo response from CGI script";
+    }
+
+    std::cout << "CGI Response:\n" << response << std::endl;
+    std::cout << "=== CGI Execution End ===" << std::endl;
+    
+    return response;
 }
 
 // Reads the CGI script's output from the pipe
+// this is where the response is captured
 std::string CGI::readFromPipe(int pipefd) const
 {
     std::stringstream return_string;
