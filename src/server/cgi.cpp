@@ -66,7 +66,7 @@ bool CGI::isCGIRequest(const std::string& path) {
 std::string CGI::resolveCGIPath(const std::string& uri) {
     char buffer[PATH_MAX];
     getcwd(buffer, PATH_MAX);
-    std::string projectRoot = std::string(buffer);
+    std::string projectRoot = std::string(buffer); //check
     
     // Debug print
     std::cout << "Project root: " << projectRoot << std::endl;
