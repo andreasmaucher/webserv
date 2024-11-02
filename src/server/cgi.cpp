@@ -142,7 +142,7 @@ void CGI::setCGIEnvironment(const HttpRequest& httpRequest) const
     setenv("SERVER_PROTOCOL", httpRequest.version.c_str(), 1);
     setenv("CONTENT_TYPE", httpRequest.contentType.c_str(), 1);
 
-    // Replace modern range-based for loop with C++98 iterator-based loop
+    // for all other env variables
     std::map<std::string, std::string>::const_iterator it;
     for (it = httpRequest.headers.begin(); it != httpRequest.headers.end(); ++it) {
         std::string envName = "HTTP_" + it->first;
@@ -151,7 +151,6 @@ void CGI::setCGIEnvironment(const HttpRequest& httpRequest) const
         setenv(envName.c_str(), it->second.c_str(), 1);
     }
 }
-
 
 // Executes the CGI script and handles its output
 std::string CGI::executeCGI() {
@@ -189,7 +188,7 @@ std::string CGI::executeCGI() {
         
         close(pipefd[1]);
 
-        // Use your specific Python path
+        // this is my specific python path (cmd: which python3)
         const char* pythonPath = "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3";
         char *const args[] = {
             const_cast<char*>(pythonPath),
@@ -263,6 +262,8 @@ std::string CGI::executeCGI() {
     return response;
 }
 
+//! not used anymore it's now directly integrated in exectuteCGI, let's see if i want to keep it after response flow is clear
+
 // Reads the CGI script's output from the pipe
 // this is where the response is captured
 std::string CGI::readFromPipe(int pipefd) const
@@ -279,6 +280,7 @@ std::string CGI::readFromPipe(int pipefd) const
     return return_string.str();
 }
 
+//! use carinas functions instead!!!
 // Sends the complete response (headers + body) to the client
 void CGI::sendResponse(const std::string& response) const
 {
