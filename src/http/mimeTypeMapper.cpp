@@ -29,34 +29,37 @@ void MimeTypeMapper::initializeCGIExtensions() {
     cgi_extensions.insert("cgi"); // General CGI scripts
 }
 
-std::string MimeTypeMapper::getFileExtension(HttpRequest &request) {
+void MimeTypeMapper::getFileExtension(HttpRequest &request) {
     
-    std::string file_name = getFileName(request);
+    request.file_name = getFileName(request);
     
-    if (!file_name.empty()) {
+    if (!request.file_name.empty()) {
 
         size_t pos = request.uri.find_last_of('.');
         if (pos != std::string::npos) {
-            std::string extension = request.uri.substr(pos + 1);
-            return extension;
+            request.file_extension = request.uri.substr(pos + 1);
+            request.is_cgi = isCGIRequest(request.file_extension);
+            // it might have an extra directory between the valid route and the file name. How to handle?
+            return;
         }
+
     }
-    else
-        return "";
+    request.is_directory = true;
 }
 
-std::string MimeTypeMapper::getFileName(HttpRequest &request) {
+void MimeTypeMapper::getFileName(HttpRequest &request) {
 // Extract the remaining path or file name from the URI
-  std::string file_name;
+
   if (request.uri.length() > request.route->uri.length()) {
-    file_name = request.uri.substr(request.route->uri.length());
-  } else if (request.method == "GET") {
-    file_name = DEFAULT_FILE; // alternatively respond with a default file when asking for a directory
+    request.file_name = request.uri.substr(request.route->uri.length()); // might also be name of a folder instead of file_name or both!?!! needs to be checked in each method handling function
+    
   }
+//   } else if (request.method == "GET") {
+//     request.file_name = DEFAULT_FILE; // alternatively respond with a default file when asking for a directory
+//   }
   else {
-    file_name = ""; // No additional file specified. Only valid for POST requests? or allow DELETING a directory?
+    request.file_name = ""; // No additional file specified. Only valid for POST requests? or allow DELETING a directory?
   }
-  return file_name;
 }
 
 std::string MimeTypeMapper::getContentType(const std::string &extension) const {
@@ -67,9 +70,9 @@ std::string MimeTypeMapper::getContentType(const std::string &extension) const {
     return "";
 }
 
-bool MimeTypeMapper::isCGIRequest(HttpRequest &request) {
+bool MimeTypeMapper::isCGIRequest(const std::string &extension) {
    
-    std::string extension = getFileExtension(request);
+    //std::string extension = getFileExtension(request);
     
     return cgi_extensions.find(extension) != cgi_extensions.end();
 }
@@ -79,23 +82,25 @@ bool MimeTypeMapper::isCGIRequest(HttpRequest &request) {
 //check if content type & file extension match
 bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &response) {
 
-    std::string file_extension = getFileExtension(request);
-    std::string content_type = getContentType(file_extension);
+    request.file_extension = getFileExtension(request);
+    request.content_type = getContentType(file_extension);
     
-    // header matches route content type
+    // there is a content type header && it matches the route's allowed content types
     if (!request.headers["Content-Type"].empty() && request.route->content_type.find(request.headers["Content-Type"]) != request.route->content_type.end()) {
-        
-        //header matches file extension
-       if (!content_type.empty() && request.headers["Content-Type"] == content_type) {
+
+        //there is no file name in the request uri OR there is a file name (with its extension) and it matches the request header
+        //no file name case to be handled in each specific method handler!
+       if (request.content_type.empty() || (!request.content_type.empty() && request.headers["Content-Type"] == request.content_type)) {
             return true;
         }
     }
-    // no header present but file extension matches route content type
-    else if (request.headers["Content-Type"].empty() && (!content_type.empty() && request.route->content_type.find(content_type) != request.route->content_type.end())) {
+    // no header present but file name/extension present and matching the route's allowed content type
+    else if (request.headers["Content-Type"].empty() && (!request.content_type.empty() && request.route->content_type.find(request.content_type) != request.route->content_type.end())) {
     
         return true;
     }
 
+    // specific method mandatory headers requirement checked previously in parser
     response.status_code = 415; // Unsupported Media Type
     return false;
 }

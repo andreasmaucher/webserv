@@ -1,3 +1,6 @@
+#ifndef TESTSHEADER_HPP
+#define TESTSHEADER_HPP
+
 #include "../src/http/requestParser.hpp"
 #include "../src/http/httpRequest.hpp"
 #include "../src/http/httpResponse.hpp"
@@ -13,3 +16,5 @@ void test_request_parser_streaming();
 void test_routing();
 HttpRequest createFakeHttpRequest();
 ServerConfig createFakeServerConfig();
+
+#endif

@@ -64,7 +64,7 @@ else
     - tries to delete the file (or empty directories only) specified in the request
     --> (remove(file_path.c_str()) checks if file exists & permissions and deletes it) returns 0 on success
     --> check for file existence and permissions before trying to delete to set the error code accordingly, since not allowed to use errno
-    --> implement full directory deleteion if full?
+    --> implement full directory deletion if full?
         - if successfully deleted sets status code to 204 (no content)
         - if not sets status code to 403 (forbidden) if no permissions 
 
@@ -75,7 +75,7 @@ serveErrorFile:
 get path to error file using created map from config file
 if error code doesn't exist in map
     get path to 666 Random Error (create custom html file for this)
-serveStaticFile 
+
 -----------------------------------------------------------------------------------
 
 

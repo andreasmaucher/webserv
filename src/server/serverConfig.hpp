@@ -1,3 +1,8 @@
+#ifndef SERVERCONFIG_HPP
+#define SERVERCONFIG_HPP
+
+#define DEFAULT_FILE = "default.html"
+
 #include <string>
 #include <map>
 #include <set>
@@ -10,6 +15,7 @@ struct Route {
     std::set<std::string> methods;         // Allowed HTTP methods, e.g., {"GET", "HEAD"}
     std::set<std::string> content_type;              // MIME type, e.g., "text/html"
     std::string redirect_uri;                   // Is it a CGI route?
+    bool directory_listing_enabled;
     bool is_cgi;        
 
     Route() : is_cgi(false) {}
@@ -25,3 +31,5 @@ class ServerConfig {
 
 //after parsing the config file, load all the error pages and other default htmls into the map of error_pages
 //to avoid reading the file every time we need to send an error page (makes server faster)
+
+#endif

@@ -1,6 +1,6 @@
 #include "httpRequest.hpp"
 
-HttpRequest::HttpRequest() : method(""), uri(""), path(""), version(""), body(""), raw_request(""), route(NULL), position(0), error_code(0), complete(false), headers_parsed(false), chunk_state()  {}
+HttpRequest::HttpRequest() : method(""), uri(""), path(""), version(""), body(""), raw_request(""), route(NULL), file_name(""), position(0), error_code(0), complete(false), headers_parsed(false), chunk_state()  {}
 
 void HttpRequest::printRequest() {
     std::cout << "Method: " << this->method << "\n";
@@ -23,6 +23,8 @@ void HttpRequest::reset() {
   headers.clear();
   body.clear();
   raw_request.clear();
+  //route just holds an address to a Route object, actual routes are in ServerConfig class;
+  file_name.clear();
   position = 0;
   error_code = 0;
   complete = false;

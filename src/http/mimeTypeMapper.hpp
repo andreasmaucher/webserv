@@ -11,7 +11,7 @@ class MimeTypeMapper {
 public:
     MimeTypeMapper();
     std::string getContentType(const std::string &extension) const;
-    std::string getFileName(HttpRequest &request);
+    void getFileName(HttpRequest &request);
     std::string getFileExtension(HttpRequest &request);
     bool isContentTypeAllowed(HttpRequest &request, HttpResponse &response);
     bool isCGIRequest(HttpRequest &request);

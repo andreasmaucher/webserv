@@ -34,6 +34,11 @@ public:
   std::string body; // The body of the request (optional, for POST/PUT)
   std::string raw_request;
   const Route *route;
+  std::string file_name;
+  std::string file_extension;
+  std::string content_type;
+  bool is_cgi;
+  //std::map<std::string, std::string> extension_type;
 
   size_t position;
   int error_code;
