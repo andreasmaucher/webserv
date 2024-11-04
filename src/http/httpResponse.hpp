@@ -19,9 +19,9 @@ public:
     std::map<std::string, std::string> headers; // e.g., Content-Type: text/html
     std::string body;                           // The body of the response
 
-    std::string file_content;                   // e.g., <html><body><h1>Hello, World!</h1></body></html>   
+    //std::string file_content;                   // e.g., <html><body><h1>Hello, World!</h1></body></html>   
     std::string file_content_type;              // e.g., text/html
-    std::string generateResponseStr();
+    std::string generateRawResponseStr(HttpResponse &response);
 
     void setHeader(const std::string &header_name, std::string &header_value);
 };

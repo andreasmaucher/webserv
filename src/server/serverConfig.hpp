@@ -1,7 +1,10 @@
 #ifndef SERVERCONFIG_HPP
 #define SERVERCONFIG_HPP
 
-#define DEFAULT_FILE = "default.html"
+
+#define ROOT_DIR "www"
+#define DEFAULT_FILE "index.html"
+#define ERROR_PATH = "/html/errors/"
 
 #include <string>
 #include <map>

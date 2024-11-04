@@ -119,7 +119,8 @@ void ResponseHandler::writeToFile(HttpRequest& request, HttpResponse& response) 
       file << request.body;
       file.close();
       response.status_code = 201; // Created
-      //response.body = "File uploaded successfully";
+      response.body = "File uploaded successfully";
+      response.setHeader("Content-Type", "text/plain");
   } else {
       response.status_code = 500; // Internal Server Error
       //response.body = "500 Internal Server Error";
@@ -337,38 +338,82 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 void ResponseHandler::responseBuilder(HttpRequest &request, HttpResponse &response) {
     
   response.version = "HTTP/1.1";
-
+  //4xx or 5xx -> has a body with error message
+  if (response.status_code >= 400)
+    serveErrorPage(response);
+  //200/201 -> has a body with content + content type header already filled in readFile
+  // else       -> has no body or optional (POST, DELETE)???
   response.reason_phrase = getStatusMessage(response.status_code);
 
-  // if error (4xx or 5xx) -> has a body with error message
-  //  serveErrorPage(response);
-  // if 200/201 -> has a body with content already filled in readFile
-  // else       -> has no body or optional (POST, DELETE)???
-  //response.body = 
-  //ResponseHandler::createHtmlBody(response);
-
-  if (!response.headers["Content-Type"]) {
-      response.headers["Content-Type"] = "text/html";
-      response.headers["Content-Length"] = std::to_string(response.body.length());
+  if (!response.body.empty()) {
+      if (response.headers["Content-Type"].empty()) //mandatory if body present (e.g. errors)
+        response.headers["Content-Type"] = "text/html";
+      response.headers["Content-Length"] = std::to_string(response.body.length()); //optional but mandatory for errors
   }
-  // else {
-  //   response.headers["Content-Type"] = request.content_type;
-  //   response.headers["Content-Length"] = response.body.length();
-  // } 
+  response.headers["Date"] = ; // optional
+  response.headers["Server"] = "MAC_Server/1.0"; //optional
+ 
 
 }
 
-/*    - 1xx: Informational - Request received, continuing process
-      - 2xx: Success - The action was successfully received,
-        understood, and accepted
-      - 3xx: Redirection - Further action must be taken in order to
-        complete the request
-      - 4xx: Client Error - The request contains bad syntax or cannot
-        be fulfilled
-      - 5xx: Server Error - The server failed to fulfill an apparently
-        valid request
-*/
+void ResponseHandler::serveErrorPage(HttpResponse &response){
+
+  std::string file_path = ROOT_DIR + ERROR_PATH + response.status_code + ".html";
+
+  response.body = read_error_file(file_path);
+  if (response.body.empty()) {
+      response.status_code = 500; // Internal Server Error
+      return;
+  }
+  //alternatively we could just create the html using a template + status code & msg
+  //ResponseHandler::createHtmlBody(response);
+  
+  response.headers["Connection"] = "close";
+  
+  return;
+}
+
+std::string read_error_file(std::string &file_path) {
+  std::ifstream file;
+  file.open(file_path.c_str(), std::ios::in | std::ios::binary);
+
+  if (!file.is_open()) { // has been checked in hasReadPermission already
+      return ; // Internal Server Error
+  }
+
+  // Read file into response body
+  std::ostringstream buffer;
+  buffer << file.rdbuf(); // Load entire file content into buffer
+
+  file.close(); // Close the file after reading
+  
+  return buffer.str();
+}
+
+void ResponseHandler::generateRawResponseStr(HttpResponse &response) {
+  //generate response status line:
+  raw_string = response.version + " " + response.status_code + " " + response.reason_phrase + "/r/n";
+  //add headers
+  for (std::map<std::string, std::string>::const_iterator it = response.headers.begin(); it != response.headers.end(); ++it) {
+   raw_string += it->first + ": " + it->second + "/r/n";
+  }
+  if (!respose.headers.empty())
+   raw_string += "/r/n";
+  if (!response.body.empty())
+   raw_string += response.body; // + "/r/n" ??
+}
+
 //-----------------
+
+  // - 1xx: Informational - Request received, continuing process
+  // - 2xx: Success - The action was successfully received,
+  //   understood, and accepted
+  // - 3xx: Redirection - Further action must be taken in order to
+  //   complete the request
+  // - 4xx: Client Error - The request contains bad syntax or cannot
+  //   be fulfilled
+  // - 5xx: Server Error - The server failed to fulfill an apparently
+  //   valid request
 
 // Convert status code to status message
 std::string ResponseHandler::getStatusMessage(int code) {
@@ -395,42 +440,18 @@ std::string ResponseHandler::getStatusMessage(int code) {
   }
 }
 
-// void ResponseHandler::serveErrorPage(HttpResponse &response){
-//
-//   std::string file_path = ROOT_DIR + "/html/errors/" + response.status_code + ".html";
-//
-//   response.content = read_file(file_path);
-//   return;
-// }
-
-
 //not needed bc we will have the custom html error pages ready to serve
 // void ResponseHandler::createHtmlBody(HttpResponse &response) {
-
-//     // request correct but no content to return (e.g., DELETE or POST)
-
 //     //request correct and content to return
-
 //     response.body = "<html><body><h1>";
-
-//     if (response.status_code != 200) {
-//         response.body += "Error ";
-//         std::ostringstream oss;
-//         oss << response.status_code;
-
-//         response.body += oss.str();
-//         response.body += " ";
-//         response.body += response.reason_phrase;
-//     }
-
-//     else {
-//       //response.body += response.content;
-//       response.body += "Hello, World!";
-//     }
-
+//     response.body += "Error ";
+//     std::ostringstream oss;
+//     oss << response.status_code;
+//     response.body += oss.str();
+//     response.body += " ";
+//     response.body += response.reason_phrase;
 //     response.body += "</h1></body></html>";
 // }
-
 
 // ----------------
 

@@ -1,9 +1,6 @@
 #ifndef RESPONSEHANDLER_HPP
 #define RESPONSEHANDLER_HPP
 
-#define ROOT_DIR "www"
-#define DEFAULT_FILE "index.html"
-
 #include <iostream>
 #include <string>
 #include "httpRequest.hpp"
