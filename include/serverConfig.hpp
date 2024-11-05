@@ -27,9 +27,28 @@ struct Route {
 // Represents the overall server configuration
 class ServerConfig {
     public:
-    std::string root_directory;                      // Root directory for server files
-    std::map<std::string, Route> routes;             // Mapping of URIs to Route objects
-    std::map<int, std::string> error_pages;          // Error pages mapped by status code
+        ServerConfig();
+        ServerConfig(const std::string &config_file);
+        
+        // Getters
+        const std::string &getRootDirectory() const;
+        const std::map<std::string, Route> &getRoutes() const;
+        Route* getRoute(const std::string &uri); // Getter for a specific Route by URI
+        const std::map<int, std::string> &getErrorPages() const;
+        // Setters
+        void setRootDirectory(const std::string &root_directory);
+        void setRoutes(const std::map<std::string, Route> &routes);
+        void setRoute(const std::string &uri, const Route &route);
+        void setErrorPages(const std::map<int, std::string> &error_pages);
+        void setErrorPage(const int &code, const std::string &path);
+
+
+    private:
+        std::string root_directory;                      // Root directory for server files
+        std::map<std::string, Route> routes;             // Mapping of URIs to Route objects
+        std::map<int, std::string> error_pages;          // Error pages mapped by status code
+        
+        bool loadConfig(const std::string &config_file); // config file parser
 };
 
 //after parsing the config file, load all the error pages and other default htmls into the map of error_pages

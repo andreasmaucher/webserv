@@ -54,42 +54,42 @@ ServerConfig createFakeServerConfig()
     ServerConfig config;
 
     // Root directory for the server
-    config.root_directory = "/www";
+    config.setRootDirectory("/www");
 
     // Add a route for static files
     Route staticRoute;
     staticRoute.uri = "/static";
-    staticRoute.path = config.root_directory + "/static";
+    staticRoute.path = config.getRootDirectory() + "/static";
     staticRoute.methods = {"GET", "HEAD"};
     staticRoute.content_type = {"text/html"};
     staticRoute.is_cgi = false;
     
-    config.routes[staticRoute.uri] = staticRoute;
+    config.setRoute(staticRoute.uri, staticRoute);
 
     // Add a route for images
     Route imageRoute;
     imageRoute.uri = "/images";
-    imageRoute.path = config.root_directory + "/images";
+    imageRoute.path = config.getRootDirectory() + "/images";
     imageRoute.methods = {"GET"};
     imageRoute.content_type = {"image/png"};
     imageRoute.is_cgi = false;
     
-    config.routes[imageRoute.uri] = imageRoute;
+    config.setRoute(imageRoute.uri, imageRoute);
 
     // Add a route for a CGI script
     Route cgiRoute;
     cgiRoute.uri = "/cgi-bin";
-    cgiRoute.path = config.root_directory + "/cgi-bin";
+    cgiRoute.path = config.getRootDirectory() + "/cgi-bin";
     cgiRoute.methods = {"GET", "POST"};
     cgiRoute.content_type = {"application/octet-stream"};
     cgiRoute.is_cgi = true;
     
-    config.routes[cgiRoute.uri] = cgiRoute;
+    config.setRoute(cgiRoute.uri, cgiRoute);
 
     // Define error pages
-    config.error_pages[404] = config.root_directory + "/errors/404.html";
-    config.error_pages[403] = config.root_directory + "/errors/403.html";
-    config.error_pages[500] = config.root_directory + "/errors/500.html";
+    config.setErrorPage(404, config.getRootDirectory() + "/errors/404.html");
+    config.setErrorPage(403, config.getRootDirectory() + "/errors/403.html");
+    config.setErrorPage(500, config.getRootDirectory() + "/errors/500.html");
 
     return config;
 }

@@ -8,7 +8,7 @@ void HttpResponse::setHeader(const std::string &header_name, const std::string &
 }
 
 // generates final response (formatted as one string)
-void HttpResponse::generateRawResponseStr(HttpResponse &response) {
+void HttpResponse::generateRawResponseStr() {
   std::string raw_string;
   //generate response status line:
   std::ostringstream oss;

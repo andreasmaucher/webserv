@@ -295,10 +295,11 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
 // Store the best match if there are multiple matches (longest prefix match)
 bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
   
+  const std::map<std::string, Route> &routes = config.getRoutes();
   const Route *best_match = NULL;
   size_t longest_match_length = 0;
 
-  for (std::map<std::string, Route>::const_iterator it = config.routes.begin(); it != config.routes.end(); ++it) {
+  for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it) {
     const std::string &route_uri = it->first;
     const Route &route_object = it->second;
 

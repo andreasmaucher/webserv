@@ -1,29 +1,5 @@
 #include "requestParser.hpp"
 
-// Read a line from the raw request
-std::string RequestParser::readLine(const std::string &raw_request, size_t &position) {
-  
-
-  //std::cout << "Position: " << position << std::endl;
-  size_t line_end = raw_request.find("\r\n", position); // start searching at position
-  std::string line;
-  //std::cout << "line_end: " << line_end << std::endl;
-  if (line_end != std::string::npos) { // \r\n found
-    line = raw_request.substr(position, line_end - position);
-    //std::cout << "Line: " << line << std::endl;
-    position = line_end + 2; // Move past the '\r\n' so line is pointing to the next line or the end
-  }
-  else {
-    std::cout << "Line incomplete.\nHint: Is buffer size enough? Or chunked transfer encoding used? -> make sure to read until end of headers before starting to parse" << std::endl;
-  }
-  return line;
-}
-
-bool RequestParser::isBodyExpected(HttpRequest &request) {
-    return ((request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked")
-      || (request.headers.find("Content-Length") != request.headers.end()));
-}
-
 void RequestParser::parseRawRequest(HttpRequest &request) { 
   
   try {
@@ -48,6 +24,30 @@ void RequestParser::parseRawRequest(HttpRequest &request) {
 
   request.complete = true;
   return; // request complete or error. Stop reading. Handle error code in calling func to create appropriate response & clean resources
+}
+
+// Read a line from the raw request
+std::string RequestParser::readLine(const std::string &raw_request, size_t &position) {
+  
+
+  //std::cout << "Position: " << position << std::endl;
+  size_t line_end = raw_request.find("\r\n", position); // start searching at position
+  std::string line;
+  //std::cout << "line_end: " << line_end << std::endl;
+  if (line_end != std::string::npos) { // \r\n found
+    line = raw_request.substr(position, line_end - position);
+    //std::cout << "Line: " << line << std::endl;
+    position = line_end + 2; // Move past the '\r\n' so line is pointing to the next line or the end
+  }
+  else {
+    std::cout << "Line incomplete.\nHint: Is buffer size enough? Or chunked transfer encoding used? -> make sure to read until end of headers before starting to parse" << std::endl;
+  }
+  return line;
+}
+
+bool RequestParser::isBodyExpected(HttpRequest &request) {
+    return ((request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked")
+      || (request.headers.find("Content-Length") != request.headers.end()));
 }
 
 bool RequestParser::mandatoryHeadersPresent(HttpRequest &request) {
