@@ -29,9 +29,9 @@ void MimeTypeMapper::initializeCGIExtensions() {
     cgi_extensions.insert("cgi"); // General CGI scripts
 }
 
-void MimeTypeMapper::getFileExtension(HttpRequest &request) {
+void MimeTypeMapper::extractFileExtension(HttpRequest &request) {
     
-    request.file_name = getFileName(request);
+    extractFileName(request);
     
     if (!request.file_name.empty()) {
 
@@ -47,7 +47,7 @@ void MimeTypeMapper::getFileExtension(HttpRequest &request) {
     request.is_directory = true;
 }
 
-void MimeTypeMapper::getFileName(HttpRequest &request) {
+void MimeTypeMapper::extractFileName(HttpRequest &request) {
 // Extract the remaining path or file name from the URI
 
   if (request.uri.length() > request.route->uri.length()) {
@@ -62,12 +62,12 @@ void MimeTypeMapper::getFileName(HttpRequest &request) {
   }
 }
 
-std::string MimeTypeMapper::getContentType(const std::string &extension) const {
+void MimeTypeMapper::findContentType(std::string &extension) {
     std::map<std::string, std::string>::const_iterator it = mime_types.find(extension);
     if (it != mime_types.end()) {
-        return it->second;
+        extension = it->second;
     }
-    return "";
+    extension = "";
 }
 
 bool MimeTypeMapper::isCGIRequest(const std::string &extension) {
@@ -82,8 +82,8 @@ bool MimeTypeMapper::isCGIRequest(const std::string &extension) {
 //check if content type & file extension match
 bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &response) {
 
-    request.file_extension = getFileExtension(request);
-    request.content_type = getContentType(file_extension);
+    extractFileExtension(request);
+    findContentType(request.file_extension);
     
     // there is a content type header && it matches the route's allowed content types
     if (!request.headers["Content-Type"].empty() && request.route->content_type.find(request.headers["Content-Type"]) != request.route->content_type.end()) {

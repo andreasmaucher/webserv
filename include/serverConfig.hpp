@@ -1,10 +1,10 @@
 #ifndef SERVERCONFIG_HPP
 #define SERVERCONFIG_HPP
 
-
+#define MAX_BODY_SIZE 1000000
 #define ROOT_DIR "www"
 #define DEFAULT_FILE "index.html"
-#define ERROR_PATH = "/html/errors/"
+#define ERROR_PATH "/html/errors/"
 
 #include <string>
 #include <map>

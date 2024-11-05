@@ -17,13 +17,11 @@ public:
     int status_code;                            // e.g., 200, 404
     std::string reason_phrase;                  // e.g., OK, Not Found
     std::map<std::string, std::string> headers; // e.g., Content-Type: text/html
-    std::string body;                           // The body of the response
-
-    //std::string file_content;                   // e.g., <html><body><h1>Hello, World!</h1></body></html>   
+    std::string body;                           // The body of the response 
     std::string file_content_type;              // e.g., text/html
-    std::string generateRawResponseStr(HttpResponse &response);
 
-    void setHeader(const std::string &header_name, std::string &header_value);
+    void setHeader(const std::string &header_name, const std::string &header_value);
+    void generateRawResponseStr(HttpResponse &response);
 };
 
 #endif

@@ -10,15 +10,16 @@
 class MimeTypeMapper {
 public:
     MimeTypeMapper();
-    std::string getContentType(const std::string &extension) const;
-    void getFileName(HttpRequest &request);
-    std::string getFileExtension(HttpRequest &request);
+    void extractFileExtension(HttpRequest &request);
+    void extractFileName(HttpRequest &request);
+    void findContentType(std::string &extension);
+    bool isCGIRequest(const std::string &extension);
     bool isContentTypeAllowed(HttpRequest &request, HttpResponse &response);
-    bool isCGIRequest(HttpRequest &request);
 
 private:
     std::map<std::string, std::string> mime_types;
     std::set<std::string> cgi_extensions;
+    
     void initializeMimeTypes();
     void initializeCGIExtensions();
 };

@@ -1,12 +1,12 @@
 #ifndef TESTSHEADER_HPP
 #define TESTSHEADER_HPP
 
-#include "../src/http/requestParser.hpp"
-#include "../src/http/httpRequest.hpp"
-#include "../src/http/httpResponse.hpp"
-#include "../src/http/responseHandler.hpp"
-#include "../src/server/serverConfig.hpp"
 #include <iostream>
+#include "../include/requestParser.hpp"
+#include "../include/httpRequest.hpp"
+#include "../include/httpResponse.hpp"
+#include "../include/responseHandler.hpp"
+#include "../include/serverConfig.hpp"
 
 // testParser.cpp
 void test_request_parser_simple();

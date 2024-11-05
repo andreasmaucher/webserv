@@ -70,7 +70,7 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
   }
   ResponseHandler::setFullPath(request);
 
-  if (ResponseHandler::FileExists(request.path, response) && ResponseHandler::hasReadPermission(request.path, response))
+  if (ResponseHandler::fileExists(request, response) && ResponseHandler::hasReadPermission(request.path, response))
     readFile(request, response);
 
 }
@@ -102,10 +102,10 @@ bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response) {
 
 void ResponseHandler::processFileUpload(HttpRequest& request, HttpResponse& response) {
 
-  request.path = constructFullPath(request, response);
+  constructFullPath(request, response);
 
   // Check if a file with the same name already exists at the location
-  if (!FileExists(request.path, response)) {
+  if (!fileExists(request, response)) {
     writeToFile(request, response);
   }
 
@@ -130,15 +130,16 @@ void ResponseHandler::writeToFile(HttpRequest& request, HttpResponse& response) 
 
 void ResponseHandler::processFileDeletion(HttpRequest& request, HttpResponse& response) {
   
-  request.path = constructFullPath(request, response);
+  constructFullPath(request, response);
 
   // Check if the file exists at the location. Permission check??
-  if (FileExists) { // file exists
+  if (fileExists) { // file exists
     removeFile(request, response);
 
+  }
 }
 
-void removeFile(HttpRequest& request, HttpResponse& response) {
+void ResponseHandler::removeFile(HttpRequest& request, HttpResponse& response) {
 
   if (remove(request.path.c_str()) == 0) { // try to delete
     response.status_code = 200; // OK
@@ -156,7 +157,15 @@ void removeFile(HttpRequest& request, HttpResponse& response) {
 
 //make sure the path is sanitized to avoid security breaches!
 //stat system call return 0 if file is accessible
-bool ResponseHandler::FileExists(const std::string &path, HttpResponse &response) {
+bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response) {
+  struct stat path_stat;
+
+  // // Sanitize path to avoid traversal issues (implement a sanitization function as needed)
+  // if (!sanitizePath(request.path)) {
+  //     response.status_code = 400; // Bad Request or similar for unsafe path
+  //     return false;
+  // }
+
   if (stat(request.path.c_str(), &path_stat) == 0 && S_ISREG(path_stat.st_mode)) {
     if (request.method == "POST") {
       response.status_code = 409; // Conflict
@@ -170,19 +179,26 @@ bool ResponseHandler::FileExists(const std::string &path, HttpResponse &response
   return false;
 }
 
-std::string constructFullPath(HttpRequest &request, HttpResponse &response) {
+// // simple sanitization function (not exhaustive)
+// bool ResponseHandler::sanitizePath(const std::string &path) {
+//     return (path.find("..") == std::string::npos); // Example check to block directory traversal
+// }
+
+void ResponseHandler::constructFullPath(HttpRequest &request, HttpResponse &response) {
   
-  std::string full_path = request.route_path; // Assuming route_path is the matched route's path
+  //std::string full_path = request.route->path; // Assuming route_path is the matched route's path
+  request.path = request.route->path;
 
   // Check if file_name contains subdirectories (e.g., "subdir/filename.txt")
   size_t last_slash_pos = request.file_name.find_last_of('/');
-  if (!handleSubdirectory(request, full_path, last_slash_pos))
+  if (!handleSubdirectory(request, response, last_slash_pos))
     return;
 
-  return finalizeFullPath(request, full_path, last_slash_pos);
+  finalizeFullPath(request, last_slash_pos);
+
 }
 
-std::string finalizeFullPath(HttpRequest &request, std::string &full_path, size_t &last_slash_pos) {
+void ResponseHandler::finalizeFullPath(HttpRequest &request, size_t &last_slash_pos) {
     // Append the filename (without subdirectory) to the full path
     if (last_slash_pos != std::string::npos) {
         request.file_name = request.file_name.substr(last_slash_pos + 1);
@@ -192,21 +208,21 @@ std::string finalizeFullPath(HttpRequest &request, std::string &full_path, size_
       extractOrGenerateFilename(request);
     }
     
-    full_path += "/" + request.file_name;
+    request.path += "/" + request.file_name;
 
-    return full_path;
+    return;
 }
 
-bool handleSubdirectory(HttpRequest &request, std::string &full_path, size_t &last_slash_pos) {
+bool ResponseHandler::handleSubdirectory(HttpRequest &request, HttpResponse &response, size_t &last_slash_pos) {
   // Check if file_name contains subdirectories (e.g., "subdir/filename.txt")
   if (last_slash_pos != std::string::npos) {
     // Extract subdirectory path (e.g., "subdir") and update full_path
-    std::string sub_dir = file_name.substr(0, last_slash_pos);
-    full_path += "/" + sub_dir;
+    std::string sub_dir = request.file_name.substr(0, last_slash_pos);
+    request.path += "/" + sub_dir;
 
     // Check if the directory path exists up to this point
     struct stat path_stat;
-    if (stat(full_path.c_str(), &path_stat) != 0 || !S_ISDIR(path_stat.st_mode)) {
+    if (stat(request.path.c_str(), &path_stat) != 0 || !S_ISDIR(path_stat.st_mode)) {
         // Directory path does not exist
         response.status_code = 404; // Not Found
         //response.body = "The specified directory does not exist.";
@@ -216,7 +232,7 @@ bool handleSubdirectory(HttpRequest &request, std::string &full_path, size_t &la
   return true;
 }
 
-std::string sanitizeFileName(const std::string& file_name) {
+std::string ResponseHandler::sanitizeFileName(std::string &file_name) {
     std::string sanitized;
     for (size_t i = 0; i < file_name.size(); ++i) {
         char c = file_name[i];
@@ -234,19 +250,36 @@ std::string sanitizeFileName(const std::string& file_name) {
 }
 
 // Helper function to extract the filename from headers or generate one
-void extractOrGenerateFilename(HttpRequest &request, std::string &file_name) {
+void ResponseHandler::extractOrGenerateFilename(HttpRequest &request) {
   std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Disposition");
   if (it != request.headers.end()) {
     // assuming format: Content-Disposition: attachment; filename="myfile.txt"
     size_t pos = it->second.find("filename=");
     if (pos != std::string::npos) {
-        request.file_name = it->second.substr(pos + 9); // Skip "filename="
-        request.file_name.erase(std::remove(request.file_name.begin(), request.file_name.end(), '\"'), request.file_name.end()); // Remove quotes
-        request.file_name = sanitizeFilename(request.file_name); // Sanitize filename
+      request.file_name = it->second.substr(pos + 9); // Skip "filename="
+      std::string no_quotes;
+      for (size_t i = 0; i < request.file_name.size(); ++i) {
+        if (request.file_name[i] != '\"') {
+            no_quotes += request.file_name[i];
+        }
+      }
+      request.file_name = no_quotes; // Replace original with no_quotes version
+      request.file_name = ResponseHandler::sanitizeFileName(request.file_name); // Sanitize filename
     }
   }
   if (request.file_name.empty()) //generate timestamp name for avoiding repetitions
-    request.file_name = "upload_" + std::to_string(std::time(0));
+    request.file_name = generateTimestampName();
+}
+
+std::string ResponseHandler::generateTimestampName() {
+    std::time_t current_time = std::time(0);
+
+    std::ostringstream oss;
+    oss << current_time;
+
+    std::string file_name = "upload_" + oss.str();
+
+    return file_name;
 }
 
 bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpResponse &response) {
@@ -348,17 +381,33 @@ void ResponseHandler::responseBuilder(HttpRequest &request, HttpResponse &respon
   if (!response.body.empty()) {
       if (response.headers["Content-Type"].empty()) //mandatory if body present (e.g. errors)
         response.headers["Content-Type"] = "text/html";
-      response.headers["Content-Length"] = std::to_string(response.body.length()); //optional but mandatory for errors
+      std::ostringstream oss;
+      oss << response.body.length();
+      response.headers["Content-Length"] = oss.str(); //optional but mandatory for errors
   }
-  response.headers["Date"] = ; // optional
+  response.headers["Date"] = generateDateHeader(); // optional
   response.headers["Server"] = "MAC_Server/1.0"; //optional
  
 
 }
 
-void ResponseHandler::serveErrorPage(HttpResponse &response){
+std::string ResponseHandler::generateDateHeader() {
+    // Get current time
+    std::time_t now = std::time(0);
+    std::tm *gmtm = std::gmtime(&now); // Convert to UTC
+    
+    // Prepare a string to hold the formatted date
+    char dateStr[30]; // Enough space for the formatted string
+    
+    // Format the date according to RFC 1123
+    std::strftime(dateStr, sizeof(dateStr), "%a, %d %b %Y %H:%M:%S GMT", gmtm);
+    
+    return std::string(dateStr);
+}
 
-  std::string file_path = ROOT_DIR + ERROR_PATH + response.status_code + ".html";
+void ResponseHandler::serveErrorPage(HttpResponse &response) {
+
+  std::string file_path = buildFullPath(response.status_code);
 
   response.body = read_error_file(file_path);
   if (response.body.empty()) {
@@ -373,7 +422,19 @@ void ResponseHandler::serveErrorPage(HttpResponse &response){
   return;
 }
 
-std::string read_error_file(std::string &file_path) {
+std::string ResponseHandler::buildFullPath(int status_code) {
+    std::ostringstream oss;
+    oss << status_code;  // Convert int to string
+
+    std::string full_path = ROOT_DIR;           // Start with root directory
+    full_path += ERROR_PATH;                    // Add error path
+    full_path += oss.str();                     // Append the status code as string
+    full_path += ".html";                       // Add file extension or suffix as needed
+
+    return full_path;
+}
+
+std::string ResponseHandler::read_error_file(std::string &file_path) {
   std::ifstream file;
   file.open(file_path.c_str(), std::ios::in | std::ios::binary);
 
@@ -388,19 +449,6 @@ std::string read_error_file(std::string &file_path) {
   file.close(); // Close the file after reading
   
   return buffer.str();
-}
-
-void ResponseHandler::generateRawResponseStr(HttpResponse &response) {
-  //generate response status line:
-  raw_string = response.version + " " + response.status_code + " " + response.reason_phrase + "/r/n";
-  //add headers
-  for (std::map<std::string, std::string>::const_iterator it = response.headers.begin(); it != response.headers.end(); ++it) {
-   raw_string += it->first + ": " + it->second + "/r/n";
-  }
-  if (!respose.headers.empty())
-   raw_string += "/r/n";
-  if (!response.body.empty())
-   raw_string += response.body; // + "/r/n" ??
 }
 
 //-----------------

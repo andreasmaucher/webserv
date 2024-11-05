@@ -6,7 +6,7 @@
 /*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/29 17:48:45 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/11/05 13:45:19 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,8 +24,8 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <cstdio>
-#include "../http/httpRequest.hpp"
-#include "../http/requestParser.hpp"
+#include "../../include/httpRequest.hpp"
+#include "../../include/requestParser.hpp"
 
 
 #define MAX_SIM_CONN 10
