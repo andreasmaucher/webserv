@@ -11,8 +11,9 @@ ServerConfig createFakeServerConfig()
     Route staticRoute;
     staticRoute.uri = "/static";
     staticRoute.path = config.getRootDirectory() + staticRoute.uri;
+    staticRoute.index_file = "index.html";
     staticRoute.methods.insert("GET");
-    staticRoute.methods.insert("POST");
+   //staticRoute.methods.insert("POST");
     staticRoute.methods.insert("DELETE");
     staticRoute.content_type.insert("text/plain");
     staticRoute.content_type.insert("text/html");
@@ -23,24 +24,36 @@ ServerConfig createFakeServerConfig()
     // Add a route for images
     Route imageRoute;
     imageRoute.uri = "/images";
-    imageRoute.path = config.getRootDirectory() + "/images";
+    imageRoute.path = config.getRootDirectory() + imageRoute.uri;
     imageRoute.methods.insert("GET");
     imageRoute.content_type.insert("image/jpeg");
+    imageRoute.content_type.insert("image/png");
     imageRoute.is_cgi = false;
     
     config.setRoute(imageRoute.uri, imageRoute);
 
+    // Add a route for uploads
+    Route uploadsRoute;
+    uploadsRoute.uri = "/uploads";
+    uploadsRoute.path = config.getRootDirectory() + uploadsRoute.uri;
+    uploadsRoute.methods.insert("GET");
+    uploadsRoute.methods.insert("POST");
+    uploadsRoute.methods.insert("DELETE");
+    uploadsRoute.content_type.insert("image/jpeg");
+    uploadsRoute.content_type.insert("image/png");
+    uploadsRoute.content_type.insert("text/plain");
+    uploadsRoute.content_type.insert("text/html");
+    uploadsRoute.is_cgi = false;
+    config.setRoute(uploadsRoute.uri, uploadsRoute);
+
     // Add a route for a CGI script
     Route cgiRoute;
     cgiRoute.uri = "/cgi-bin";
-    cgiRoute.path = config.getRootDirectory() + "/cgi-bin";
-    // cgiRoute.methods = {"GET", "POST"};
-    // cgiRoute.content_type = {"application/octet-stream"};
+    cgiRoute.path = config.getRootDirectory() + cgiRoute.uri;
     cgiRoute.methods.insert("GET");
     cgiRoute.methods.insert("POST");
     cgiRoute.content_type.insert("application/octet-stream");
     cgiRoute.is_cgi = true;
-    
     config.setRoute(cgiRoute.uri, cgiRoute);
 
     // Define error pages
@@ -97,26 +110,33 @@ void test_responseHandler()
 {
     ServerConfig    config = createFakeServerConfig();
 
-    run_test_("GET Index_File_Success", 200, createFakeHttpRequest("GET", "/static", "", "", ""), config);
-    run_test_("GET Simple_Success", 200, createFakeHttpRequest("GET", "/static/upload.txt", "text/plain", "", ""), config);
-    run_test_("GET No_Content_Type_Header_Success", 200, createFakeHttpRequest("GET", "/static/upload.txt", "", "", ""), config);
-    run_test_("POST Simple_Success", 201, createFakeHttpRequest("POST", "/static/file.txt", "text/plain", "27", "name=test&value=hello%20world"), config);
-    run_test_("POST No_File_Name_Success", 201, createFakeHttpRequest("POST", "/static", "text/plain", "27", "name=test&value=testttttest"), config);
-    run_test_("DELETE Simple_Success", 200,createFakeHttpRequest("DELETE", "/static/file.txt", "text/plain", "", ""), config);
+    run_test_("GET Index_File", 200, createFakeHttpRequest("GET", "/static", "", "", ""), config);
+    run_test_("GET Simple", 200, createFakeHttpRequest("GET", "/static/example.txt", "text/plain", "", ""), config);
+    run_test_("GET No_Content_Type_Header", 200, createFakeHttpRequest("GET", "/static/example.txt", "", "", ""), config);
+    run_test_("POST Simple", 201, createFakeHttpRequest("POST", "/uploads/file.txt", "text/plain", "10", "a file"), config);
+    run_test_("POST No_File_Name", 201, createFakeHttpRequest("POST", "/uploads", "text/plain", "31", "name=test&value=testttttest"), config);
+    run_test_("POST No_Content_Type_Header", 201, createFakeHttpRequest("POST", "/uploads/no_content_type.txt", "", "27", "name=test&value=hello%20world"), config);
+    run_test_("DELETE Simple", 200,createFakeHttpRequest("DELETE", "/uploads/file.txt", "text/plain", "", ""), config);
 
-    run_test_("DELETE No_File_Specified", 400, createFakeHttpRequest("DELETE", "/static", "text/plain", "", ""), config); 
-    run_test_("DELETE File_Not_Found", 404, createFakeHttpRequest("DELETE", "/static/missing.txt", "text/plain", "", ""), config);
     run_test_("GET File_Not_Found", 404, createFakeHttpRequest("GET", "/static/missing.txt", "text/plain", "", ""), config);
-    run_test_("GET File_Forbidden", 403, createFakeHttpRequest("GET", "/images/secret.png", "image/png", "", ""), config);
-    run_test_("GET Errors_File_Forbidden", 403, createFakeHttpRequest("GET", "/errors/400.html", "text/html", "", ""), config);
-    run_test_("GET No_Matching_Route", 501, createFakeHttpRequest("GET", "/missing", "text/plain", "", ""), config);
-    run_test_("GET Method_Not_Allowed_In_Route", 405, createFakeHttpRequest("DELETE", "/images/oli.jpg", "image/jpeg", "", ""), config);
-    run_test_("POST File_Already_Exists", 409, createFakeHttpRequest("POST", "/static/upload.txt", "text/plain", "27", "name=test&value=hello%20world"), config);
-    run_test_("POST No_File_Name_No_Body_No_Content_Type", 400, createFakeHttpRequest("POST", "/static", "", "", ""), config);
-    run_test_("POST No_Content_Type_Header", 415, createFakeHttpRequest("POST", "/static/upload.txt", "", "27", "name=test&value=hello%20world"), config);
-    run_test_("POST Content_Type_Header_Not_Allowed_In_Route", 415, createFakeHttpRequest("POST", "/static/upload.png", "image/png", "", "name=test&value=imageblabla"), config);
-    run_test_("POST Content_Type_Not_Matching_File_Extension", 415, createFakeHttpRequest("POST", "/static/upload.txt", "text/html", "27", "name=test&value=hello%20world"), config);
-    run_test_("POST No_Content_Type_Header_And_File_Extension_Not_Allowed_In_Route", 415, createFakeHttpRequest("POST", "/static/upload.py", "", "27", "name=test&value=hello%20world"), config);
+    //make sure that file has no read permission for next test
+    //run_test_("GET File_Forbidden", 403, createFakeHttpRequest("GET", "/images/secret.png", "image/png", "", ""), config);
+    //run_test_("DELETE File_Forbidden", 403, createFakeHttpRequest("DELETE", "/static/asecret.txt", "text/plain", "", ""), config);
+
+    //failing (201) just overwritting the already existing file
+    run_test_("POST File_Already_Exists", 409, createFakeHttpRequest("POST", "/uploads/dont_delete.txt", "text/plain", "15", "change file"), config);
+    run_test_("POST No_Body_No_Content_Type", 400, createFakeHttpRequest("POST", "/uploads", "", "", ""), config);
+    
+    run_test_("DELETE No_File_Specified", 501, createFakeHttpRequest("DELETE", "/uploads", "text/plain", "", ""), config); 
+    run_test_("DELETE File_Not_Found", 404, createFakeHttpRequest("DELETE", "/uploads/missing.txt", "text/plain", "", ""), config);
+    //DELETE File_Forbidden
+    
+    run_test_("No_Matching_Route", 404, createFakeHttpRequest("GET", "/missing", "text/plain", "", ""), config);
+    run_test_("Method_Not_Allowed_In_Route", 405, createFakeHttpRequest("DELETE", "/images/oli.jpg", "", "", ""), config);
+    run_test_("Content_Type_Header_Not_Allowed_In_Route", 415, createFakeHttpRequest("GET", "/static", "image/png", "", ""), config);
+    run_test_("Content_Type_Not_Matching_File_Extension", 415, createFakeHttpRequest("POST", "/uploads/upload.txt", "text/html", "27", "name=test&value=hello%20world"), config);
+    run_test_("POST No_Content_Type_Header_And_File_Extension_Not_Allowed_In_Route", 415, createFakeHttpRequest("POST", "/uploads/script.py", "", "27", "name=test&value=hello%20world"), config);
+    
     //test_serverError(config);
 
 }

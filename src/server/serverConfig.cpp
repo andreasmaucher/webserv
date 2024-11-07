@@ -58,6 +58,7 @@ void ServerConfig::setErrorPages(const std::map<int, std::string> &error_pages) 
 //     std::string line;
 //     std::string uri;
 //     std::string path;
+//     std::string index_file;
 //     std::set<std::string> methods;
 //     std::set<std::string> content_type;
 //     std::string redirect_uri;
@@ -77,29 +78,32 @@ void ServerConfig::setErrorPages(const std::map<int, std::string> &error_pages) 
 //             uri.clear();
 //             path.clear();
 //             methods.clear();
+//             index_file.clear();
 //             content_type.clear();
 //             redirect_uri.clear();
 //             directory_listing_enabled = false;
 //             is_cgi = false;
-//             std::string method;
-//             while (iss >> method) {
-//                 if (method == "uri") {
+//             std::string parameter;
+//             while (iss >> parameter) {
+//                 if (parameter == "uri") {
 //                     iss >> uri;
-//                 } else if (method == "path") {
+//                 } else if (parameter == "path") {
 //                     iss >> path;
-//                 } else if (method == "method") {
-//                     while (iss >> method) {
-//                         methods.insert(method);
+//                 } else if (parameter == "method") {
+//                     while (iss >> parameter) {
+//                         methods.insert(parameter);
 //                     }
-//                 } else if (method == "content_type") {
-//                     while (iss >> method) {
-//                         content_type.insert(method);
+//                 } else if (parameter == "content_type") {
+//                     while (iss >> parameter) {
+//                         content_type.insert(parameter);
 //                     }
-//                 } else if (method == "redirect_uri") {
+//                 } else if (parameter == "redirection") {
 //                     iss >> redirect_uri;
-//                 } else if (method == "directory_listing_enabled") {
+//                 } else if (parameter == "index") {
+//                         iss >> index_file;
+//                 } else if (parameter == "directory_listing_enabled") {
 //                     directory_listing_enabled = true;
-//                 } else if (method == "is_cgi") {
+//                 } else if (parameter == "is_cgi") {
 //                     is_cgi = true;
 //                 }
 //             }
@@ -107,6 +111,7 @@ void ServerConfig::setErrorPages(const std::map<int, std::string> &error_pages) 
 //             route.uri = uri;
 //             route.path = path;
 //             route.methods = methods;
+//             route.index = index_file;
 //             route.content_type = content_type;
 //             route.redirect_uri = redirect_uri;
 //             route.directory_listing_enabled = directory_listing_enabled;

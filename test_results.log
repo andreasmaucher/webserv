@@ -1,0 +1,195 @@
+TEST: GET Index_File - RESULT: Passed
+Execution Output:
+HTTP/1.1 200 OK/r/nContent-Length: 7467/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Welcome to MAC-Server!</h2>
+
+<img src="data:image/jpeg;base64,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" alt="adobestock" width="150" height="142">
+
+
+<p>INDEX:</p>
+
+<a href="https://github.com/andreasmaucher/webserv">This is a link</a>
+<p><a href="https://www.google.com">This is another link</a></p>
+<a href="https://www.w3schools.com">And another link</a>
+
+
+</body>
+</html>
+
+
+
+TEST: GET Simple - RESULT: Passed
+Execution Output:
+HTTP/1.1 200 OK/r/nContent-Length: 10/r/nContent-Type: text/plain/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/nhali halo!
+
+TEST: GET No_Content_Type_Header - RESULT: Passed
+Execution Output:
+HTTP/1.1 200 OK/r/nContent-Length: 10/r/nContent-Type: text/plain/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/nhali halo!
+
+TEST: POST Simple - RESULT: Passed
+Execution Output:
+HTTP/1.1 201 Created/r/nContent-Length: 26/r/nContent-Type: text/plain/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/nFile uploaded successfully
+
+TEST: POST No_File_Name - RESULT: Passed
+Execution Output:
+HTTP/1.1 201 Created/r/nContent-Length: 26/r/nContent-Type: text/plain/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/nFile uploaded successfully
+
+TEST: POST No_Content_Type_Header - RESULT: Passed
+Execution Output:
+HTTP/1.1 201 Created/r/nContent-Length: 26/r/nContent-Type: text/plain/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/nFile uploaded successfully
+
+TEST: DELETE Simple - RESULT: Passed
+Execution Output:
+HTTP/1.1 200 OK/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n
+
+TEST: GET File_Not_Found - RESULT: Passed
+Execution Output:
+HTTP/1.1 404 Not Found/r/nConnection: close/r/nContent-Length: 179/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+<body>
+
+<img src="https://http.cat/images/404.jpg" alt="adobestock" width="800" height="800">
+
+
+<p>Page cannot be found right meow...</p>
+
+
+</body>
+</html>
+
+
+TEST: POST File_Already_Exists - RESULT: Passed
+Execution Output:
+HTTP/1.1 409 Unknown/r/nConnection: close/r/nContent-Length: 135/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+
+<body>
+
+    <img src="https://http.cat/status/409" alt="adobestock" width="800" height="800">
+
+</body>
+
+</html>
+
+TEST: POST No_Body_No_Content_Type - RESULT: Passed
+Execution Output:
+HTTP/1.1 400 Bad Request/r/nConnection: close/r/nContent-Length: 538/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+<head>
+	<link rel="stylesheet" type="text/css" href="/_errors/main.css"/>
+	<title>Error 400 - %{HOSTNAME}</title>
+	<style>
+		html{
+			background-color: #e74c3c;
+		}
+		
+		body{
+			color: #fefefe;
+		}
+	</style>
+</head>
+
+<body>
+<div class="error-middle">
+	<h1>Error 400 - Bad Request</h1>
+	<p>Server cannot or will not process the request due to something that is perceived to be a client error (e.g., malformed request syntax, invalid request message framing, or deceptive request routing).</p>
+</div>
+</body>
+</html>
+
+TEST: DELETE No_File_Specified - RESULT: Passed
+Execution Output:
+HTTP/1.1 501 Not Implemented/r/nConnection: close/r/nContent-Length: 129/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+<body>
+
+<img src="https://http.cat/status/501" alt="adobestock" width="800" height="800">
+
+</body>
+</html>
+
+TEST: DELETE File_Not_Found - RESULT: Passed
+Execution Output:
+HTTP/1.1 404 Not Found/r/nConnection: close/r/nContent-Length: 179/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+<body>
+
+<img src="https://http.cat/images/404.jpg" alt="adobestock" width="800" height="800">
+
+
+<p>Page cannot be found right meow...</p>
+
+
+</body>
+</html>
+
+
+TEST: No_Matching_Route - RESULT: Passed
+Execution Output:
+HTTP/1.1 404 Not Found/r/nConnection: close/r/nContent-Length: 179/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+<body>
+
+<img src="https://http.cat/images/404.jpg" alt="adobestock" width="800" height="800">
+
+
+<p>Page cannot be found right meow...</p>
+
+
+</body>
+</html>
+
+
+TEST: Method_Not_Allowed_In_Route - RESULT: Passed
+Execution Output:
+HTTP/1.1 405 Method Not Allowed/r/nAllow: GET/r/nConnection: close/r/nContent-Length: 133/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+<body>
+
+<img src="https://http.cat/images/405.jpg" alt="adobestock" width="800" height="800">
+
+</body>
+</html>
+
+TEST: Content_Type_Header_Not_Allowed_In_Route - RESULT: Passed
+Execution Output:
+HTTP/1.1 415 Unsupported Media Type/r/nConnection: close/r/nContent-Length: 139/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+
+<body>
+
+    <img src="https://http.cat/images/415.jpg" alt="adobestock" width="800" height="800">
+
+</body>
+
+</html>
+
+TEST: Content_Type_Not_Matching_File_Extension - RESULT: Passed
+Execution Output:
+HTTP/1.1 415 Unsupported Media Type/r/nConnection: close/r/nContent-Length: 139/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+
+<body>
+
+    <img src="https://http.cat/images/415.jpg" alt="adobestock" width="800" height="800">
+
+</body>
+
+</html>
+
+TEST: POST No_Content_Type_Header_And_File_Extension_Not_Allowed_In_Route - RESULT: Passed
+Execution Output:
+HTTP/1.1 415 Unsupported Media Type/r/nConnection: close/r/nContent-Length: 139/r/nContent-Type: text/html/r/nDate: Thu, 07 Nov 2024 18:21:06 GMT/r/nServer: MAC_Server/1.0/r/n/r/n<!DOCTYPE html>
+<html>
+
+<body>
+
+    <img src="https://http.cat/images/415.jpg" alt="adobestock" width="800" height="800">
+
+</body>
+
+</html>
+

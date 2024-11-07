@@ -60,6 +60,7 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
   // Directory Listing Enabled: If directory listing is enabled, and no default index file exists, the server will dynamically generate a page showing the contents of the directory, so the user can browse the files.
   if (request.is_directory) {
     request.file_name = DEFAULT_FILE; //index of all server directories
+    request.is_directory = false; //to avoid the fileExists directory check
     // if (config.routes[request.uri].directory_listing) {
     //   std::cout << "Implement directory listing" << std::endl;
     //   //search for & serve default index file or generate dynamically
@@ -103,7 +104,14 @@ bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response) {
 }
 
 void ResponseHandler::processFileUpload(HttpRequest& request, HttpResponse& response) {
+  
   std::cout << "Processing file upload" << std::endl;
+  
+  if (request.body.empty()) {
+    response.status_code = 400; // Bad Request
+    return;
+  }
+
   constructFullPath(request, response);
 
   // Check if a file with the same name already exists at the location
@@ -170,19 +178,24 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response) {
   //     response.status_code = 400; // Bad Request or similar for unsafe path
   //     return false;
   // }
-
-  if (stat(request.path.c_str(), &path_stat) == 0 && S_ISREG(path_stat.st_mode)) {
+  //if (access(request.path.c_str(), F_OK) == 0) {
+  if (stat(request.path.c_str(), &path_stat) == 0 && (!request.is_directory && S_ISREG(path_stat.st_mode))) {
+    std::cout << "File exists and accessible" << std::endl;
     if (request.method == "POST") {
       std::cout << "File already exists" << std::endl;
       response.status_code = 409; // Conflict
     }
     return true;
   }
-  if (request.method == "GET" || request.method == "DELETE") {
+  if (request.method == "GET" || (request.method == "DELETE" && !request.is_directory)) {
     std::cout << "File does not exist" << std::endl;
     response.status_code = 404; // Not Found
   }
-  
+  else if (request.method == "DELETE" && request.is_directory) {
+    std::cout << "Directory deletion not implemented" << std::endl;
+    response.status_code = 501; // Not Found
+  }
+  std::cout << "File does not exist or not accessible" << std::endl;
   return false;
 }
 
@@ -309,48 +322,99 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
   }
 }
 
+// // Custom substring match function for routes
+// size_t matchRouteDirectory(const std::string &request_uri, const std::string &route_uri) {
+//     // Check if request URI starts with the route URI
+//     if (request_uri.compare(0, route_uri.size(), route_uri) == 0) {
+//         // Ensure that the match is followed by a '/' or is at the end of request URI
+//         std::cout << "matched folder: " << route_uri << std::endl;
+//         if (request_uri.size() == route_uri.size() || request_uri[route_uri.size()] == '/') {
+//             std::cout << "full match or request uri followed by / => subfolder" << std::endl;
+//             return route_uri.size(); // Return the length of the match
+//         }
+//         std::cout << "request uri not followed by / (maybe longer word)" << std::endl;
+//     }
+//     std::cout << "no match" << std::endl;
+//     return 0; // No match
+// }
+
+// bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
+//     std::cout << "Finding matching route for " << request.uri << std::endl;
+//     const std::map<std::string, Route> &routes = config.getRoutes();
+//     const Route *best_match = NULL;
+//     size_t longest_match_length = 0;
+
+//     for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it) {
+//         const std::string &route_uri = it->first;
+//         std::cout << "Comparing to route: " << route_uri << std::endl;
+//         const Route &route_object = it->second;
+//         std::cout << "Route object adress: " << &it->second << "uri: " <<  it->second.uri << std::endl;
+
+//         // Use the custom function to get the length of the matched prefix
+//         size_t match_length = matchRouteDirectory(request.uri, route_uri);
+//         if (match_length > longest_match_length) {
+//             best_match = &route_object;
+//             std::cout << "Saving best match: " << best_match << std::endl;
+//             longest_match_length = match_length;
+//         }
+//     }
+
+//     if (best_match == NULL) {
+//         std::cout << "No matching route found" << std::endl;
+//         response.status_code = 404; // Not Found
+//         return false;
+//     }
+
+//     if (!best_match->redirect_uri.empty()) {
+//         std::cout << "Redirecting to new location" << std::endl;
+//         response.status_code = 301; // Moved Permanently
+//         response.setHeader("Location", best_match->redirect_uri);
+//         return false;
+//     }
+
+//     std::cout << "Route found: " << best_match->uri << std::endl;
+//     request.route = best_match;
+//     return true;
+// }
+
 // Store the best match if there are multiple matches (longest prefix match)
 bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
-  
-  std::cout << "Finding matching route for " << request.uri << std::endl;
-  const std::map<std::string, Route> &routes = config.getRoutes();
-  const Route *best_match = NULL;
-  size_t longest_match_length = 0;
+    std::cout << "Finding matching route for " << request.uri << std::endl;
+    const std::map<std::string, Route> &routes = config.getRoutes();
+    const Route *best_match = NULL;
+    size_t longest_match_length = 0;
 
-  for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it) {
-    const std::string &route_uri = it->first;
-    const Route &route_object = it->second;
+    for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it) {
+        const std::string &route_uri = it->first;
+        std::cout << "Comparing to route: " << route_uri << std::endl;
+        const Route &route_object = it->second;
 
-  //searches for the first occurrence of the substring saved in the config route_uri within the request string uri.
-    if (request.uri.find(route_uri) == 0) {
-      size_t match_length = route_uri.size();//some uris might have more than one directory, so the longest match is the good one
-      if (match_length > longest_match_length) {//save until there is a better match in another Route object
-        best_match = &route_object;
-        longest_match_length = match_length;
-      }
+        if (request.uri.compare(0, route_uri.size(), route_uri) == 0 &&
+            (request.uri.size() == route_uri.size() || request.uri[route_uri.size()] == '/')) {
+            size_t match_length = route_uri.size();
+            if (match_length > longest_match_length) {
+                best_match = &route_object;
+                longest_match_length = match_length;
+            }
+        }
     }
-  }
 
-  if (best_match == NULL) {
-    std::cout << "No matching route found" << std::endl;
-    response.status_code = 404; // Not Found
-    return false;
-  }
+    if (best_match == NULL) {
+        std::cout << "No matching route found" << std::endl;
+        response.status_code = 404;
+        return false;
+    }
 
-  //if route indicates a redirect, pass new location in response so that client can create a new request
-  if (!best_match->redirect_uri.empty()) {
-    std::cout << "Redirecting to new location" << std::endl;
-    response.status_code = 301; // Moved Permanently
-    // set header specifiying new location
-    std::string header_key = "Location";
-    std::string header_value = best_match->redirect_uri;
-    response.setHeader(header_key, header_value);
-    return false;
-  }
-  
-  std::cout << "Route found: " << best_match->uri << std::endl;
-  request.route = best_match;
-  return true;
+    if (!best_match->redirect_uri.empty()) {
+        std::cout << "Redirecting to new location" << std::endl;
+        response.status_code = 301;
+        response.setHeader("Location", best_match->redirect_uri);
+        return false;
+    }
+
+    std::cout << "Route found: " << best_match->uri << std::endl;
+    request.route = best_match;
+    return true;
 }
 
 bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &response) {
@@ -418,7 +482,7 @@ void ResponseHandler::responseBuilder(HttpResponse &response) {
   response.headers["Date"] = generateDateHeader(); // optional
   response.headers["Server"] = "MAC_Server/1.0"; //optional
  
-
+  std::cout << "\n..............Response complete..............\n" << std::endl;
 }
 
 std::string ResponseHandler::generateDateHeader() {
@@ -468,9 +532,11 @@ std::string ResponseHandler::read_error_file(std::string &file_path) {
   
   std::cout << "Trying to read error file path: " << file_path << std::endl;
   std::ifstream file;
+  
   file.open(file_path.c_str(), std::ios::in | std::ios::binary);
 
   if (!file.is_open()) { // has been checked in hasReadPermission already
+      std::cout << "Error reading ERROR file" << std::endl;
       return ""; // Internal Server Error
   }
 

@@ -17,7 +17,8 @@ struct Route {
     std::string path;                      // Physical directory path, e.g., "/var/www/static"
     std::set<std::string> methods;         // Allowed HTTP methods, e.g., {"GET", "HEAD"}
     std::set<std::string> content_type;              // MIME type, e.g., "text/html"
-    std::string redirect_uri;                   // Is it a CGI route?
+    std::string redirect_uri;     
+    std::string index_file;
     bool directory_listing_enabled;
     bool is_cgi;        
 
@@ -46,7 +47,7 @@ class ServerConfig {
     private:
         std::string root_directory;                      // Root directory for server files
         std::map<std::string, Route> routes;             // Mapping of URIs to Route objects
-        std::map<int, std::string> error_pages;          // Error pages mapped by status code
+        std::map<int, std::string> error_pages;          // Error pages mapped by status code                        // Default index file
         
         bool loadConfig(const std::string &config_file); // config file parser
 };
