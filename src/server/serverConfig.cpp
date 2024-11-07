@@ -1,4 +1,4 @@
-#include "serverConfig.hpp"
+#include "../../include/serverConfig.hpp"
 
 // ServerConfig::ServerConfig() {
 //     loadConfig(DEFAULT_CONFIG);

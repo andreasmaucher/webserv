@@ -1,4 +1,4 @@
-#include "httpResponse.hpp"
+#include "../../include/httpResponse.hpp"
 
 HttpResponse::HttpResponse() : version(""), status_code(0), reason_phrase(""), headers(), body(""), file_content_type("") {}
 
@@ -8,7 +8,7 @@ void HttpResponse::setHeader(const std::string &header_name, const std::string &
 }
 
 // generates final response (formatted as one string)
-void HttpResponse::generateRawResponseStr() {
+std::string HttpResponse::generateRawResponseStr() {
   std::string raw_string;
   //generate response status line:
   std::ostringstream oss;
@@ -22,4 +22,6 @@ void HttpResponse::generateRawResponseStr() {
    raw_string += "/r/n";
   if (!this->body.empty())
    raw_string += this->body; // + "/r/n" ??
+
+   return raw_string;
 }

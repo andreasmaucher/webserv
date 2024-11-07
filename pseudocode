@@ -1,3 +1,5 @@
+MAKE SURE TO RUN THE EXECUTABLE FROM THE ROOT FOLDER, ELSE CREATED PATHS TO CONTENT WON'T MATCH SINCE THEY'RE RELATIVE (getcwd not allowed)
+
 processRequest:
 if valid request (status code == 0)
     routeRequest

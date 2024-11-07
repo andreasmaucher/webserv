@@ -82,7 +82,8 @@
     "fstream": "cpp",
     "iomanip": "cpp",
     "set": "cpp",
-    "stack": "cpp"
+    "stack": "cpp",
+    "filesystem": "cpp"
   },
   "C_Cpp_Runner.cCompilerPath": "gcc",
   "C_Cpp_Runner.cppCompilerPath": "g++",

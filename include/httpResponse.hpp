@@ -14,7 +14,7 @@ class HttpResponse {
         HttpResponse();
         
         void setHeader(const std::string &header_name, const std::string &header_value);
-        void generateRawResponseStr();
+        std::string generateRawResponseStr();
 
         // // Getters
         // const std::string& getVersion() const { return version; }

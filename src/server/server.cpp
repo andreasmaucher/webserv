@@ -3,14 +3,14 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/10/30 12:33:16 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/11/06 13:27:30 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "server.hpp"
+#include "../../include/server.hpp"
 
 void *Server::get_in_addr(struct sockaddr *sa)
 {

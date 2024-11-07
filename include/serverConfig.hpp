@@ -4,7 +4,7 @@
 #define MAX_BODY_SIZE 1000000
 #define ROOT_DIR "www"
 #define DEFAULT_FILE "index.html"
-#define ERROR_PATH "/html/errors/"
+#define ERROR_PATH "/errors/"
 
 #include <string>
 #include <map>
@@ -27,8 +27,8 @@ struct Route {
 // Represents the overall server configuration
 class ServerConfig {
     public:
-        ServerConfig();
-        ServerConfig(const std::string &config_file);
+        // ServerConfig();
+        // ServerConfig(const std::string &config_file);
         
         // Getters
         const std::string &getRootDirectory() const;

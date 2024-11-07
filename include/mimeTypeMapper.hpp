@@ -12,7 +12,7 @@ public:
     MimeTypeMapper();
     void extractFileExtension(HttpRequest &request);
     void extractFileName(HttpRequest &request);
-    void findContentType(std::string &extension);
+    void findContentType(HttpRequest &request);
     bool isCGIRequest(const std::string &extension);
     bool isContentTypeAllowed(HttpRequest &request, HttpResponse &response);
 

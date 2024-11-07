@@ -1,8 +1,18 @@
-
-#include "http/requestParser.hpp"
-#include "http/httpRequest.hpp"
+#include "../include/server.hpp"
+#include "../include/serverConfig.hpp"
+#include "../include/httpRequest.hpp"
+#include "../include/requestParser.hpp"
+#include "../include/httpResponse.hpp"
+#include "../include/responseHandler.hpp"
+#include "../include/mimeTypeMapper.hpp"
 #include "../tests/testsHeader.hpp"
-#include "server/server.hpp"
+
+int main() {
+    test_responseHandler();
+    // test_request_parser_simple();
+    // test_request_parser_streaming();
+    return 0;
+}
 
 // int main(int argc, char *argv[])
 // {
@@ -25,11 +35,3 @@
 //     }
 //     return (0);
 // }
-
-
-int main() {
-    test_routing();
-    // test_request_parser_simple();
-    // test_request_parser_streaming();
-    return 0;
-}
