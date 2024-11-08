@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/11/06 13:26:39 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/11/08 12:26:29 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,6 +26,10 @@
 #include <cstdio>
 #include "httpRequest.hpp"
 #include "requestParser.hpp"
+#include "httpResponse.hpp"
+#include "responseHandler.hpp"
+#include "serverConfig.hpp"
+#include "../tests/testsHeader.hpp"
 
 
 #define MAX_SIM_CONN 10
@@ -47,6 +51,7 @@
 class Server {
 
 private:
+    ServerConfig config;
     int sockfd;
     // pfds - struct of fd's
     // newfd - fd to add
@@ -100,7 +105,7 @@ public:
 
     int        start();
     void        request(int i);
-    void        response(int i);
+    void        response(int i, HttpRequest &request);
     void        new_connection(int i);
     void        handleSigint(int signal);
     static void sigintHandler(int signal);

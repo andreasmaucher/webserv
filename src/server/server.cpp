@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/11/06 13:27:30 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/11/08 12:28:36 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -192,11 +192,13 @@ int Server::setup(const std::string &port)
 
     // std::vector<pollfd> pfds_vec(1);
 
-    HttpRequest newRequest;
+    // calling temporary hardcoding function for testing
+    config = createFakeServerConfig();
     // pollfd pfd;
     // pfd.fd = 0;
     // pfds_vec[0].events = POLLIN | POLLOUT;
     // pfds_vec.push_back(pfd);
+    HttpRequest newRequest;
     httpRequests.push_back(newRequest);
     std::cout << "httpRequest vector size in setup: " << httpRequests.size() << std::endl;
     // for (size_t i = 0; i < pfds_vec.size(); i++) {
@@ -215,10 +217,7 @@ int Server::setup(const std::string &port)
     //     pfd.events = POLLIN | POLLOUT;
     //     pfds_vec.push_back(pfd);
     //     httpRequests.push_back(newRequest);
-    // }
-    request_fully_received = 0;
-    response_ready_to_send = 0;
-    
+    // }    
 
     // TODO: change to vector
     // pfds = new struct pollfd[fd_size]();
@@ -283,7 +282,7 @@ int Server::start()
             {
                 std::cout << "i is " << i << " in POLLOUT" << std::endl;
                 // printf("Response!\n");
-                response(i);
+                response(i, httpRequests[i]);
             } // END got ready-to-read from poll()
         } // END looping through file descriptors
     } // END  while(1) loop
@@ -361,25 +360,24 @@ void Server::request(int i)
     } // END got ready-to-read from poll()
 }
 
-void Server::response(int i)
+void Server::response(int i, HttpRequest &request)
 {
     std::cout << "Response function called for client i:" << i << ". Accessing request with same index" << std::endl;
-    if (httpRequests[i].complete)
+    if (request.complete)
     {
-        //HttpResponse response; // (or instantiate at the same time as HttpRequest)
-        //ResponseHandler::processRequest(httprequests[i],response); // processes the request and creates a response
+        HttpResponse response; // (or instantiate at the same time as HttpRequest)
+        ResponseHandler::processRequest(config, request, response); // processes the request and creates a response
         //from this point the response is ready, you can access it calling response.generateResponseStr(), which resturns the whole response as a single std::string for sending
 
-        std::string response =
-            "HTTP/1.1 200 OK\r\nDate: Fri, 27 Oct 2023 14:30:00 GMT\r\nServer: CustomServer/1.0\r\nContent-Type: text/plain\r\nContent-Length: 13\r\nConnection: keep-alive\r\n\r\nHello, World!\r\n";
-        // TODO: RESPONSE GOES HERE
-        if (send(pfds_vec[i].fd, response.c_str(), response.size(), 0) == -1)
+        std::string responseStr = response.generateRawResponseStr();
+        //   "HTTP/1.1 200 OK\r\nDate: Fri, 27 Oct 2023 14:30:00 GMT\r\nServer: CustomServer/1.0\r\nContent-Type: text/plain\r\nContent-Length: 13\r\nConnection: keep-alive\r\n\r\nHello, World!\r\n";
+        if (send(pfds_vec[i].fd, responseStr.c_str(), responseStr.size(), 0) == -1)
         {
             perror("send");
         }
         std::cout << "Response sent to client " << i << " after receiving following request: " << std::endl;
-        httpRequests[i].printRequest();
-        httpRequests[i].reset(); // cleans up the request
+        //request.printRequest();
+        request.reset(); // cleans up the request
     }
 }
 

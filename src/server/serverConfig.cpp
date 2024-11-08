@@ -1,12 +1,15 @@
 #include "../../include/serverConfig.hpp"
 
+// // if no config file provided at execution call this constructor
 // ServerConfig::ServerConfig() {
-//     loadConfig(DEFAULT_CONFIG);
+//     loadConfig(DEFAULT_CONFIG);    
 // }
 
-// ServerConfig::ServerConfig(const std::string &config_file) {
-//     loadConfig(config_file);
-// }
+// else if config file is provided at execution call this constructor passing the argv[1] as the config file
+// converting char* to string
+// // ServerConfig::ServerConfig(const std::string &config_file) {
+// //     loadConfig(config_file); // parser
+// // }
 
 const std::string &ServerConfig::getRootDirectory() const {
     return root_directory;
