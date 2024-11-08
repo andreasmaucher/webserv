@@ -13,13 +13,13 @@ std::string HttpResponse::generateRawResponseStr() {
   //generate response status line:
   std::ostringstream oss;
   oss << this->status_code;
-  raw_string = this->version + " " + oss.str() + " " + this->reason_phrase + "/r/n";
+  raw_string = this->version + " " + oss.str() + " " + this->reason_phrase + "\r\n";
   //add headers
   for (std::map<std::string, std::string>::const_iterator it = this->headers.begin(); it != this->headers.end(); ++it) {
-   raw_string += it->first + ": " + it->second + "/r/n";
+   raw_string += it->first + ": " + it->second + "\r\n";
   }
-  if (!this->headers.empty()) {
-   raw_string += "/r/n";
+  if (!headers.empty()) {
+   raw_string += "\r\n";
   }
   if (!this->body.empty()) {
    raw_string += this->body; // + "/r/n" ??

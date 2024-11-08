@@ -6,7 +6,7 @@
 /*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/11/08 12:28:36 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/11/08 14:56:46 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -370,6 +370,7 @@ void Server::response(int i, HttpRequest &request)
         //from this point the response is ready, you can access it calling response.generateResponseStr(), which resturns the whole response as a single std::string for sending
 
         std::string responseStr = response.generateRawResponseStr();
+        std::cout << "Response string: " << responseStr << std::endl;
         //   "HTTP/1.1 200 OK\r\nDate: Fri, 27 Oct 2023 14:30:00 GMT\r\nServer: CustomServer/1.0\r\nContent-Type: text/plain\r\nContent-Length: 13\r\nConnection: keep-alive\r\n\r\nHello, World!\r\n";
         if (send(pfds_vec[i].fd, responseStr.c_str(), responseStr.size(), 0) == -1)
         {
