@@ -451,8 +451,8 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
       allowed += *it;
       allowed += ", ";
   }
-  allowed.pop_back(); // Remove trailing comma
-  allowed.pop_back(); // Remove trailing space
+  allowed.erase(allowed.size() - 1); // Remove trailing comma
+  allowed.erase(allowed.size() - 1); // Remove trailing space
   return allowed;
 }
 //--------------------------------------------------------------------------

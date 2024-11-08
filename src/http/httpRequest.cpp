@@ -42,10 +42,10 @@ void HttpRequest::printRequest() {
                   std::cout << "None";
               } else {
                   for (std::set<std::string>::iterator method_iter = this->route->methods.begin(); method_iter != this->route->methods.end(); ++method_iter) {
-                      std::cout << *method_iter;
-                      if (std::next(method_iter) != this->route->methods.end()) {
-                          std::cout << ", "; // Add a comma if not the last element
-                      }
+                    std::cout << *method_iter;
+                    if (method_iter != this->route->methods.begin()) {
+                        std::cout << ", "; // Add a comma before all elements except the first one
+                    }
                   }
               }
     std::cout << "\n  allowed content type -> ";
@@ -54,8 +54,8 @@ void HttpRequest::printRequest() {
               } else {
                   for (std::set<std::string>::iterator content_type_it = this->route->content_type.begin(); content_type_it != this->route->content_type.end(); ++content_type_it) {
                       std::cout << *content_type_it;
-                      if (std::next(content_type_it) != this->route->content_type.end()) {
-                          std::cout << ", "; // Add a comma if not the last element
+                      if (content_type_it != this->route->content_type.begin()) {
+                          std::cout << ", ";
                       }
                   }
               }

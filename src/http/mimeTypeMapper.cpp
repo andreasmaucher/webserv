@@ -67,7 +67,6 @@ void MimeTypeMapper::extractFileName(HttpRequest &request) {
 void MimeTypeMapper::findContentType(HttpRequest &request) {
     std::map<std::string, std::string>::const_iterator it = mime_types.find(request.file_extension);
     std::cout << "Finding content type for extension: " << request.file_extension << std::endl;
-    std::cout << "Iterator at content type: " << it->second << std::endl;
     if (it != mime_types.end()) {
         std::cout << "Content type found: " << it->second << std::endl;
         request.content_type = it->second;

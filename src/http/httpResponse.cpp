@@ -18,10 +18,12 @@ std::string HttpResponse::generateRawResponseStr() {
   for (std::map<std::string, std::string>::const_iterator it = this->headers.begin(); it != this->headers.end(); ++it) {
    raw_string += it->first + ": " + it->second + "/r/n";
   }
-  if (!this->headers.empty())
+  if (!this->headers.empty()) {
    raw_string += "/r/n";
-  if (!this->body.empty())
+  }
+  if (!this->body.empty()) {
    raw_string += this->body; // + "/r/n" ??
+  }
 
-   return raw_string;
+  return raw_string;
 }
