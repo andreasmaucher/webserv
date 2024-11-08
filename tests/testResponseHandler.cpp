@@ -13,7 +13,7 @@ ServerConfig createFakeServerConfig()
     staticRoute.path = config.getRootDirectory() + staticRoute.uri;
     staticRoute.index_file = "index.html";
     staticRoute.methods.insert("GET");
-   //staticRoute.methods.insert("POST");
+    staticRoute.methods.insert("POST");
     staticRoute.methods.insert("DELETE");
     staticRoute.content_type.insert("text/plain");
     staticRoute.content_type.insert("text/html");
@@ -21,11 +21,45 @@ ServerConfig createFakeServerConfig()
     
     config.setRoute(staticRoute.uri, staticRoute);
 
+    // Add a route for more restrictive folder in static
+    Route restrictedstaticRoute;
+    restrictedstaticRoute.uri = "/static/restrictedstatic";
+    restrictedstaticRoute.path = config.getRootDirectory() + restrictedstaticRoute.uri;
+    restrictedstaticRoute.index_file = "index.html";
+    restrictedstaticRoute.methods.insert("GET");
+    restrictedstaticRoute.content_type.insert("text/plain");
+    restrictedstaticRoute.content_type.insert("text/html");
+    restrictedstaticRoute.is_cgi = false;
+    
+    config.setRoute(restrictedstaticRoute.uri, restrictedstaticRoute);
+
+
+    Route nocontentallowedRoute;
+    nocontentallowedRoute.uri = "/nocontentallowed";
+    nocontentallowedRoute.path = config.getRootDirectory() + nocontentallowedRoute.uri;
+    nocontentallowedRoute.methods.insert("GET");
+    nocontentallowedRoute.methods.insert("POST");
+    nocontentallowedRoute.methods.insert("DELETE");
+    nocontentallowedRoute.is_cgi = false;
+    
+    config.setRoute(nocontentallowedRoute.uri, nocontentallowedRoute);
+
+    Route nomethodallowedRoute;
+    nomethodallowedRoute.uri = "/nomethodallowed";
+    nomethodallowedRoute.path = config.getRootDirectory() + nomethodallowedRoute.uri;
+    nomethodallowedRoute.content_type.insert("text/plain");
+    nomethodallowedRoute.content_type.insert("text/html");
+    nomethodallowedRoute.is_cgi = false;
+    
+    config.setRoute(nomethodallowedRoute.uri, nomethodallowedRoute);
+
     // Add a route for images
     Route imageRoute;
     imageRoute.uri = "/images";
     imageRoute.path = config.getRootDirectory() + imageRoute.uri;
     imageRoute.methods.insert("GET");
+    imageRoute.methods.insert("POST");
+    imageRoute.methods.insert("DELETE");
     imageRoute.content_type.insert("image/jpeg");
     imageRoute.content_type.insert("image/png");
     imageRoute.is_cgi = false;
@@ -123,7 +157,6 @@ void test_responseHandler()
     //run_test_("GET File_Forbidden", 403, createFakeHttpRequest("GET", "/images/secret.png", "image/png", "", ""), config);
     //run_test_("DELETE File_Forbidden", 403, createFakeHttpRequest("DELETE", "/static/asecret.txt", "text/plain", "", ""), config);
 
-    //failing (201) just overwritting the already existing file
     run_test_("POST File_Already_Exists", 409, createFakeHttpRequest("POST", "/uploads/dont_delete.txt", "text/plain", "15", "change file"), config);
     run_test_("POST No_Body_No_Content_Type", 400, createFakeHttpRequest("POST", "/uploads", "", "", ""), config);
     
@@ -140,55 +173,3 @@ void test_responseHandler()
     //test_serverError(config);
 
 }
-
-
-// Server error (500 error): Trigger an internal error scenario, e.g., bad CGI script handling.
-// void test_serverError(ServerConfig &config) {
-//     //ServerConfig config = createFakeServerConfig();
-//     HttpRequest request = createFakeHttpRequest("GET", "", "", "", "");
-//     HttpResponse response;
-
-//     ResponseHandler::processRequest(config, request, response);
-
-//     std::cout << response.generateRawResponseStr() << std::endl;
-// }
-
-// HttpRequest createFakeHttpRequest() {
-//     HttpRequest request;
-
-//     // Setting basic request-line values
-//     request.method = "GET";
-//     request.uri = "/images/oli.jpeg";
-//     request.path = ""; // Server-side resolved path (to be filled by processRequest): /www/static/upload.html"
-//     request.version = "HTTP/1.1";
-
-//     // Adding common headers for a POST request
-//     request.headers["Host"] = "localhost";
-//     request.headers["User-Agent"] = "FakeBrowser/1.0";
-//     //request.headers["Content-Type"] = "text/plain";
-//     //request.headers["Content-Length"] = "27";
-
-//     // Simulating raw request data (optional, but useful for testing)
-//     // request.raw_request = 
-//     //     "POST /static/upload.html HTTP/1.1\r\n"
-//     //     "Host: localhost\r\n"
-//     //     "User-Agent: FakeBrowser/1.0\r\n"
-//     //     "Content-Type: application/x-www-form-urlencoded\r\n"
-//     //     "Content-Length: 27\r\n"
-//     //     "\r\n"
-//     //     "name=test&value=hello%20world";
-
-//     // // Body content for a POST request, e.g., form data
-//     // request.body = "name=test&value=hello%20world";
-
-//     // Positioning attributes (used in chunked transfer, typically set to 0 initially)
-//     request.position = 0;
-//     request.error_code = 0;
-//     request.complete = true;
-//     request.headers_parsed = true;
-
-//     // Chunked transfer state (reset to default for this example)
-//     request.chunk_state.reset();
-
-//     return request;
-// }

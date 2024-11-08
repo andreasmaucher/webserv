@@ -479,8 +479,8 @@ void ResponseHandler::responseBuilder(HttpResponse &response) {
       oss << response.body.length();
       response.headers["Content-Length"] = oss.str(); //optional but mandatory for errors
   }
-  // response.headers["Date"] = generateDateHeader(); // optional
-  // response.headers["Server"] = "MAC_Server/1.0"; //optional
+  response.headers["Date"] = generateDateHeader(); // optional
+  response.headers["Server"] = "MAC_Server/1.0"; //optional
  
   std::cout << "\n..............Response complete..............\n" << std::endl;
 }
