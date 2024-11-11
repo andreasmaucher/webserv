@@ -1,0 +1,15 @@
+In HTTP/1.1, the default behavior is to keep connections open after sending a response, which is known as persistent connections. This is different from HTTP/1.0, where connections are closed by default unless explicitly kept open. However, you don’t always have to keep the connection open in HTTP/1.1. Here’s a breakdown of when to keep the connection open and when to close it:
+
+1. Persistent Connections in HTTP/1.1 by Default
+Without Connection: close: If the client’s request does not specify Connection: close, HTTP/1.1 expects the connection to remain open. This allows the client to send additional requests on the same connection, reducing the overhead of establishing new connections for every request.
+Benefit: This is more efficient for both the client and server, as it minimizes the resources needed for connection setup and teardown and reduces latency.
+2. Using Connection: close to Close the Connection
+If either the client or the server includes Connection: close in their headers, then the connection should be closed after the current request/response is complete.
+Server-Side Control: If your server needs to manage resources or limit the number of simultaneous connections, you may include Connection: close in the response headers. This informs the client that the server will close the connection after this response.
+When to Use Connection: close:
+If the server is low on resources or wants to limit persistent connections.
+When handling clients that don’t need to maintain a persistent connection, such as single-request clients.
+For simple servers, where keeping connections open doesn’t offer significant benefits, it can be safer and simpler to close connections after each response.
+3. How to Handle the Connection: close Header
+If a client sends a request with Connection: close, the server should respond, send Connection: close in the response headers (though this is not strictly required), and close the connection afterward.
+If the server wants to close the connection for any reason, it should include Connection: close in the response and then close the connection after sending the response.

@@ -1,6 +1,6 @@
 #include "../../include/httpResponse.hpp"
 
-HttpResponse::HttpResponse() : version(""), status_code(0), reason_phrase(""), headers(), body(""), file_content_type("") {}
+HttpResponse::HttpResponse() : version(""), status_code(0), reason_phrase(""), headers(), body(""), file_content_type(""), close_connection(false) {}
 
 
 void HttpResponse::setHeader(const std::string &header_name, const std::string &header_value) {

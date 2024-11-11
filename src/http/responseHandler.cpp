@@ -2,14 +2,18 @@
 
 void ResponseHandler::processRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
 
+    std::cout << "Processing request" << std::endl;
     // from here on, we will populate & use the response object status code only
     response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
+    // find connection header and set close_connection in response object
 
     if (response.status_code == 0) {
         // serve_file, process_api_request & populate response body (content) or error code  
         ResponseHandler::routeRequest(config, request, response);
     }
 
+    if (request.headers.find("Connection") != request.headers.end() && request.headers["Connection"] == "close")
+        response.close_connection = true;
     // fill the rest of the response fields to create the final response
     // the ones with error code from parser go directly here
     // to do: (check if in the parser I set some other value like headers etc since here I'm not passing the request object)
@@ -451,8 +455,10 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
       allowed += *it;
       allowed += ", ";
   }
-  allowed.erase(allowed.size() - 1); // Remove trailing comma
-  allowed.erase(allowed.size() - 1); // Remove trailing space
+  std::cout << "crashing here?" << std::endl;
+  if (!allowed.empty()) {
+    allowed.erase(allowed.size() - 2, 2); // Remove trailing comma and space
+  }
   return allowed;
 }
 //--------------------------------------------------------------------------
@@ -474,14 +480,16 @@ void ResponseHandler::responseBuilder(HttpResponse &response) {
 
   if (!response.body.empty()) {
       if (response.headers["Content-Type"].empty()) //mandatory if body present (e.g. errors)
-        response.headers["Content-Type"] = "text/html";
+        response.headers["Content-Type"] = "text/html"; // use as default
       std::ostringstream oss;
       oss << response.body.length();
       response.headers["Content-Length"] = oss.str(); //optional but mandatory for errors
   }
   response.headers["Date"] = generateDateHeader(); // optional
   response.headers["Server"] = "MAC_Server/1.0"; //optional
- 
+  if (response.close_connection == true && response.headers.find("Connection") == response.headers.end())
+    response.headers["Connection"] = "close"; //optional
+
   std::cout << "\n..............Response complete..............\n" << std::endl;
 }
 
@@ -510,7 +518,7 @@ void ResponseHandler::serveErrorPage(HttpResponse &response) {
   }
   //alternatively we could just create the html using a template + status code & msg
   //ResponseHandler::createHtmlBody(response);
-  
+  response.close_connection = true;
   response.headers["Connection"] = "close";
   
   return;

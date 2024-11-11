@@ -38,6 +38,7 @@ class HttpResponse {
         std::map<std::string, std::string> headers; // e.g., Content-Type: text/html
         std::string body;                           // The body of the response 
         std::string file_content_type;              // e.g., text/html
+        bool close_connection;                      // true if Connection: close header is set
 
 };
 
