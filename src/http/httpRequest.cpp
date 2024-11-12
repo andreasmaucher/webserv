@@ -10,10 +10,12 @@ void HttpRequest::reset() {
   version.clear();
   headers.clear();
   body.clear();
+  route = NULL;
   //route just holds an address to a Route object, actual routes are in ServerConfig class;
   file_name.clear();
   file_extension.clear();
   content_type.clear();
+  is_directory = false;
   is_cgi = false;
   error_code = 0;
   position = 0;
