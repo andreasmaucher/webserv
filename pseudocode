@@ -1,3 +1,6 @@
+Main server logic (request processing - routing - response creation):
+
+
 MAKE SURE TO RUN THE EXECUTABLE FROM THE ROOT FOLDER, ELSE CREATED PATHS TO CONTENT WON'T MATCH SINCE THEY'RE RELATIVE (getcwd not allowed)
 
 processRequest:
