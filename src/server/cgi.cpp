@@ -45,7 +45,7 @@ extern char **environ;  //! am I allowed to use this?
 
 */
 
-//! I need to fill all those fields!
+//! I need to fill all those fields
 // Constructor for the CGI class
 // Initializes all member variables with the provided parameters
 CGI::CGI(int clientSocket, const std::string& scriptPath, const std::string& method,
