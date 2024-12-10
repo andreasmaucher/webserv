@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/11/12 17:36:39 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/12/10 16:54:37 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -48,12 +48,15 @@
 // add clear msgs of what is happening - ex. added sockets and fd'
 // add cleanup on exit
 
-class Server {
+class MetaServer {
 
 private:
-    ServerConfig config;
+    //ServerConfig config;
+    std::vector <serverConfig> servers;
     //int sockfd;
-    std::vector<pollfd> pfds_vec;
+    //std::vector<pollfd> pfds_vec;
+    
+    std::map <serverConfig.server_name, pollfd> pfds_map;
     
     int new_fd; // Newly accepted fd
     int listener_fd; //Listening socket fd

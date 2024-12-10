@@ -45,6 +45,8 @@ class ServerConfig {
 
 
     private:
+        std::string server_name;
+        int port_num;
         std::string root_directory;                      // Root directory for server files
         std::map<std::string, Route> routes;             // Mapping of URIs to Route objects
         std::map<int, std::string> error_pages;          // Error pages mapped by status code                        // Default index file
