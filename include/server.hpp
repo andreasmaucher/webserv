@@ -6,7 +6,7 @@
 /*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/12/10 16:54:37 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/12/13 15:03:26 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,34 +31,22 @@
 #include "serverConfig.hpp"
 #include "../tests/testsHeader.hpp"
 
-
 #define MAX_SIM_CONN 10
 #define BUFFER_SIZE 100
 #define PORT "8080"
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
-// #define END_HEADER "close"
 
 
-
-
-// add signals so can reuse the port
-// add msgs of which client sent what
-// add msg confirmation to send back to clients
-// add clear msgs of what is happening - ex. added sockets and fd'
-// add cleanup on exit
-
-class MetaServer {
+class Server {
 
 private:
-    //ServerConfig config;
-    std::vector <serverConfig> servers;
-    //int sockfd;
-    //std::vector<pollfd> pfds_vec;
+    ServerConfig config;
+    //std::vector <serverConfig> servers;
+    std::vector<pollfd> pfds_vec;
     
-    std::map <serverConfig.server_name, pollfd> pfds_map;
+    //std::map <serverConfig.server_name, pollfd> pfds_map;
     
-    int new_fd; // Newly accepted fd
     int listener_fd; //Listening socket fd
 
     struct sockaddr_storage remoteaddr; // Client address (both IPv4 and IPv6)

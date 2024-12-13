@@ -3,16 +3,16 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/11/12 17:39:09 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/12/13 15:10:29 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/server.hpp"
 
-Server::Server(const std::string &port) : pfds_vec(1), new_fd(-1) 
+Server::Server(const std::string &port) : pfds_vec(1)
 {
     signal(SIGINT, sigintHandler);
     setup(port);
@@ -20,19 +20,8 @@ Server::Server(const std::string &port) : pfds_vec(1), new_fd(-1)
 
 Server::~Server()
 {
-    // Added cleanup to exit conditions, need to check if it is always triggered
-    // TODO: Maybe worth puttting back in the destructor
     // Server::cleanup();
     std::cout << "Server exited" << std::endl;
-}
-
-void *Server::get_in_addr(struct sockaddr *sa)
-{
-    if (sa->sa_family == AF_INET)
-    {
-        return &(((struct sockaddr_in *)sa)->sin_addr);
-    }
-    return &(((struct sockaddr_in6 *)sa)->sin6_addr);
 }
 
 // Return a listening socket
@@ -86,17 +75,14 @@ int Server::get_listener_socket(const std::string port)
     {
         return -1;
     }
-    // Cleaning up ai ll
-    freeaddrinfo(ai); // All done with this
+    freeaddrinfo(ai);
     ai = NULL;
 
-    // Listening
     // Starts listening for incoming connections on the listener socket, with a maximum backlog of 10 connections waiting to be accepted.
     if (listen(listener_fd, MAX_SIM_CONN) == -1)
     {
         return -1;
     }
-    // returns fd of the listening socket
     return listener_fd;
 }
 
@@ -108,10 +94,9 @@ void Server::add_to_pfds_vec(int newfd)
     new_pollfd.revents = 0;
 
     pfds_vec.push_back(new_pollfd);
-    std::cout << "Added new fd: " << new_fd << " to pfds_vec at index: " << pfds_vec.size() - 1 << ". pfds_vec size: " << pfds_vec.size() << std::endl;
+    std::cout << "Added new fd: " << newfd << " to pfds_vec at index: " << pfds_vec.size() - 1 << ". pfds_vec size: " << pfds_vec.size() << std::endl;
 }
 
-// Removing and index from the set
 void Server::del_from_pfds_vec(int fd)
 {
     for (size_t i = 0; i < pfds_vec.size(); i++)
@@ -130,7 +115,7 @@ void Server::closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequ
     close(fd);
     std::cout << "Closed fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds vector" << std::endl;
     del_from_pfds_vec(fd);
-    httpRequests.erase(httpRequests.begin() + i); // Erase the HttpRequest for this fd
+    httpRequests.erase(httpRequests.begin() + i);
     std::cout << "Erased request object at index:" << i << " from httpRequests vector" << std::endl;
 }
 
@@ -139,7 +124,7 @@ void Server::new_connection()
 
     printf("\nNew connection!\n");
     addrlen = sizeof remoteaddr;
-    new_fd = accept(listener_fd, (struct sockaddr *)&remoteaddr, &addrlen);
+    int new_fd = accept(listener_fd, (struct sockaddr *)&remoteaddr, &addrlen);
     if (new_fd == -1)
     {
         perror("accept");
@@ -160,7 +145,7 @@ int Server::setup(const std::string &port)
 {
     (void)port;
 
-    // calling temporary hardcoding function for testing
+    // hardcoding server config for testing
     config = createFakeServerConfig();
 
     listener_fd = get_listener_socket(port);
@@ -173,7 +158,6 @@ int Server::setup(const std::string &port)
     pfds_vec[0].events = POLLIN | POLLOUT;
     pfds_vec[0].revents = 0;
 
-    // listener doesn't need a request object, just to keep the index in sync?
     HttpRequest newRequest;
     httpRequests.push_back(newRequest);
     std::cout << "pfds_vec size at setup: " << pfds_vec.size() << std::endl;
@@ -186,27 +170,26 @@ int Server::start()
 {
     while (1)
     {
+        // poll changes the state of the pfds_vec; POLLOUT is the default state of the sockets (writable) unless theres incoming data detected
         poll_count = poll(pfds_vec.data(), pfds_vec.size(), -1);
         if (poll_count == -1)
         {
             perror("poll");
             exit(1);
         }
-        // Run through the existing connections looking for data to read
+        // Run through all existing fds, sending or receiving data depending on POLL status; or create a new connection if fd 0 (listener)
         for (size_t i = 0; i < pfds_vec.size(); i++)
         {
-            //do the POLLIN and POLLOUT checks actually work or just using request.complete?
             if (pfds_vec[i].revents & POLLIN)
             {
-                if (pfds_vec[i].fd == listener_fd) // initial created fd at index 0 is the listener
+                if (pfds_vec[i].fd == listener_fd)
                 {
                     new_connection();
-                } else { // we are in the fd of an existing connection
+                } else {
                     receiveRequest(i);
                 }
             }
-            // POLLOUT is set when the socket is ready to send data (bc not receiving anymore)
-            if (pfds_vec[i].revents & POLLOUT)
+            if (pfds_vec[i].revents & POLLOUT && httpRequests[i].complete)
             {
                 sendResponse(i, httpRequests[i]);
             }
@@ -214,22 +197,15 @@ int Server::start()
     }
 }
 
+// implement timeout for recv()?
 void Server::receiveRequest(int i)
 {
-    std::cout << "Request function called for request at index: " << i << " . Size of httpRequests vector: " << httpRequests.size() << std::endl;
-    if (!httpRequests[i].complete)//i < static_cast<int>(httpRequests.size()) && 
+    std::cout << "Receive function called for request at index: " << i << " . Size of httpRequests vector: " << httpRequests.size() << std::endl;
+    if (!httpRequests[i].complete)
     {        
-        int nbytes = recv(pfds_vec[i].fd, buf, sizeof buf, 0); // Receive data from client
+        int nbytes = recv(pfds_vec[i].fd, buf, sizeof buf, 0);
         if (nbytes <= 0)
         {
-            // if (nbytes == 0)
-            // {
-            //     printf("Connection interrupted or closed by client. ");
-            // }
-            // else
-            // {
-            //     perror("recv");
-            // }
             closeConnection(pfds_vec[i].fd, i, httpRequests);
         }
         else
@@ -248,57 +224,33 @@ void Server::receiveRequest(int i)
 
 void Server::sendResponse(int i, HttpRequest &request)
 {
-    std::cout << "Response function called for request at index:" << i << std::endl;
+    std::cout << "Send function called for request at index:" << i << std::endl;
     std::cout << "Request complete: " << request.complete << std::endl;
-    if (request.complete)
-    {
-        HttpResponse response;
-        ResponseHandler::processRequest(config, request, response);
 
-        std::string responseStr = response.generateRawResponseStr();
-        std::cout << "Response string: " << responseStr << std::endl;
-        if (send(pfds_vec[i].fd, responseStr.c_str(), responseStr.size(), 0) == -1)
-        {
-            perror("send");
-        }
-        std::cout << "Response sent to fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds_vec" << std::endl;
-        if (response.close_connection == true)
-        {
-            closeConnection(pfds_vec[i].fd, i, httpRequests);
-        } else {
-            // Keep connection open for further requests from same client, cleaning the request object
-            pfds_vec[i].revents = POLLIN; // Set to listen for more requests
-            request.reset();
-        }
-    }
-}
+    HttpResponse response;
+    ResponseHandler::processRequest(config, request, response);
 
-void Server::cleanup()
-{
-    if (new_fd != -1)
+    std::string responseStr = response.generateRawResponseStr();
+    if (send(pfds_vec[i].fd, responseStr.c_str(), responseStr.size(), 0) == -1)
     {
-        close(new_fd);
+        perror("send");
     }
-    if (ai != NULL)
+    std::cout << "Response sent to fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds_vec" << std::endl;
+    if (response.close_connection == true)
     {
-        freeaddrinfo(ai);
+        closeConnection(pfds_vec[i].fd, i, httpRequests);
+    } else {
+        request.reset();
     }
-    // TODO: change malloc to new and free
-    // if (pfds_vec)
-    //     delete[] pfds;
 }
 
 void Server::sigintHandler(int signal)
 {
     if (signal == SIGINT)
     {
-        printf("Ctrl- C Closing connection\n"); // Print the message.
-        // TODO: should figure out a way to cleanup memory and close fd's
-        //  cleanup();
-        //  close(new_fd);
-
+        printf("Ctrl- C Closing connection\n");
         printf("Exiting\n");
-        // Memory leaks will be present, since we can't run freeaddrinfo(res) unless it is declared as a global
+        // Memory leaks will be present, since we can't run freeaddrinfo(res) unless it is declared as a global?
         exit(0);
     }
 }

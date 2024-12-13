@@ -3,22 +3,15 @@
 void ResponseHandler::processRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
 
     std::cout << "Processing request" << std::endl;
-    // from here on, we will populate & use the response object status code only
-    response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
-    // find connection header and set close_connection in response object
+    response.status_code = request.error_code;
 
     if (response.status_code == 0) {
-        // serve_file, process_api_request & populate response body (content) or error code  
-        ResponseHandler::routeRequest(config, request, response);
+      ResponseHandler::routeRequest(config, request, response);
     }
-
     if (request.headers.find("Connection") != request.headers.end() && request.headers["Connection"] == "close")
         response.close_connection = true;
-    // fill the rest of the response fields to create the final response
-    // the ones with error code from parser go directly here
-    // to do: (check if in the parser I set some other value like headers etc since here I'm not passing the request object)
-    ResponseHandler::responseBuilder(response);
 
+    ResponseHandler::responseBuilder(response);
 }
 
 void ResponseHandler::routeRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
@@ -51,8 +44,8 @@ void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &r
   else if (request.method == "DELETE") {
     ResponseHandler::processFileDeletion(request, response);
   }
-  else { // checked already in parser
-    response.status_code = 405; // Method Not Allowed
+  else {
+    response.status_code = 405;
   }
 }
 
@@ -87,21 +80,16 @@ bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response) {
   std::ifstream file;
   file.open(request.path.c_str(), std::ios::in | std::ios::binary);
 
-  if (!file.is_open()) { // has been checked in hasReadPermission already
-      response.status_code = 500; // Internal Server Error
+  if (!file.is_open()) {
+      response.status_code = 500;
       return false;
   }
 
-  // Read file into response body
   std::ostringstream buffer;
-  buffer << file.rdbuf(); // Load entire file content into buffer
+  buffer << file.rdbuf();
   response.body = buffer.str();
-
-  file.close(); // Close the file after reading
-  
-  // Set status code and content type
+  file.close();
   response.status_code = 200;
-
   response.setHeader("Content-Type", request.content_type);
 
   return true;
@@ -112,13 +100,11 @@ void ResponseHandler::processFileUpload(HttpRequest& request, HttpResponse& resp
   std::cout << "Processing file upload" << std::endl;
   
   if (request.body.empty()) {
-    response.status_code = 400; // Bad Request
+    response.status_code = 400;
     return;
   }
-
   constructFullPath(request, response);
 
-  // Check if a file with the same name already exists at the location
   if (!fileExists(request, response)) {
     writeToFile(request, response);
   }
@@ -132,14 +118,13 @@ void ResponseHandler::writeToFile(HttpRequest& request, HttpResponse& response) 
   if (file.is_open()) {
     file << request.body;
     file.close();
-    response.status_code = 201; // Created
+    response.status_code = 201;
     response.body = "File uploaded successfully";
     response.setHeader("Content-Type", "text/plain");
     std::cout << "File uploaded successfully" << std::endl;
   } else {
     std::cout << "Error writing to file" << std::endl;
-    response.status_code = 500; // Internal Server Error
-    //response.body = "500 Internal Server Error";
+    response.status_code = 500;
   }
 }
 
@@ -149,7 +134,7 @@ void ResponseHandler::processFileDeletion(HttpRequest& request, HttpResponse& re
   constructFullPath(request, response);
 
   // Check if the file exists at the location. Permission check??
-  if (fileExists(request, response)) { // file exists
+  if (fileExists(request, response)) {
     std::cout << "Deleting file" << std::endl;
     removeFile(request, response);
 
@@ -158,12 +143,10 @@ void ResponseHandler::processFileDeletion(HttpRequest& request, HttpResponse& re
 
 void ResponseHandler::removeFile(HttpRequest& request, HttpResponse& response) {
 
-  if (remove(request.path.c_str()) == 0) { // try to delete
-    response.status_code = 200; // OK
-    //response.body = "File deleted successfully";
+  if (remove(request.path.c_str()) == 0) {
+    response.status_code = 200;
   } else {
-    response.status_code = 500; // Internal Server Error
-    //response.body = "500 Internal Server Error";
+    response.status_code = 500;
   }
 }
 
@@ -187,17 +170,17 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response) {
     std::cout << "File exists and accessible" << std::endl;
     if (request.method == "POST") {
       std::cout << "File already exists" << std::endl;
-      response.status_code = 409; // Conflict
+      response.status_code = 409;
     }
     return true;
   }
   if (request.method == "GET" || (request.method == "DELETE" && !request.is_directory)) {
     std::cout << "File does not exist" << std::endl;
-    response.status_code = 404; // Not Found
+    response.status_code = 404;
   }
   else if (request.method == "DELETE" && request.is_directory) {
     std::cout << "Directory deletion not implemented" << std::endl;
-    response.status_code = 501; // Not Found
+    response.status_code = 501;
   }
   std::cout << "File does not exist or not accessible" << std::endl;
   return false;
@@ -253,10 +236,8 @@ bool ResponseHandler::handleSubdirectory(HttpRequest &request, HttpResponse &res
     // Check if the directory path exists up to this point
     struct stat path_stat;
     if (stat(request.path.c_str(), &path_stat) != 0 || !S_ISDIR(path_stat.st_mode)) {
-        // Directory path does not exist
         std::cout << "Subdirectory/path does not exist" << std::endl;
-        response.status_code = 404; // Not Found
-        //response.body = "The specified directory does not exist.";
+        response.status_code = 404;
         return false;
     }
   }
@@ -268,7 +249,7 @@ std::string ResponseHandler::sanitizeFileName(std::string &file_name) {
     for (size_t i = 0; i < file_name.size(); ++i) {
         char c = file_name[i];
         if (std::isalnum(c) || c == '_' || c == '-' || (c == '.' && i > 0 && i < file_name.size() - 1)) {
-            sanitized += c; // Only add allowed characters
+            sanitized += c;
         }
     }
 
@@ -295,11 +276,11 @@ void ResponseHandler::extractOrGenerateFilename(HttpRequest &request) {
         }
       }
       request.file_name = no_quotes; // Replace original with no_quotes version
-      request.file_name = ResponseHandler::sanitizeFileName(request.file_name); // Sanitize filename
+      request.file_name = ResponseHandler::sanitizeFileName(request.file_name);
       std::cout << "Extracted file name: " << request.file_name << std::endl;
     }
   }
-  if (request.file_name.empty()) { //generate timestamp name for avoiding repetitions
+  if (request.file_name.empty()) {
     request.file_name = generateTimestampName();
     std::cout << "Generated file name with timestamp: " << request.file_name << std::endl;
   }
@@ -318,68 +299,13 @@ std::string ResponseHandler::generateTimestampName() {
 
 bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpResponse &response) {
 
-  if (access(file_path.c_str(), R_OK) == 0) // R_OK checks read access
+  if (access(file_path.c_str(), R_OK) == 0)
     return true;
   else {
-    response.status_code = 403; // Forbidden
+    response.status_code = 403;
     return false;
   }
 }
-
-// // Custom substring match function for routes
-// size_t matchRouteDirectory(const std::string &request_uri, const std::string &route_uri) {
-//     // Check if request URI starts with the route URI
-//     if (request_uri.compare(0, route_uri.size(), route_uri) == 0) {
-//         // Ensure that the match is followed by a '/' or is at the end of request URI
-//         std::cout << "matched folder: " << route_uri << std::endl;
-//         if (request_uri.size() == route_uri.size() || request_uri[route_uri.size()] == '/') {
-//             std::cout << "full match or request uri followed by / => subfolder" << std::endl;
-//             return route_uri.size(); // Return the length of the match
-//         }
-//         std::cout << "request uri not followed by / (maybe longer word)" << std::endl;
-//     }
-//     std::cout << "no match" << std::endl;
-//     return 0; // No match
-// }
-
-// bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
-//     std::cout << "Finding matching route for " << request.uri << std::endl;
-//     const std::map<std::string, Route> &routes = config.getRoutes();
-//     const Route *best_match = NULL;
-//     size_t longest_match_length = 0;
-
-//     for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it) {
-//         const std::string &route_uri = it->first;
-//         std::cout << "Comparing to route: " << route_uri << std::endl;
-//         const Route &route_object = it->second;
-//         std::cout << "Route object adress: " << &it->second << "uri: " <<  it->second.uri << std::endl;
-
-//         // Use the custom function to get the length of the matched prefix
-//         size_t match_length = matchRouteDirectory(request.uri, route_uri);
-//         if (match_length > longest_match_length) {
-//             best_match = &route_object;
-//             std::cout << "Saving best match: " << best_match << std::endl;
-//             longest_match_length = match_length;
-//         }
-//     }
-
-//     if (best_match == NULL) {
-//         std::cout << "No matching route found" << std::endl;
-//         response.status_code = 404; // Not Found
-//         return false;
-//     }
-
-//     if (!best_match->redirect_uri.empty()) {
-//         std::cout << "Redirecting to new location" << std::endl;
-//         response.status_code = 301; // Moved Permanently
-//         response.setHeader("Location", best_match->redirect_uri);
-//         return false;
-//     }
-
-//     std::cout << "Route found: " << best_match->uri << std::endl;
-//     request.route = best_match;
-//     return true;
-// }
 
 // Store the best match if there are multiple matches (longest prefix match)
 bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
@@ -425,10 +351,9 @@ bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &
 
   std::cout << "Checking if method " << request.method << " is allowed" << std::endl;
   // Verify the requested method is allowed in that route searching in the set
- if (request.route->methods.find(request.method) == request.route->methods.end()) { // not found
+ if (request.route->methods.find(request.method) == request.route->methods.end()) {
       std::cout << "Method not allowed in route" << std::endl;
-      response.status_code = 405; // Method Not Allowed
-      // set header specifiying the allowed methods
+      response.status_code = 405;
       std::string header_key = "Allow";
       std::string header_value = ResponseHandler::createAllowedMethodsStr(request.route->methods);
       response.setHeader(header_key, header_value);
@@ -483,28 +408,25 @@ void ResponseHandler::responseBuilder(HttpResponse &response) {
         response.headers["Content-Type"] = "text/html"; // use as default
       std::ostringstream oss;
       oss << response.body.length();
-      response.headers["Content-Length"] = oss.str(); //optional but mandatory for errors
+      response.headers["Content-Length"] = oss.str();
   }
-  response.headers["Date"] = generateDateHeader(); // optional
-  response.headers["Server"] = "MAC_Server/1.0"; //optional
+  response.headers["Date"] = generateDateHeader();
+  response.headers["Server"] = "MAC_Server/1.0";
   if (response.close_connection == true && response.headers.find("Connection") == response.headers.end())
-    response.headers["Connection"] = "close"; //optional
+    response.headers["Connection"] = "close";
 
   std::cout << "\n..............Response complete..............\n" << std::endl;
 }
 
 std::string ResponseHandler::generateDateHeader() {
-    // Get current time
-    std::time_t now = std::time(0);
-    std::tm *gmtm = std::gmtime(&now); // Convert to UTC
-    
-    // Prepare a string to hold the formatted date
-    char dateStr[30]; // Enough space for the formatted string
-    
-    // Format the date according to RFC 1123
-    std::strftime(dateStr, sizeof(dateStr), "%a, %d %b %Y %H:%M:%S GMT", gmtm);
-    
-    return std::string(dateStr);
+
+  std::time_t now = std::time(0);
+  std::tm *gmtm = std::gmtime(&now);
+  
+  char dateStr[30];
+  std::strftime(dateStr, sizeof(dateStr), "%a, %d %b %Y %H:%M:%S GMT", gmtm);
+  
+  return std::string(dateStr);
 }
 
 void ResponseHandler::serveErrorPage(HttpResponse &response) {
@@ -513,7 +435,7 @@ void ResponseHandler::serveErrorPage(HttpResponse &response) {
 
   response.body = read_error_file(file_path);
   if (response.body.empty()) {
-      response.status_code = 500; // Internal Server Error
+      response.status_code = 500;
       return;
   }
   //alternatively we could just create the html using a template + status code & msg
@@ -526,12 +448,12 @@ void ResponseHandler::serveErrorPage(HttpResponse &response) {
 
 std::string ResponseHandler::buildFullPath(int status_code) {
     std::ostringstream oss;
-    oss << status_code;  // Convert int to string
+    oss << status_code;
 
-    std::string full_path = ROOT_DIR;           // Start with root directory
-    full_path += ERROR_PATH;                    // Add error path
-    full_path += oss.str();                     // Append the status code as string
-    full_path += ".html";                       // Add file extension or suffix as needed
+    std::string full_path = ROOT_DIR;
+    full_path += ERROR_PATH;
+    full_path += oss.str();
+    full_path += ".html";
 
     return full_path;
 }
@@ -543,16 +465,14 @@ std::string ResponseHandler::read_error_file(std::string &file_path) {
   
   file.open(file_path.c_str(), std::ios::in | std::ios::binary);
 
-  if (!file.is_open()) { // has been checked in hasReadPermission already
-      std::cout << "Error reading ERROR file" << std::endl;
-      return ""; // Internal Server Error
+  if (!file.is_open()) {
+    std::cout << "Error reading ERROR file" << std::endl;
+    return "";
   }
 
-  // Read file into response body
   std::ostringstream buffer;
-  buffer << file.rdbuf(); // Load entire file content into buffer
-
-  file.close(); // Close the file after reading
+  buffer << file.rdbuf();
+  file.close();
   
   return buffer.str();
 }
