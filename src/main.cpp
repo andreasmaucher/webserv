@@ -5,6 +5,7 @@
 #include "../include/httpResponse.hpp"
 #include "../include/responseHandler.hpp"
 #include "../include/mimeTypeMapper.hpp"
+#include "../include/cgi.hpp"
 #include "../tests/testsHeader.hpp"
 
 int main(int argc, char *argv[])

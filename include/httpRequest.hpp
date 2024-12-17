@@ -87,6 +87,8 @@ class HttpRequest {
     bool is_directory;
     bool is_cgi;
     int error_code;
+    std::string queryString; //! ANDY should be included in uri
+    std::string contentType; //! ANDY
 
     //for parsing
     size_t position;
