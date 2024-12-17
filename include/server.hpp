@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/12/13 15:03:26 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/12/16 17:50:02 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,6 +31,7 @@
 #include "serverConfig.hpp"
 #include "../tests/testsHeader.hpp"
 
+#define DEFAULT_CONFIG "./server/default.conf"
 #define MAX_SIM_CONN 10
 #define BUFFER_SIZE 100
 #define PORT "8080"

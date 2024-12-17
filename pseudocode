@@ -1,3 +1,19 @@
+Multiserver implementation:
+
+1. set up the webservice class:
+   class has a std::vector<ServerConfig> servers attribute, empty at the beginning and filled by the config parser
+1.1. parse the config file
+   - instantiate as many servers(called serverConfig for now) as specified in the config file, saving them in the Webservice class' vector
+   - each of the servers saves its name, port, routes etc
+1.2. each server gets its listener socket using the port specified in the config (saved already in the serverConfig class)
+
+
+
+
+
+
+// ****************************************************************************************** //
+
 Main server logic (request processing - routing - response creation):
 
 

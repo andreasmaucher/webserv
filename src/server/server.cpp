@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/12/13 15:10:29 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/12/16 18:44:43 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -141,29 +141,34 @@ void Server::new_connection()
 }
 
 
-int Server::setup(const std::string &port)
+int Webservice::setup(const std::string &config_file)
 {
-    (void)port;
+    //(void)port;
 
-    // hardcoding server config for testing
-    config = createFakeServerConfig();
+    std::vector<ServerConfig> servers = parse_config(config_file);
+    //// hardcoding server config for testing
+    //config = createFakeServerConfig();
 
-    listener_fd = get_listener_socket(port);
-    if (listener_fd == -1)
-    {
-        fprintf(stderr, "error getting listening socket\n");
-        exit(1);
+    for (int i = 0; i < servers; i++) {
+        std::vector<ServerConfig>::iterator it = servers.begin();
+
+        listener_fd = get_listener_socket(port);
+        if (listener_fd == -1)
+        {
+            fprintf(stderr, "error getting listening socket\n");
+            exit(1);
+        }
+        pfds_vec[0].fd = listener_fd;
+        pfds_vec[0].events = POLLIN | POLLOUT;
+        pfds_vec[0].revents = 0;
+
+        HttpRequest newRequest;
+        httpRequests.push_back(newRequest);
+        std::cout << "pfds_vec size at setup: " << pfds_vec.size() << std::endl;
+        std::cout << "httpRequest vector size at setup: " << httpRequests.size() << std::endl;
+        
+        return (listener_fd);
     }
-    pfds_vec[0].fd = listener_fd;
-    pfds_vec[0].events = POLLIN | POLLOUT;
-    pfds_vec[0].revents = 0;
-
-    HttpRequest newRequest;
-    httpRequests.push_back(newRequest);
-    std::cout << "pfds_vec size at setup: " << pfds_vec.size() << std::endl;
-    std::cout << "httpRequest vector size at setup: " << httpRequests.size() << std::endl;
-    
-    return (listener_fd);
 }
 
 int Server::start()
@@ -189,7 +194,7 @@ int Server::start()
                     receiveRequest(i);
                 }
             }
-            if (pfds_vec[i].revents & POLLOUT && httpRequests[i].complete)
+            else if (pfds_vec[i].revents & POLLOUT && httpRequests[i].complete)
             {
                 sendResponse(i, httpRequests[i]);
             }
