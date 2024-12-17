@@ -6,7 +6,7 @@
 #include <map>
 #include <sstream>
 #include <string>
-#include "serverConfig.hpp"
+#include "server.hpp"
 
 struct ChunkState {
   size_t chunk_size;    // Size of the current chunk

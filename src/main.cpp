@@ -1,5 +1,5 @@
 #include "../include/server.hpp"
-#include "../include/serverConfig.hpp"
+#include "../include/webService.hpp"
 #include "../include/httpRequest.hpp"
 #include "../include/requestParser.hpp"
 #include "../include/httpResponse.hpp"
@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     }
     try {
         Webservice service(config_path);
-        Webservice.start();
+        service.start();
         //Server server(port);
         //server.start();
         
