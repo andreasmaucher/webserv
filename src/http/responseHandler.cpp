@@ -1,4 +1,5 @@
 #include "../../include/responseHandler.hpp"
+#include "../../include/cgi.hpp"
 
 void ResponseHandler::processRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
 
@@ -30,7 +31,8 @@ void ResponseHandler::routeRequest(const ServerConfig &config, HttpRequest &requ
 
     if (request.is_cgi) { // at this point its been routed already and checked if (CGI)extension is allowed
         std::cout << "calling CGI handler" << std::endl;
-        //CGI::handleCGIRequest(request, response);
+        CGI cgiHandler; // create an instance of CGI
+        cgiHandler.handleCGIRequest(request); //! i need to add response
     }
     else {
       std::cout << "calling static content handler" << std::endl;

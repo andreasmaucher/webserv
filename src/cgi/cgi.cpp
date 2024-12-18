@@ -45,6 +45,9 @@ extern char **environ;  //! am I allowed to use this?
 
 */
 
+// Default constructor for the CGI class
+CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requestBody("") {}
+
 //! I need to fill all those fields
 // Constructor for the CGI class
 // Initializes all member variables with the provided parameters

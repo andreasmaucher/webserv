@@ -12,6 +12,7 @@
 #include "httpResponse.hpp"
 #include "serverConfig.hpp"
 #include "mimeTypeMapper.hpp"
+#include "cgi.hpp"
 
 // Processes the HTTP request and generates the HTTP response. Includes logic for:
 // - Routing the request
