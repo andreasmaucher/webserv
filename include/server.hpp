@@ -1,5 +1,5 @@
-#ifndef SERVERCONFIG_HPP
-#define SERVERCONFIG_HPP
+#ifndef SERVER_HPP
+#define SERVER_HPP
 
 #define MAX_BODY_SIZE 1000000
 #define ROOT_DIR "www"
@@ -10,6 +10,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include "httpRequest.hpp"
 
 // Represents a single route. One for each of the location blocks in the config file
 struct Route {
@@ -29,31 +30,37 @@ struct Route {
 class Server {
     public:
         // Server();
-        Server(std::string name, int port_num, std::string root_directory);
+        Server(std::string name, std::string port, int listener_fd, std::string root_directory);
         
         // Getters
+        const std::string &getPort() const;
+        const std::string &getName() const;
+        const int &getListenerFd() const;
         const std::string &getRootDirectory() const;
         const std::map<std::string, Route> &getRoutes() const;
         Route* getRoute(const std::string &uri); // Getter for a specific Route by URI
         const std::map<int, std::string> &getErrorPages() const;
+        HttpRequest getRequestObject(int fd);
         // Setters
         void setRootDirectory(const std::string &root_directory);
         void setRoutes(const std::map<std::string, Route> &routes);
         void setRoute(const std::string &uri, const Route &route);
         void setErrorPages(const std::map<int, std::string> &error_pages);
         void setErrorPage(const int &code, const std::string &path);
+        void setListenerFd(const int &listener_fd);
 
 
     private:
+        int listener_fd; //Listening socket fd
+        std::string port;
         std::string name;
         //std::string host_name;
-        int port_num;
-        int listener_fd; //Listening socket fd
         std::string root_directory;                      // Root directory for server files
         std::map<std::string, Route> routes;             // Mapping of URIs to Route objects
         std::map<int, std::string> error_pages;          // Error pages mapped by status code
-       // std::vector<HttpRequest> httpRequests;
         
+        //std::vector<HttpRequest> httpRequests;
+        std::map<int, HttpRequest> client_fd_to_request;
         //bool loadConfig(const std::string &config_file); // config file parser
 };
 

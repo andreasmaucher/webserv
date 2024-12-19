@@ -31,12 +31,11 @@ class WebService {
 
 private:
     std::vector <Server> servers; // constructor calls config parser and instantiates server(s)
-    std::vector<pollfd> pfds_vec;
     
-    std::vector<HttpRequest> httpRequests;
-//    std::map <Server, pollfd> server_pfds_map;
-    std::map <int, Server*> pfd_to_server;   //pollfd mapped to its server object
-    std::map <int, HttpRequest*> pfd_to_request;
+    std::vector<pollfd> pfds_vec; // all pfds (listener and client) for all servers
+   
+    std::map<int, Server*> fd_to_server;//fds to respective server objects pointer
+    //std::unordered_map<int, std::pair<Server*, HttpRequest*>> pfd_to_server_request; //client_fds to server and request objects
 
     struct sockaddr_storage remoteaddr; // Client address (both IPv4 and IPv6)
     socklen_t addrlen;
@@ -49,12 +48,13 @@ private:
 
     struct addrinfo hints, *ai, *p;
     
-    int setupSockets();
     void parseConfig(const std::string &config_file);
+    void setupSockets();
+    void mapFdToServer(int new_fd, Server &server);
+    void addToPfdsVector(int new_fd);
     void cleanup();
-    int get_listener_socket(const std::string port);
+    int get_listener_socket(const std::string &port);
     void *get_in_addr(struct sockaddr *sa);
-    void addToPfds(int newfd);
     void del_from_pfds_vec(int fd);
 
 public:
@@ -63,8 +63,8 @@ public:
 
     int         start();
     void        receiveRequest(int i);
-    void        sendResponse(int i, HttpRequest &request);
-    void        newConnection();
+    void        sendResponse(int i, Server &server);
+    void        newConnection(Server &server);
     void        closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequests);
     void        handleSigint(int signal);
     static void sigintHandler(int signal);

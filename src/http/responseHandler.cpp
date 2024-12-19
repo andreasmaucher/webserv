@@ -1,25 +1,27 @@
 #include "../../include/responseHandler.hpp"
 
-void ResponseHandler::processRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
+void ResponseHandler::processRequest(Server *server, HttpResponse &response) {
 
-    std::cout << "Processing request" << std::endl;
-    response.status_code = request.error_code;
+  std::cout << "Processing request" << std::endl;
+  HttpRequest request = server->getRequestObject(fd);
 
-    if (response.status_code == 0) {
-      ResponseHandler::routeRequest(config, request, response);
-    }
-    if (request.headers.find("Connection") != request.headers.end() && request.headers["Connection"] == "close")
-        response.close_connection = true;
+  response.status_code = request.error_code;
 
-    ResponseHandler::responseBuilder(response);
+  if (response.status_code == 0) {
+    ResponseHandler::routeRequest(server, request, response);
+  }
+  if (request.headers.find("Connection") != request.headers.end() && request.headers["Connection"] == "close")
+      response.close_connection = true;
+
+  ResponseHandler::responseBuilder(response);
 }
 
-void ResponseHandler::routeRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
+void ResponseHandler::routeRequest(Server *server, HttpRequest &request, HttpResponse &response) {
 
   std::cout << "Routing request" << std::endl;
   MimeTypeMapper mapper;
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
-  if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response)) {
+  if (findMatchingRoute(server, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response)) {
 
     if (request.is_cgi) { // at this point its been routed already and checked if (CGI)extension is allowed
         std::cout << "calling CGI handler" << std::endl;
@@ -308,9 +310,9 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
 }
 
 // Store the best match if there are multiple matches (longest prefix match)
-bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
+bool ResponseHandler::findMatchingRoute(Server *server, HttpRequest &request, HttpResponse &response) {
     std::cout << "Finding matching route for " << request.uri << std::endl;
-    const std::map<std::string, Route> &routes = config.getRoutes();
+    const std::map<std::string, Route> &routes = server.getRoutes();
     const Route *best_match = NULL;
     size_t longest_match_length = 0;
 

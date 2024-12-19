@@ -5,7 +5,7 @@
 #include "../include/httpResponse.hpp"
 #include "../include/responseHandler.hpp"
 #include "../include/mimeTypeMapper.hpp"
-#include "../tests/testsHeader.hpp"
+// #include "../tests/testsHeader.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
         //port = argv[1];
     }
     try {
-        Webservice service(config_path);
+        WebService service(config_path);
         service.start();
         //Server server(port);
         //server.start();

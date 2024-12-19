@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include "httpRequest.hpp"
-#include "serverConfig.hpp"
+#include "server.hpp"
 
 // Contains all parsing functions responsible for converting raw HTTP data into a structured HTTPRequest object
 class RequestParser {

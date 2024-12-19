@@ -6,7 +6,7 @@
 /*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/12/17 17:27:55 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/12/19 19:20:31 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,7 +21,7 @@ WebService::WebService(const std::string &config_file)
 
 WebService::~WebService()
 {
-    // Server::cleanup();
+    // WebService::cleanup();
     std::cout << "Service stopped" << std::endl;
 }
 
@@ -32,9 +32,8 @@ WebService::~WebService()
     // hints - criteria to resolve the ip address
     // ai - pointer to a linked list of results returned by getaddrinfo().
     // It holds the resolved network addresses that match the criteria specified in hints.
-int WebService::get_listener_socket(const std::string port)
+int WebService::get_listener_socket(const std::string &port)
 {
-    (void)port;
     // Get us a socket and bind it
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;     // Unspecified IPv4 or IPv6, can use both
@@ -48,6 +47,7 @@ int WebService::get_listener_socket(const std::string port)
         fprintf(stderr, "pollserver: %s\n", gai_strerror(addrinfo_status));
         exit(1);
     }
+    int listener_fd = -1;
     for (p = ai; p != NULL; p = p->ai_next)
     { // loop through the ai ll and try to create a socket
         listener_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
@@ -87,7 +87,7 @@ int WebService::get_listener_socket(const std::string port)
     return listener_fd;
 }
 
-void WebService::addToPfds(int new_fd, Server *server)
+void WebService::addToPfdsVector(int new_fd)
 {
     struct pollfd new_pollfd;
     new_pollfd.fd = new_fd;
@@ -97,12 +97,9 @@ void WebService::addToPfds(int new_fd, Server *server)
     pfds_vec.push_back(new_pollfd);
     std::cout << "Added new fd: " << new_fd << " to pfds_vec at index: " << pfds_vec.size() - 1 << ". pfds_vec size: " << pfds_vec.size() << std::endl;
 
-    pfd_to_server[new_fd] = server;
-    std::cout << "Mapped fd: " << new_fd << " to server: " << server->name << std::endl;
-
 }
 
-void Server::del_from_pfds_vec(int fd)
+void WebService::del_from_pfds_vec(int fd)
 {
     for (size_t i = 0; i < pfds_vec.size(); i++)
     {
@@ -115,35 +112,48 @@ void Server::del_from_pfds_vec(int fd)
     }
 }
 
-void Server::closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequests) {
-    std::cout << "Closing connection on fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds vector due to error or client request." << std::endl;
+void WebService::closeConnection(int &fd, int &i, Server *server) {
+    std::cout << "Closing connection on fd: " << fd << std::endl;
+    
     close(fd);
-    std::cout << "Closed fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds vector" << std::endl;
+    std::cout << "Closed fd: " << fd << std::endl;
+    
     del_from_pfds_vec(fd);
-    httpRequests.erase(httpRequests.begin() + i);
-    std::cout << "Erased request object at index:" << i << " from httpRequests vector" << std::endl;
+    server->client_fd_to_request.erase(fd);
+
+    std::cout << "Erased request object for fd: " << fd << std::endl;
 }
 
-void WebService::newConnection(Server *server)
+//creates a new httpRequest object for the new connection in the server object and maps the fd to the new httpRequest object
+void WebService::createRequestObject(int new_fd, Server &server) {
+    HttpRequest newRequest;
+    
+    //server.client_fd_to_request[new_fd] = &newRequest;
+    server.setRequestObject(new_fd, newRequest);
+    std::cout << "New httpRequest object created for connection on fd: " << new_fd << std::endl;
+    std::cout << "Mapped fd: " << new_fd << " to its httpRequest object" << std::endl;
+}
+
+void WebService::mapFdToServer(int new_fd, Server &server) {
+    this->fd_to_server[new_fd] = &server;
+}
+        
+void WebService::newConnection(Server &server)
 {
     printf("\nNew connection!\n");
     addrlen = sizeof remoteaddr;
-    int new_fd = accept(server.listener_fd, (struct sockaddr *)&remoteaddr, &addrlen);
+    int new_fd = accept(server.getListenerFd(), (struct sockaddr *)&remoteaddr, &addrlen);
     if (new_fd == -1)
     {
         perror("accept");
     }
     else
     {
-        std::cout << "New connection accepted for server: " << server.name << " on fd: " << new_fd << std::endl;
-        addToPfds(new_fd, &server);
-        
-        HttpRequest newRequest;
-        httpRequests.push_back(newRequest);
-        std::cout << "New httpRequest object created for connection on fd: " << new_fd << std::endl;
-        pfd_to_request[new_fd] = &newRequest;
-        std::cout << "Mapped fd: " << new_fd << " to its httpRequest object" << std::endl;
-        }
+        std::cout << "New connection accepted for server: " << server.getName() << " on fd: " << new_fd << std::endl;
+        addToPfdsVector(new_fd);
+        mapFdToServer(new_fd, server);
+        createRequestObject(new_fd, server);
+    }
 }
 
 //get a listening socket for each server
@@ -151,25 +161,27 @@ void WebService::setupSockets()
 {
     for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it) {
 
-        int listener_fd = get_listener_socket(it.port);
-        if (it.listener_fd == -1)
+        int listener_fd = get_listener_socket(it->getPort());
+        if (listener_fd == -1)
         {
             //std::cout << "Error getting listening socket for server: " << it.name << std::endl;
             //exit(1);
             //maybe return to main and handle cleanup from there?
-            throw std::runtime_error("Error getting listening socket for server: " + it.name);
+            throw std::runtime_error("Error getting listening socket for server: " + it->getName());
         }
         // Store the listener_fd in the Server object
-        it.listener_fd = listener_fd;
+        it->setListenerFd(listener_fd);
 
         // Add the listener_fd to pfds_vec and map it to this Server
-        addToPfds(listener_fd, &(*it));
+        addToPfdsVector(listener_fd);
+        mapFdToServer(listener_fd, *it);
+        //fd_to_server[listener_fd] = &(*it);
     }
     std::cout << "Total servers set up: " << servers.size() << std::endl;
     return ;
 }
 
-int Server::start()
+int WebService::start()
 {
     while (true)
     {
@@ -184,66 +196,58 @@ int Server::start()
         // Run through all existing fds, sending or receiving data depending on POLL status; or create a new connection if fd 0 (listener)
         for (size_t i = 0; i < pfds_vec.size(); i++)
         {
-            if (pfds_vec[i].revents & POLLIN)
+            pollfd pollfd_obj = pfds_vec[i];
+            Server *server_obj = fd_to_server[pollfd_obj.fd];
+            if (pollfd_obj.revents & POLLIN)
             {
-                Server *listening_server = NULL;
-                for (std::vector <Server>::iterator it = servers.begin(); it != servers.end(); ++it)
+                if (pollfd_obj.fd == server_obj->getListenerFd())
                 {
-                    if (pfds_vec[i].fd == it.listener_fd) {
-                        listening_server = &(*it);
-                    }
-                    // if (pfds_vec[i].fd == it.listener_fd)
-                    // {
-                    //     newConnection(&(*it)); //passing the server object that is receiving the new connection
-                    // } else {
-                    //     receiveRequest(&(*it));
-                    // }
-                }
-                if (listening_server != NULL)
-                {
-                    newConnection(listening_server); //passing the server object that is receiving the new connection
+                    //passing the server object that is receiving the new connection
+                    newConnection(*server_obj);
                 } else {
-                    receiveRequest(&(*it));
+                    receiveRequest(server_obj);
                 }
             }
-            else if (pfds_vec[i].revents & POLLOUT)
+            else if (pollfd_obj.revents & POLLOUT)
             {
                 // check if httpRequests is complete!
-                sendResponse(pfds_vec[i].fd);
+                sendResponse(pollfd_obj.fd, server_obj);
             }
         }
     }
 }
 
 // implement timeout for recv()?
-void Server::receiveRequest(int i)
+void WebService::receiveRequest(Server *server, int fd)
 {
-    std::cout << "Receive function called for request at index: " << i << " . Size of httpRequests vector: " << httpRequests.size() << std::endl;
-    if (!httpRequests[i].complete)
+    //HttpRequest *request_obj = server.client_fd_to_request[fd];
+    HttpRequest request_obj = server.getRequestObject(fd);
+    //std::cout << "Receive function called for request at index: " << i << " . Size of httpRequests vector: " << httpRequests.size() << std::endl;
+    if (!request_obj.complete)
     {        
-        int nbytes = recv(pfds_vec[i].fd, buf, sizeof buf, 0);
+        int nbytes = recv(fd, buf, sizeof buf, 0);
         if (nbytes <= 0)
         {
-            closeConnection(pfds_vec[i].fd, i, httpRequests);
+            closeConnection(fd, request_obj, server);
         }
         else
         {
             buf[nbytes] = '\0';
-            httpRequests[i].raw_request.append(buf);
-            std::cout << "Received data from fd: " << pfds_vec[i].fd << " at index: " << i << " from pfds vector" << std::endl;
-            if (httpRequests[i].raw_request.find(END_HEADER) != std::string::npos)
+            request_obj.raw_request.append(buf);
+            std::cout << "Received data from fd: " << fd << std::endl;
+            if (request_obj.raw_request.find(END_HEADER) != std::string::npos)
             {
-                std::cout << "Parsing request from request object at index:" << i << std::endl;
-                RequestParser::parseRawRequest(httpRequests[i]);
+                //std::cout << "Parsing request from request object at index:" << i << std::endl;
+                RequestParser::parseRawRequest(request_obj);
             }
         }
     }
 }
 
-void Server::sendResponse(int i, HttpRequest &request)
+void WebService::sendResponse(int fd, Server *server)
 {
-    std::cout << "Send function called for request at index:" << i << std::endl;
-    std::cout << "Request complete: " << request.complete << std::endl;
+    // std::cout << "Send function called for request at index:" << i << std::endl;
+    // std::cout << "Request complete?: " << request.complete << std::endl;
 
     HttpResponse response;
     ResponseHandler::processRequest(config, request, response);
@@ -262,7 +266,7 @@ void Server::sendResponse(int i, HttpRequest &request)
     }
 }
 
-void Server::sigintHandler(int signal)
+void WebService::sigintHandler(int signal)
 {
     if (signal == SIGINT)
     {

@@ -2,7 +2,19 @@
 
 //Server::Server() {}
 
-Server::Server(std::string name, int port_num, int listener_fd, std::string root_directory) : name(name), port_num(port_num), listener_fd(litener_fd), root_directory(root_directory) {}
+Server::Server(std::string name, std::string port, int listener_fd, std::string root_directory) : name(name), port("port_num"), listener_fd(listener_fd), root_directory(root_directory) {}
+
+const std::string &Server::getPort() const {
+    return port;
+}
+
+const std::string &Server::getName() const {
+    return name;
+}
+
+const int &Server::getListenerFd() const {
+    return listener_fd;
+}
 
 const std::string &Server::getRootDirectory() const {
     return root_directory;
@@ -24,6 +36,10 @@ const std::map<int, std::string> &Server::getErrorPages() const {
     return error_pages;
 }
 
+HttpRequest Server::getRequestObject(int fd) {
+    return this->client_fd_to_request[fd];
+}
+
 void Server::setRootDirectory(const std::string &root_directory) {
     this->root_directory = root_directory;
 }
@@ -42,6 +58,10 @@ void Server::setErrorPage(const int &code, const std::string &path) {
 
 void Server::setErrorPages(const std::map<int, std::string> &error_pages) {
     this->error_pages = error_pages;
+}
+
+void Server::setListenerFd(const int &listener_fd) {
+    this->listener_fd = listener_fd;
 }
 
 // bool Server::loadConfig(const std::string &config_file) {

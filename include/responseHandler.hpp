@@ -10,7 +10,7 @@
 #include <ctime>
 #include "httpRequest.hpp"
 #include "httpResponse.hpp"
-#include "serverConfig.hpp"
+#include "server.hpp"
 #include "mimeTypeMapper.hpp"
 
 // Processes the HTTP request and generates the HTTP response. Includes logic for:
@@ -19,12 +19,12 @@
 // *(Sending the response back to the client is done in a separate function called from the recv() loop)
 class ResponseHandler {
     public:
-        static void processRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response);
+        static void processRequest(Server *server, HttpResponse &response);
     
     private:
         // Routing
-        static void routeRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response);
-        static bool findMatchingRoute(const ServerConfig &config, HttpRequest &request, HttpResponse &response);
+        static void routeRequest(Server *server, HttpRequest &request, HttpResponse &response);
+        static bool findMatchingRoute(Server *server, HttpRequest &request, HttpResponse &response);
         static bool isMethodAllowed(const HttpRequest &request, HttpResponse &response);
         static std::string createAllowedMethodsStr(const std::set<std::string> &methods);
         
