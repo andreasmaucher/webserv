@@ -6,7 +6,7 @@
 /*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/12/20 14:59:40 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/12/20 17:30:26 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,6 +18,9 @@ WebService::WebService(const std::string &config_file)
     signal(SIGINT, sigintHandler);
     //servers = ConfigParser::parseConfig(config_file);
     servers = createFakeServers();
+    std::cout << "Configured " << servers.size() << " servers." << std::endl;
+    servers[0].debugPrintRoutes();
+    servers[1].debugPrintRoutes();
     setupSockets();
 }
 
@@ -208,7 +211,8 @@ int WebService::start()
             Server *server_obj = fd_to_server[pollfd_obj.fd];
             if (pollfd_obj.revents & POLLIN)
             {
-                if (pollfd_obj.fd == server_obj->getListenerFd())
+                // if (pollfd_obj.fd == server_obj->getListenerFd()) simplified:
+                if (i < servers.size()) // it's a listener
                 {
                     newConnection(*server_obj);
                 } else {
@@ -228,9 +232,10 @@ int WebService::start()
 void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
     //HttpRequest *request_obj = server.client_fd_to_request[fd];
-    HttpRequest request_obj = server.getRequestObject(fd);
-    //std::cout << "Receive function called for request at index: " << i << " . Size of httpRequests vector: " << httpRequests.size() << std::endl;
-    if (!request_obj.complete)
+    // HttpRequest request_obj = server.getRequestObject(fd);
+    std::cout << "Receive function called for request on server: " << server.getName() << " - listener fd: " << server.getListenerFd() << " fd from pollfds vector: " << fd << std::endl;
+    
+    if (!server.getRequestObject(fd).complete)
     {        
         int nbytes = recv(fd, buf, sizeof buf, 0);
         if (nbytes <= 0)
@@ -240,12 +245,14 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         else
         {
             buf[nbytes] = '\0';
-            request_obj.raw_request.append(buf);
+            server.getRequestObject(fd).raw_request.append(buf);
             std::cout << "Received data from fd: " << fd << std::endl;
-            if (request_obj.raw_request.find(END_HEADER) != std::string::npos)
+            std::cout << "Data received: " << buf << std::endl;
+            std::cout << "Request object raw_request: " << server.getRequestObject(fd).raw_request << std::endl;
+            if (server.getRequestObject(fd).raw_request.find(END_HEADER) != std::string::npos)
             {
-                //std::cout << "Parsing request from request object at index:" << i << std::endl;
-                RequestParser::parseRawRequest(request_obj);
+                std::cout << "Parsing request..." << std::endl;
+                RequestParser::parseRawRequest(server.getRequestObject(fd));
             }
         }
     }

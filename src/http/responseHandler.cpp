@@ -145,7 +145,7 @@ void ResponseHandler::processFileDeletion(HttpRequest& request, HttpResponse& re
 
 void ResponseHandler::removeFile(HttpRequest& request, HttpResponse& response) {
 
-  if (remove(request.path.c_str()) == 0) {
+  if (std::remove(request.path.c_str()) == 0) {
     response.status_code = 200;
   } else {
     response.status_code = 500;

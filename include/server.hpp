@@ -10,6 +10,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <iostream>
 
 class HttpRequest;
 
@@ -41,7 +42,7 @@ class Server {
         const std::map<std::string, Route> &getRoutes() const;
         Route* getRoute(const std::string &uri); // Getter for a specific Route by URI
         const std::map<int, std::string> &getErrorPages() const;
-        HttpRequest getRequestObject(int &fd);
+        HttpRequest &getRequestObject(int &fd);
         // Setters
         void setRootDirectory(const std::string &root_directory);
         void setRoutes(const std::map<std::string, Route> &routes);
@@ -52,6 +53,8 @@ class Server {
         void setRequestObject(int &fd, HttpRequest &request);
         void deleteRequestObject(int &fd);
         void resetRequestObject(int &fd);
+
+        void debugPrintRoutes() const;
 
 
     private:

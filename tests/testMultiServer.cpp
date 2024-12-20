@@ -31,24 +31,8 @@ std::vector <Server> createFakeServers()
     server_one.setRoute(restrictedstaticRoute.uri, restrictedstaticRoute);
 
     test_servers.push_back(server_one);
-    // Route nocontentallowedRoute;
-    // nocontentallowedRoute.uri = "/nocontentallowed";
-    // nocontentallowedRoute.path = server_one.getRootDirectory() + nocontentallowedRoute.uri;
-    // nocontentallowedRoute.methods.insert("GET");
-    // nocontentallowedRoute.methods.insert("POST");
-    // nocontentallowedRoute.methods.insert("DELETE");
-    // nocontentallowedRoute.is_cgi = false;
-    
-    // server_one.setRoute(nocontentallowedRoute.uri, nocontentallowedRoute);
 
-    // Route nomethodallowedRoute;
-    // nomethodallowedRoute.uri = "/nomethodallowed";
-    // nomethodallowedRoute.path = server_one.getRootDirectory() + nomethodallowedRoute.uri;
-    // nomethodallowedRoute.content_type.insert("text/plain");
-    // nomethodallowedRoute.content_type.insert("text/html");
-    // nomethodallowedRoute.is_cgi = false;
-    
-    // server_one.setRoute(nomethodallowedRoute.uri, nomethodallowedRoute);
+
 
     Server server_two(0, "8081", "server_two", "www");
     
@@ -62,7 +46,7 @@ std::vector <Server> createFakeServers()
     imageRoute.content_type.insert("image/jpeg");
     imageRoute.content_type.insert("image/png");
     imageRoute.is_cgi = false;
-    server_one.setRoute(imageRoute.uri, imageRoute);
+    server_two.setRoute(imageRoute.uri, imageRoute);
 
     // Add a route for uploads
     Route uploadsRoute;
@@ -76,24 +60,9 @@ std::vector <Server> createFakeServers()
     uploadsRoute.content_type.insert("text/plain");
     uploadsRoute.content_type.insert("text/html");
     uploadsRoute.is_cgi = false;
-    server_one.setRoute(uploadsRoute.uri, uploadsRoute);
+    server_two.setRoute(uploadsRoute.uri, uploadsRoute);
 
     test_servers.push_back(server_two);
-
-    // // Add a route for a CGI script
-    // Route cgiRoute;
-    // cgiRoute.uri = "/cgi-bin";
-    // cgiRoute.path = server_one.getRootDirectory() + cgiRoute.uri;
-    // cgiRoute.methods.insert("GET");
-    // cgiRoute.methods.insert("POST");
-    // cgiRoute.content_type.insert("application/octet-stream");
-    // cgiRoute.is_cgi = true;
-    // server_one.setRoute(cgiRoute.uri, cgiRoute);
-
-    // Define error pages
-    // server_one.setErrorPage(404, server_one.getRootDirectory() + "/errors/404.html");
-    // server_one.setErrorPage(403, server_one.getRootDirectory() + "/errors/403.html");
-    // server_one.setErrorPage(500, server_one.getRootDirectory() + "/errors/500.html");
 
     return test_servers;
 }

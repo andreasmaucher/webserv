@@ -37,7 +37,7 @@ const std::map<int, std::string> &Server::getErrorPages() const {
     return error_pages;
 }
 
-HttpRequest Server::getRequestObject(int &fd) {
+HttpRequest &Server::getRequestObject(int &fd) {
     return this->client_fd_to_request[fd];
 }
 
@@ -76,6 +76,47 @@ void Server::deleteRequestObject(int &fd) {
 void Server::resetRequestObject(int &fd) {
     this->client_fd_to_request[fd].reset();
 }
+
+
+void Server::debugPrintRoutes() const {
+    std::cout << "Debugging Routes for Server: " << name << " (Port: " << port << ")" << std::endl;
+
+    if (routes.empty()) {
+        std::cout << "No routes are configured for this server." << std::endl;
+        return;
+    }
+
+    std::map<std::string, Route>::const_iterator it;
+    for (it = routes.begin(); it != routes.end(); ++it) {
+        const std::string &uri = it->first;
+        const Route &route = it->second;
+
+        std::cout << "--------------------------------------" << std::endl;
+        std::cout << "URI: " << uri << std::endl;
+        std::cout << "Path: " << route.path << std::endl;
+        std::cout << "Allowed Methods: ";
+        std::set<std::string>::const_iterator method_it;
+        for (method_it = route.methods.begin(); method_it != route.methods.end(); ++method_it) {
+            std::cout << *method_it << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "Content Types: ";
+        std::set<std::string>::const_iterator type_it;
+        for (type_it = route.content_type.begin(); type_it != route.content_type.end(); ++type_it) {
+            std::cout << *type_it << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "Redirect URI: " << route.redirect_uri << std::endl;
+        std::cout << "Index File: " << route.index_file << std::endl;
+        std::cout << "Directory Listing Enabled: " 
+                  << (route.directory_listing_enabled ? "Yes" : "No") << std::endl;
+        std::cout << "Is CGI: " << (route.is_cgi ? "Yes" : "No") << std::endl;
+    }
+    std::cout << "--------------------------------------" << std::endl;
+}
+
 
 // bool Server::loadConfig(const std::string &config_file) {
 //     std::ifstream file(config_file);
