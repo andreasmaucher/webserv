@@ -10,7 +10,8 @@
 #include <map>
 #include <set>
 #include <vector>
-#include "httpRequest.hpp"
+
+class HttpRequest;
 
 // Represents a single route. One for each of the location blocks in the config file
 struct Route {
@@ -30,7 +31,7 @@ struct Route {
 class Server {
     public:
         // Server();
-        Server(std::string name, std::string port, int listener_fd, std::string root_directory);
+        Server(int listener_fd, std::string port, std::string name, std::string root_directory);
         
         // Getters
         const std::string &getPort() const;
@@ -40,7 +41,7 @@ class Server {
         const std::map<std::string, Route> &getRoutes() const;
         Route* getRoute(const std::string &uri); // Getter for a specific Route by URI
         const std::map<int, std::string> &getErrorPages() const;
-        HttpRequest getRequestObject(int fd);
+        HttpRequest getRequestObject(int &fd);
         // Setters
         void setRootDirectory(const std::string &root_directory);
         void setRoutes(const std::map<std::string, Route> &routes);
@@ -48,6 +49,9 @@ class Server {
         void setErrorPages(const std::map<int, std::string> &error_pages);
         void setErrorPage(const int &code, const std::string &path);
         void setListenerFd(const int &listener_fd);
+        void setRequestObject(int &fd, HttpRequest &request);
+        void deleteRequestObject(int &fd);
+        void resetRequestObject(int &fd);
 
 
     private:

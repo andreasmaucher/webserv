@@ -1,5 +1,7 @@
 #include "testsHeader.hpp"
 
+//obsolete test since implementation of multi server
+
 ServerConfig createFakeServerConfig()
 {
     ServerConfig config;

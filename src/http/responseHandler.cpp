@@ -1,9 +1,9 @@
 #include "../../include/responseHandler.hpp"
 
-void ResponseHandler::processRequest(Server *server, HttpResponse &response) {
+void ResponseHandler::processRequest(Server &server, HttpRequest &request, HttpResponse &response) {
 
   std::cout << "Processing request" << std::endl;
-  HttpRequest request = server->getRequestObject(fd);
+
 
   response.status_code = request.error_code;
 
@@ -16,7 +16,7 @@ void ResponseHandler::processRequest(Server *server, HttpResponse &response) {
   ResponseHandler::responseBuilder(response);
 }
 
-void ResponseHandler::routeRequest(Server *server, HttpRequest &request, HttpResponse &response) {
+void ResponseHandler::routeRequest(Server &server, HttpRequest &request, HttpResponse &response) {
 
   std::cout << "Routing request" << std::endl;
   MimeTypeMapper mapper;
@@ -310,7 +310,7 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
 }
 
 // Store the best match if there are multiple matches (longest prefix match)
-bool ResponseHandler::findMatchingRoute(Server *server, HttpRequest &request, HttpResponse &response) {
+bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, HttpResponse &response) {
     std::cout << "Finding matching route for " << request.uri << std::endl;
     const std::map<std::string, Route> &routes = server.getRoutes();
     const Route *best_match = NULL;

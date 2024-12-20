@@ -1,11 +1,11 @@
-#include "../include/server.hpp"
 #include "../include/webService.hpp"
+#include "../include/server.hpp"
 #include "../include/httpRequest.hpp"
 #include "../include/requestParser.hpp"
 #include "../include/httpResponse.hpp"
 #include "../include/responseHandler.hpp"
 #include "../include/mimeTypeMapper.hpp"
-// #include "../tests/testsHeader.hpp"
+#include "../tests/testsHeader.hpp"
 
 int main(int argc, char *argv[])
 {

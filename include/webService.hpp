@@ -1,3 +1,6 @@
+#ifndef WEBSERVICE_HPP
+#define WEBSERVICE_HPP
+
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
@@ -26,7 +29,6 @@
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
 
-
 class WebService {
 
 private:
@@ -52,20 +54,24 @@ private:
     void setupSockets();
     void mapFdToServer(int new_fd, Server &server);
     void addToPfdsVector(int new_fd);
+    void createRequestObject(int new_fd, Server &server);
     void cleanup();
     int get_listener_socket(const std::string &port);
     void *get_in_addr(struct sockaddr *sa);
-    void del_from_pfds_vec(int fd);
+    void deleteFromPfdsVec(int &fd, size_t &i);
+    void deleteRequestObject(int &fd, Server &server);
 
 public:
     WebService(const std::string &config_file);
     ~WebService();
 
     int         start();
-    void        receiveRequest(int i);
-    void        sendResponse(int i, Server &server);
+    void        receiveRequest(int &fd, size_t &i, Server &server);
+    void        sendResponse(int &fd, size_t &i, Server &server);
     void        newConnection(Server &server);
-    void        closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequests);
+    void        closeConnection(int &fd, size_t &i, Server &server);
     void        handleSigint(int signal);
     static void sigintHandler(int signal);
 };
+
+#endif

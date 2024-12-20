@@ -6,7 +6,7 @@
 /*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/12/19 19:20:31 by cestevez         ###   ########.fr       */
+/*   Updated: 2024/12/20 14:59:40 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,8 +14,10 @@
 
 WebService::WebService(const std::string &config_file)
 {
+    (void)config_file;
     signal(SIGINT, sigintHandler);
-    parseConfig(config_file);
+    //servers = ConfigParser::parseConfig(config_file);
+    servers = createFakeServers();
     setupSockets();
 }
 
@@ -99,27 +101,33 @@ void WebService::addToPfdsVector(int new_fd)
 
 }
 
-void WebService::del_from_pfds_vec(int fd)
+void WebService::deleteFromPfdsVec(int &fd, size_t &i)
 {
-    for (size_t i = 0; i < pfds_vec.size(); i++)
+    if (pfds_vec[i].fd == fd)
     {
-        if (pfds_vec[i].fd == fd)
-        {
-            pfds_vec.erase(pfds_vec.begin() + i);
-            std::cout << "Erased fd from vector at index: " << i << ". pfds_vec size: " << pfds_vec.size() << std::endl;
-        }
-
+        pfds_vec.erase(pfds_vec.begin() + i);
+        std::cout << "Erased fd from vector at index: " << i << ". pfds_vec size: " << pfds_vec.size() << std::endl;
+    }
+    else
+    {
+        std::cout << "Error: fd not found in vector at index: " << i << " Check the logic!" << std::endl;
     }
 }
 
-void WebService::closeConnection(int &fd, int &i, Server *server) {
+void WebService::deleteRequestObject(int &fd, Server &server)
+{
+    server.deleteRequestObject(fd);
+}
+
+void WebService::closeConnection(int &fd, size_t &i, Server &server) {
     std::cout << "Closing connection on fd: " << fd << std::endl;
     
     close(fd);
     std::cout << "Closed fd: " << fd << std::endl;
     
-    del_from_pfds_vec(fd);
-    server->client_fd_to_request.erase(fd);
+    deleteFromPfdsVec(fd, i);
+    deleteRequestObject(fd, server);
+
 
     std::cout << "Erased request object for fd: " << fd << std::endl;
 }
@@ -161,16 +169,16 @@ void WebService::setupSockets()
 {
     for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it) {
 
-        int listener_fd = get_listener_socket(it->getPort());
+        int listener_fd = get_listener_socket((*it).getPort());
         if (listener_fd == -1)
         {
             //std::cout << "Error getting listening socket for server: " << it.name << std::endl;
             //exit(1);
             //maybe return to main and handle cleanup from there?
-            throw std::runtime_error("Error getting listening socket for server: " + it->getName());
+            throw std::runtime_error("Error getting listening socket for server: " + (*it).getName());
         }
         // Store the listener_fd in the Server object
-        it->setListenerFd(listener_fd);
+        (*it).setListenerFd(listener_fd);
 
         // Add the listener_fd to pfds_vec and map it to this Server
         addToPfdsVector(listener_fd);
@@ -202,23 +210,22 @@ int WebService::start()
             {
                 if (pollfd_obj.fd == server_obj->getListenerFd())
                 {
-                    //passing the server object that is receiving the new connection
                     newConnection(*server_obj);
                 } else {
-                    receiveRequest(server_obj);
+                    receiveRequest(pollfd_obj.fd, i, *server_obj);
                 }
             }
             else if (pollfd_obj.revents & POLLOUT)
             {
-                // check if httpRequests is complete!
-                sendResponse(pollfd_obj.fd, server_obj);
+                // check if httpRequest is complete!
+                sendResponse(pollfd_obj.fd, i, *server_obj);
             }
         }
     }
 }
 
 // implement timeout for recv()?
-void WebService::receiveRequest(Server *server, int fd)
+void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
     //HttpRequest *request_obj = server.client_fd_to_request[fd];
     HttpRequest request_obj = server.getRequestObject(fd);
@@ -228,7 +235,7 @@ void WebService::receiveRequest(Server *server, int fd)
         int nbytes = recv(fd, buf, sizeof buf, 0);
         if (nbytes <= 0)
         {
-            closeConnection(fd, request_obj, server);
+            closeConnection(fd, i, server);
         }
         else
         {
@@ -244,25 +251,29 @@ void WebService::receiveRequest(Server *server, int fd)
     }
 }
 
-void WebService::sendResponse(int fd, Server *server)
+void WebService::sendResponse(int &fd, size_t &i, Server &server)
 {
     // std::cout << "Send function called for request at index:" << i << std::endl;
     // std::cout << "Request complete?: " << request.complete << std::endl;
-
-    HttpResponse response;
-    ResponseHandler::processRequest(config, request, response);
-
-    std::string responseStr = response.generateRawResponseStr();
-    if (send(pfds_vec[i].fd, responseStr.c_str(), responseStr.size(), 0) == -1)
+    HttpRequest request_obj = server.getRequestObject(fd);
+    if (request_obj.complete)
     {
-        perror("send");
-    }
-    std::cout << "Response sent to fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds_vec" << std::endl;
-    if (response.close_connection == true)
-    {
-        closeConnection(pfds_vec[i].fd, i, httpRequests);
-    } else {
-        request.reset();
+        HttpRequest request = server.getRequestObject(fd);
+        HttpResponse response;
+        ResponseHandler::processRequest(server, request, response);
+
+        std::string responseStr = response.generateRawResponseStr();
+        if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
+        {
+            perror("send");
+        }
+        std::cout << "Response sent to fd: " << fd << " at index: " << i << " in pfds_vec" << std::endl;
+        if (response.close_connection == true)
+        {
+            closeConnection(fd, i, server);
+        } else {
+            server.resetRequestObject(fd);
+        }
     }
 }
 

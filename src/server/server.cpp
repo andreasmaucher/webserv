@@ -1,8 +1,9 @@
 #include "../../include/server.hpp"
+#include "../../include/httpRequest.hpp"
 
 //Server::Server() {}
 
-Server::Server(std::string name, std::string port, int listener_fd, std::string root_directory) : name(name), port("port_num"), listener_fd(listener_fd), root_directory(root_directory) {}
+Server::Server(int listener_fd, std::string port, std::string name, std::string root_directory) : listener_fd(listener_fd), port(port), name(name), root_directory(root_directory) {}
 
 const std::string &Server::getPort() const {
     return port;
@@ -36,7 +37,7 @@ const std::map<int, std::string> &Server::getErrorPages() const {
     return error_pages;
 }
 
-HttpRequest Server::getRequestObject(int fd) {
+HttpRequest Server::getRequestObject(int &fd) {
     return this->client_fd_to_request[fd];
 }
 
@@ -62,6 +63,18 @@ void Server::setErrorPages(const std::map<int, std::string> &error_pages) {
 
 void Server::setListenerFd(const int &listener_fd) {
     this->listener_fd = listener_fd;
+}
+
+void Server::setRequestObject(int &fd, HttpRequest &request) {
+    this->client_fd_to_request[fd] = request;
+}
+
+void Server::deleteRequestObject(int &fd) {
+    this->client_fd_to_request.erase(fd);
+}
+
+void Server::resetRequestObject(int &fd) {
+    this->client_fd_to_request[fd].reset();
 }
 
 // bool Server::loadConfig(const std::string &config_file) {

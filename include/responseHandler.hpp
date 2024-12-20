@@ -19,12 +19,12 @@
 // *(Sending the response back to the client is done in a separate function called from the recv() loop)
 class ResponseHandler {
     public:
-        static void processRequest(Server *server, HttpResponse &response);
+        static void processRequest(Server &server, HttpRequest &request, HttpResponse &response);
     
     private:
         // Routing
-        static void routeRequest(Server *server, HttpRequest &request, HttpResponse &response);
-        static bool findMatchingRoute(Server *server, HttpRequest &request, HttpResponse &response);
+        static void routeRequest(Server &server, HttpRequest &request, HttpResponse &response);
+        static bool findMatchingRoute(Server &server, HttpRequest &request, HttpResponse &response);
         static bool isMethodAllowed(const HttpRequest &request, HttpResponse &response);
         static std::string createAllowedMethodsStr(const std::set<std::string> &methods);
         
