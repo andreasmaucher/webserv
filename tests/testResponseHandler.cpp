@@ -83,10 +83,13 @@ ServerConfig createFakeServerConfig()
     // Add a route for a CGI script
     Route cgiRoute;
     cgiRoute.uri = "/cgi-bin";
-    cgiRoute.path = config.getRootDirectory() + cgiRoute.uri;
+    cgiRoute.path = "/cgi-bin";
     cgiRoute.methods.insert("GET");
     cgiRoute.methods.insert("POST");
     cgiRoute.content_type.insert("application/octet-stream");
+    cgiRoute.content_type.insert("application/x-python");
+    cgiRoute.content_type.insert("text/plain"); //! ANDY
+    //! what other content types do I need to add here?
     cgiRoute.is_cgi = true;
     config.setRoute(cgiRoute.uri, cgiRoute);
 

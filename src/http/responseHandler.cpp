@@ -4,6 +4,33 @@
 void ResponseHandler::processRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
 
     std::cout << "Processing request" << std::endl;
+    std::cout << "Request URI: " << request.uri << "\n";
+    //! ANDY
+    // Find matching route
+    if (!findMatchingRoute(config, request, response)) {
+      std::cout << "No matching route found" << std::endl;
+        response.status_code = 404;
+        return;
+    }
+ std::cout << "we are here" << std::endl;
+    // If it's a CGI request, handle it differently
+      // Check if this is a CGI request
+    if (request.route && request.route->is_cgi) {
+        std::cout << "CGI request detected\n";
+        try {
+            CGI cgi;  // Create CGI handler
+            cgi.handleCGIRequest(request);
+            response.status_code = 200;  // Assuming success
+            return;
+        } catch (const std::exception& e) {
+            std::cerr << "CGI execution failed: " << e.what() << "\n";
+            response.status_code = 500;
+            response.body = "CGI execution failed: " + std::string(e.what());
+            return;
+        }
+    }
+
+
     // from here on, we will populate & use the response object status code only
     response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
     // find connection header and set close_connection in response object
@@ -31,6 +58,7 @@ void ResponseHandler::routeRequest(const ServerConfig &config, HttpRequest &requ
 
     if (request.is_cgi) { // at this point its been routed already and checked if (CGI)extension is allowed
         std::cout << "calling CGI handler" << std::endl;
+        //! CGI PROCESS STARTS
         CGI cgiHandler; // create an instance of CGI
         cgiHandler.handleCGIRequest(request); //! i need to add response
     }

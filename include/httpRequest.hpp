@@ -95,6 +95,7 @@ class HttpRequest {
     bool complete;
     bool headers_parsed;
     ChunkState chunk_state;
+    int clientSocket; //! ANDY
   
 };
 
