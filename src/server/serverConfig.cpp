@@ -2,7 +2,7 @@
 
 // // if no config file provided at execution call this constructor
 // ServerConfig::ServerConfig() {
-//     loadConfig(DEFAULT_CONFIG);    
+//     loadConfig(DEFAULT_CONFIG);
 // }
 
 // else if config file is provided at execution call this constructor passing the argv[1] as the config file
@@ -11,31 +11,38 @@
 // //     loadConfig(config_file); // parser
 // // }
 
-const std::string &ServerConfig::getRootDirectory() const {
+const std::string &ServerConfig::getRootDirectory() const
+{
     return root_directory;
 }
 
-Route* ServerConfig::getRoute(const std::string &uri) {
+Route *ServerConfig::getRoute(const std::string &uri)
+{
     std::map<std::string, Route>::iterator it = routes.find(uri);
-    if (it != routes.end()) {
-        return &it->second;  // Return pointer to the found Route
+    if (it != routes.end())
+    {
+        return &it->second; // Return pointer to the found Route
     }
-    return NULL;  // Return nullptr if not found
+    return NULL; // Return nullptr if not found
 }
 
-const std::map<std::string, Route> &ServerConfig::getRoutes() const {
+const std::map<std::string, Route> &ServerConfig::getRoutes() const
+{
     return routes;
 }
 
-const std::map<int, std::string> &ServerConfig::getErrorPages() const {
+const std::map<int, std::string> &ServerConfig::getErrorPages() const
+{
     return error_pages;
 }
 
-void ServerConfig::setRootDirectory(const std::string &root_directory) {
+void ServerConfig::setRootDirectory(const std::string &root_directory)
+{
     this->root_directory = root_directory;
 }
 
-void ServerConfig::setRoute(const std::string &uri, const Route &route) {
+void ServerConfig::setRoute(const std::string &uri, const Route &route)
+{
     routes[uri] = route; // This will add a new route or update an existing one
 }
 
@@ -43,12 +50,52 @@ void ServerConfig::setRoute(const std::string &uri, const Route &route) {
 //     this->routes = routes;
 // }
 
-void ServerConfig::setErrorPage(const int &code, const std::string &path) {
+void ServerConfig::setErrorPage(const int &code, const std::string &path)
+{
     error_pages[code] = path;
 }
 
-void ServerConfig::setErrorPages(const std::map<int, std::string> &error_pages) {
+void ServerConfig::setErrorPages(const std::map<int, std::string> &error_pages)
+{
     this->error_pages = error_pages;
+}
+
+bool parseConfigFile(const std::string &config_filename)
+{
+    std::ifstream config_file(config_filename);
+    if (!config_file.is_open())
+    {
+        std::cerr << "Error: can't open config file" << std::endl;
+        return false;
+    }
+
+    std::string line;
+    while (std::getline(config_file, line))
+    {
+        // ignore commments and empty lines
+        if (line.empty() || line[0] == '#')
+            continue;
+
+        // parse server block if found one - [[server]]
+        if (line.find("[[server]]") != std::string::npos)
+        {
+            if (!parseServerBlock(config_file))
+                return false;
+        }
+    }
+    return false;
+}
+
+bool parseServerBlock(std::istream &config_file)
+{
+
+    //     name = "test"
+    // listen = 8001
+    // host = "127.0.0.1"
+    // root = "www"
+    // index = "index.html"
+    // error_page = "www/errors/404.html"
+    // client_max_body_size = 2000000
 }
 
 // bool ServerConfig::loadConfig(const std::string &config_file) {

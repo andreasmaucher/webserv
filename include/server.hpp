@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
+/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/11/12 17:36:39 by cestevez         ###   ########.fr       */
+/*   Updated: 2025/01/01 18:44:29 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,7 +31,6 @@
 #include "serverConfig.hpp"
 #include "../tests/testsHeader.hpp"
 
-
 #define MAX_SIM_CONN 10
 #define BUFFER_SIZE 100
 #define PORT "8080"
@@ -39,30 +38,28 @@
 #define END_HEADER "\r\n\r\n"
 // #define END_HEADER "close"
 
-
-
-
 // add signals so can reuse the port
 // add msgs of which client sent what
 // add msg confirmation to send back to clients
 // add clear msgs of what is happening - ex. added sockets and fd'
 // add cleanup on exit
 
-class Server {
+class Server
+{
 
 private:
-    ServerConfig config;
-    //int sockfd;
+    std::vector<ServerConfig> configs;
+    // int sockfd;
     std::vector<pollfd> pfds_vec;
-    
-    int new_fd; // Newly accepted fd
-    int listener_fd; //Listening socket fd
+
+    int new_fd;      // Newly accepted fd
+    int listener_fd; // Listening socket fd
 
     struct sockaddr_storage remoteaddr; // Client address (both IPv4 and IPv6)
     socklen_t addrlen;
-    char buf[BUFFER_SIZE]; //Buff for client data
-    char remoteIP[INET6_ADDRSTRLEN]; //To store IP address in string form
-    
+    char buf[BUFFER_SIZE];           // Buff for client data
+    char remoteIP[INET6_ADDRSTRLEN]; // To store IP address in string form
+
     int reuse_socket_opt;
     int addrinfo_status; // Return status of getaddrinfo()
     bool request_fully_received;
@@ -70,12 +67,12 @@ private:
     int poll_count;
 
     struct addrinfo hints, *ai, *p;
-    
-    Server(const Server&other);
-    Server& operator=(const Server &other);
+
+    Server(const Server &other);
+    Server &operator=(const Server &other);
 
     std::vector<HttpRequest> httpRequests;
-    int setup(const std::string& port);
+    int setup(const std::string &port);
     void cleanup();
     int get_listener_socket(const std::string port);
     void *get_in_addr(struct sockaddr *sa);
@@ -83,14 +80,14 @@ private:
     void del_from_pfds_vec(int fd);
 
 public:
-    Server(const std::string &port);
+    Server(const std::string &config_file);
     ~Server();
 
-    int         start();
-    void        receiveRequest(int i);
-    void        sendResponse(int i, HttpRequest &request);
-    void        new_connection();
-    void        closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequests);
-    void        handleSigint(int signal);
+    int start();
+    void receiveRequest(int i);
+    void sendResponse(int i, HttpRequest &request);
+    void new_connection();
+    void closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequests);
+    void handleSigint(int signal);
     static void sigintHandler(int signal);
 };
