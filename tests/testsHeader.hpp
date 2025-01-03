@@ -13,9 +13,9 @@
 void test_request_parser_simple();
 void test_request_parser_streaming();
 
-//testRouting.cpp
+// testRouting.cpp
 void test_responseHandler();
-ServerConfig createFakeServerConfig();
+ServerConfig createFakeServerConfig(const std::string &config_file);
 HttpRequest createFakeHttpRequest(const std::string &method, const std::string &uri, const std::string &content_type, const std::string &content_length, const std::string &body);
 void logTestResult(const std::string &testName, bool &passed, const std::string &result);
 void run_test_(const std::string &test_name, const int expected_status_code, HttpRequest request, const ServerConfig &config);

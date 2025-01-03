@@ -1,15 +1,22 @@
 #include "../../include/serverConfig.hpp"
 
-// // if no config file provided at execution call this constructor
-// ServerConfig::ServerConfig() {
-//     loadConfig(DEFAULT_CONFIG);
-// }
+ServerConfig::ServerConfig() : port(0)
+{
+    // Initialize default values
+    root_directory = ROOT_DIR;
+}
 
-// else if config file is provided at execution call this constructor passing the argv[1] as the config file
-// converting char* to string
-// // ServerConfig::ServerConfig(const std::string &config_file) {
-// //     loadConfig(config_file); // parser
-// // }
+ServerConfig::ServerConfig(const std::string &config_file) : port(0)
+{
+    // Initialize default values
+    root_directory = ROOT_DIR;
+
+    // Parse the config file
+    if (!parseConfigFile(config_file))
+    {
+        std::cerr << "Error: Failed to parse config file: " << config_file << std::endl;
+    }
+}
 
 const std::string &ServerConfig::getRootDirectory() const
 {
@@ -60,7 +67,20 @@ void ServerConfig::setErrorPages(const std::map<int, std::string> &error_pages)
     this->error_pages = error_pages;
 }
 
-bool parseConfigFile(const std::string &config_filename)
+bool ServerConfig::parseServerBlock(std::istream &config_file)
+{
+    (void)config_file;
+    //     name = "test"
+    // listen = 8001
+    // host = "127.0.0.1"
+    // root = "www"
+    // index = "index.html"
+    // error_page = "www/errors/404.html"
+    // client_max_body_size = 200000
+    return true;
+}
+
+bool ServerConfig::parseConfigFile(const std::string &config_filename)
 {
     std::ifstream config_file(config_filename);
     if (!config_file.is_open())
@@ -86,17 +106,136 @@ bool parseConfigFile(const std::string &config_filename)
     return false;
 }
 
-bool parseServerBlock(std::istream &config_file)
+void trimWhitespace(std::string &str)
 {
-
-    //     name = "test"
-    // listen = 8001
-    // host = "127.0.0.1"
-    // root = "www"
-    // index = "index.html"
-    // error_page = "www/errors/404.html"
-    // client_max_body_size = 2000000
+    while ((str[0] == ' ' || str[0] == '\t') && !str.empty())
+        str.erase(0, 1);
+    while ((str[str.length() - 1] == ' ' || str[str.length() - 1] == '\t') && !str.empty())
+        str.erase(str.length() - 1, 1);
 }
+
+void trimWhitespaceQuotes(std::string &str)
+{
+    while ((str[0] == '"' || str[0] == ' ' || str[0] == '\t') && !str.empty())
+        str.erase(0, 1);
+    while ((str[str.length() - 1] == '"' || str[str.length() - 1] == ' ' || str[str.length() - 1] == '\t') && !str.empty())
+        str.erase(str.length() - 1, 1);
+}
+
+unsigned int countQuotes(const std::string &str)
+{
+    unsigned int quote_count = 0;
+    if (str.empty())
+        return quote_count;
+
+    size_t i = 0;
+    while (i < str.length())
+    {
+        if (str[i] == '"')
+            quote_count++;
+        i++;
+    }
+    // if (quote_count != 2)
+    //     return quote_count;
+    return quote_count;
+}
+
+unsigned int countSquareBrackets(const std::string &str)
+{
+    unsigned int brackets_count = 0;
+    if (str.empty())
+        return brackets_count;
+
+    size_t i = 0;
+    while (i < str.length())
+    {
+        if (str[i] == '"')
+            brackets_count++;
+        i++;
+    }
+    // if (quote_count != 2)
+    //     return quote_count;
+    return brackets_count;
+}
+
+bool ServerConfig::parseKeyValue(const std::string &line, std::string &key, std::string &value)
+{
+    std::string::size_type position = line.find('=');
+    key = "";
+    value = "";
+
+    // Check if line is empty, comment or no '=' found
+    if (line.empty() || line[0] == '#' || position == std::string::npos)
+        return false;
+    // Get key and trim whitespace
+    key = line.substr(0, position);
+    trimWhitespace(key);
+    // Get value and trim whitespace & remove quotes
+    // If there are 2 quotes, trim whitespace & remove quotes
+    // If there are no quotes, trim whitespace
+    // Else signal that key-value pair is not valid, return false
+    value = line.substr(position + 1);
+    if (countQuotes(value) == 2)
+        trimWhitespaceQuotes(value);
+    else if (countQuotes(value) == 0)
+        trimWhitespace(value);
+    else
+        return false;
+    return true;
+}
+
+bool ServerConfig::parseLocationBlock(std::istream &config_file, Route &route)
+{
+    (void)config_file;
+    (void)route;
+    return true;
+}
+
+// bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value)
+// {
+//     std::string value_str;
+//     std::string::size_type position = line.find('=');
+//     key = "";
+
+//     // Check if line is empty, comment or no '=' found
+//     if (line.empty() || line[0] == '#' || position == std::string::npos)
+//         return false;
+
+//     // Get key and trim whitespace
+//     key = line.substr(0, position);
+//     trimWhitespace(key);
+//     value_str = line.substr(position + 1, line.length() - position - 1);
+//     if (countSquareBrackets(value_str) != 0 || countSquareBrackets(value_str) != 2)
+//         return false;
+//     if (countSquareBrackets(value_str) == 0)
+//     {
+//         trimWhitespaceQuotes(value_str);
+//         value.insert(value_str);
+//     }
+//     else if (countSquareBrackets(value_str) == 2)
+//     {
+//         trimWhitespaceQuotes(value_str);
+//         value.insert(value_str);
+//     }
+
+//     while (position < value_str.length())
+//     {
+//     }
+//     // Get value and trim whitespace & remove quotes
+//     // If there are 2 quotes, trim whitespace & remove quotes
+//     // If there are no quotes, trim whitespace
+//     // Else signal that key-value pair is not valid, return false
+//     value = line.substr(position + 1);
+//     if (countSquareBrackets(value) != 2)
+//         return false;
+//     if (countQuotes(value) == 2)
+//         trimWhitespaceQuotes(value);
+//     else if (countQuotes(value) == 0)
+//         trimWhitespace(value);
+//     else
+//         return false;
+//     return true;
+// }
 
 // bool ServerConfig::loadConfig(const std::string &config_file) {
 //     std::ifstream file(config_file);

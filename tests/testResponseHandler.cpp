@@ -1,8 +1,8 @@
 #include "testsHeader.hpp"
 
-ServerConfig createFakeServerConfig()
+ServerConfig createFakeServerConfig(const std::string &config_file)
 {
-    ServerConfig config;
+    ServerConfig config(config_file);
 
     // Root directory for the server
     config.setRootDirectory("www");
@@ -18,7 +18,7 @@ ServerConfig createFakeServerConfig()
     staticRoute.content_type.insert("text/plain");
     staticRoute.content_type.insert("text/html");
     staticRoute.is_cgi = false;
-    
+
     config.setRoute(staticRoute.uri, staticRoute);
 
     // Add a route for more restrictive folder in static
@@ -30,9 +30,8 @@ ServerConfig createFakeServerConfig()
     restrictedstaticRoute.content_type.insert("text/plain");
     restrictedstaticRoute.content_type.insert("text/html");
     restrictedstaticRoute.is_cgi = false;
-    
-    config.setRoute(restrictedstaticRoute.uri, restrictedstaticRoute);
 
+    config.setRoute(restrictedstaticRoute.uri, restrictedstaticRoute);
 
     Route nocontentallowedRoute;
     nocontentallowedRoute.uri = "/nocontentallowed";
@@ -41,7 +40,7 @@ ServerConfig createFakeServerConfig()
     nocontentallowedRoute.methods.insert("POST");
     nocontentallowedRoute.methods.insert("DELETE");
     nocontentallowedRoute.is_cgi = false;
-    
+
     config.setRoute(nocontentallowedRoute.uri, nocontentallowedRoute);
 
     Route nomethodallowedRoute;
@@ -50,7 +49,7 @@ ServerConfig createFakeServerConfig()
     nomethodallowedRoute.content_type.insert("text/plain");
     nomethodallowedRoute.content_type.insert("text/html");
     nomethodallowedRoute.is_cgi = false;
-    
+
     config.setRoute(nomethodallowedRoute.uri, nomethodallowedRoute);
 
     // Add a route for images
@@ -63,7 +62,7 @@ ServerConfig createFakeServerConfig()
     imageRoute.content_type.insert("image/jpeg");
     imageRoute.content_type.insert("image/png");
     imageRoute.is_cgi = false;
-    
+
     config.setRoute(imageRoute.uri, imageRoute);
 
     // Add a route for uploads
@@ -98,10 +97,11 @@ ServerConfig createFakeServerConfig()
     return config;
 }
 
-HttpRequest createFakeHttpRequest(const std::string &method, const std::string &uri, const std::string &content_type, const std::string &content_length, const std::string &body) {
-    
+HttpRequest createFakeHttpRequest(const std::string &method, const std::string &uri, const std::string &content_type, const std::string &content_length, const std::string &body)
+{
+
     HttpRequest request;
-    
+
     request.method = method;
     request.uri = uri;
     request.version = "HTTP/1.1";
@@ -119,30 +119,36 @@ HttpRequest createFakeHttpRequest(const std::string &method, const std::string &
     return request;
 }
 
-void logTestResult(const std::string &testName, bool &passed, const std::string &result) {
+void logTestResult(const std::string &testName, bool &passed, const std::string &result)
+{
     std::ofstream logFile("test_results.log", std::ios::app); // Open in append mode
-    if (logFile.is_open()) {
-        logFile << "TEST: " << testName << " - RESULT: " << (passed ? "Passed" : "Failed") << "\nExecution Output:\n" << result << "\n" << std::endl;
+    if (logFile.is_open())
+    {
+        logFile << "TEST: " << testName << " - RESULT: " << (passed ? "Passed" : "Failed") << "\nExecution Output:\n"
+                << result << "\n"
+                << std::endl;
         logFile.close();
-    } else {
+    }
+    else
+    {
         std::cerr << "Error opening log file!" << std::endl;
     }
 }
 
-void run_test_(const std::string &test_name, const int expected_status_code, HttpRequest request, const ServerConfig &config) {
+void run_test_(const std::string &test_name, const int expected_status_code, HttpRequest request, const ServerConfig &config)
+{
 
     HttpResponse response;
 
     ResponseHandler::processRequest(config, request, response);
-    
+
     bool passed = response.status_code == expected_status_code;
     logTestResult(test_name, passed, response.generateRawResponseStr());
-
 }
 
 void test_responseHandler()
 {
-    ServerConfig    config = createFakeServerConfig();
+    ServerConfig config = createFakeServerConfig("src/server/tomldb.config");
 
     run_test_("GET Index_File", 200, createFakeHttpRequest("GET", "/static", "", "", ""), config);
     run_test_("GET Simple", 200, createFakeHttpRequest("GET", "/static/example.txt", "text/plain", "", ""), config);
@@ -150,26 +156,25 @@ void test_responseHandler()
     run_test_("POST Simple", 201, createFakeHttpRequest("POST", "/uploads/file.txt", "text/plain", "10", "a file"), config);
     run_test_("POST No_File_Name", 201, createFakeHttpRequest("POST", "/uploads", "text/plain", "31", "name=test&value=testttttest"), config);
     run_test_("POST No_Content_Type_Header", 201, createFakeHttpRequest("POST", "/uploads/no_content_type.txt", "", "27", "name=test&value=hello%20world"), config);
-    run_test_("DELETE Simple", 200,createFakeHttpRequest("DELETE", "/uploads/file.txt", "text/plain", "", ""), config);
+    run_test_("DELETE Simple", 200, createFakeHttpRequest("DELETE", "/uploads/file.txt", "text/plain", "", ""), config);
 
     run_test_("GET File_Not_Found", 404, createFakeHttpRequest("GET", "/static/missing.txt", "text/plain", "", ""), config);
-    //make sure that file has no read permission for next test
-    //run_test_("GET File_Forbidden", 403, createFakeHttpRequest("GET", "/images/secret.png", "image/png", "", ""), config);
-    //run_test_("DELETE File_Forbidden", 403, createFakeHttpRequest("DELETE", "/static/asecret.txt", "text/plain", "", ""), config);
+    // make sure that file has no read permission for next test
+    // run_test_("GET File_Forbidden", 403, createFakeHttpRequest("GET", "/images/secret.png", "image/png", "", ""), config);
+    // run_test_("DELETE File_Forbidden", 403, createFakeHttpRequest("DELETE", "/static/asecret.txt", "text/plain", "", ""), config);
 
     run_test_("POST File_Already_Exists", 409, createFakeHttpRequest("POST", "/uploads/dont_delete.txt", "text/plain", "15", "change file"), config);
     run_test_("POST No_Body_No_Content_Type", 400, createFakeHttpRequest("POST", "/uploads", "", "", ""), config);
-    
-    run_test_("DELETE No_File_Specified", 501, createFakeHttpRequest("DELETE", "/uploads", "text/plain", "", ""), config); 
+
+    run_test_("DELETE No_File_Specified", 501, createFakeHttpRequest("DELETE", "/uploads", "text/plain", "", ""), config);
     run_test_("DELETE File_Not_Found", 404, createFakeHttpRequest("DELETE", "/uploads/missing.txt", "text/plain", "", ""), config);
-    //DELETE File_Forbidden
-    
+    // DELETE File_Forbidden
+
     run_test_("No_Matching_Route", 404, createFakeHttpRequest("GET", "/missing", "text/plain", "", ""), config);
     run_test_("Method_Not_Allowed_In_Route", 405, createFakeHttpRequest("DELETE", "/images/oli.jpg", "", "", ""), config);
     run_test_("Content_Type_Header_Not_Allowed_In_Route", 415, createFakeHttpRequest("GET", "/static", "image/png", "", ""), config);
     run_test_("Content_Type_Not_Matching_File_Extension", 415, createFakeHttpRequest("POST", "/uploads/upload.txt", "text/html", "27", "name=test&value=hello%20world"), config);
     run_test_("POST No_Content_Type_Header_And_File_Extension_Not_Allowed_In_Route", 415, createFakeHttpRequest("POST", "/uploads/script.py", "", "27", "name=test&value=hello%20world"), config);
-    
-    //test_serverError(config);
 
+    // test_serverError(config);
 }

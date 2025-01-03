@@ -3,19 +3,22 @@
 /*                                                        :::      ::::::::   */
 /*   server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
+/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/11/12 17:39:09 by cestevez         ###   ########.fr       */
+/*   Updated: 2025/01/03 22:40:04 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/server.hpp"
 
-Server::Server(const std::string &port) : pfds_vec(1), new_fd(-1) 
+Server::Server(const std::string &port, const std::string &config_file) : pfds_vec(1), new_fd(-1)
 {
     signal(SIGINT, sigintHandler);
-    setup(port);
+    ServerConfig config(config_file);
+    configs.push_back(config);
+    setup(port, config_file);
+    // setup(port);
 }
 
 Server::~Server()
@@ -36,12 +39,12 @@ void *Server::get_in_addr(struct sockaddr *sa)
 }
 
 // Return a listening socket
-    // getaddrinfo(NULL, PORT, &hints, &ai)
-    // NULL - hostname or IP address of the server, NULL means any available network, use for incoming connections
-    // PORT - port
-    // hints - criteria to resolve the ip address
-    // ai - pointer to a linked list of results returned by getaddrinfo().
-    // It holds the resolved network addresses that match the criteria specified in hints.
+// getaddrinfo(NULL, PORT, &hints, &ai)
+// NULL - hostname or IP address of the server, NULL means any available network, use for incoming connections
+// PORT - port
+// hints - criteria to resolve the ip address
+// ai - pointer to a linked list of results returned by getaddrinfo().
+// It holds the resolved network addresses that match the criteria specified in hints.
 int Server::get_listener_socket(const std::string port)
 {
     (void)port;
@@ -121,11 +124,11 @@ void Server::del_from_pfds_vec(int fd)
             pfds_vec.erase(pfds_vec.begin() + i);
             std::cout << "Erased fd from vector at index: " << i << ". pfds_vec size: " << pfds_vec.size() << std::endl;
         }
-
     }
 }
 
-void Server::closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequests) {
+void Server::closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequests)
+{
     std::cout << "Closing connection on fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds vector due to error or client request." << std::endl;
     close(fd);
     std::cout << "Closed fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds vector" << std::endl;
@@ -151,17 +154,15 @@ void Server::new_connection()
         HttpRequest newRequest;
         httpRequests.push_back(newRequest);
         std::cout << "New httpRequest instance created for connection on fd: " << new_fd << " at index: " << httpRequests.size() - 1 << " . HttpRequests vector size: " << httpRequests.size() << std::endl;
-
     }
 }
 
-
-int Server::setup(const std::string &port)
+int Server::setup(const std::string &port, const std::string &config_file)
 {
     (void)port;
 
     // calling temporary hardcoding function for testing
-    config = createFakeServerConfig();
+    config = createFakeServerConfig(config_file);
 
     listener_fd = get_listener_socket(port);
     if (listener_fd == -1)
@@ -178,7 +179,7 @@ int Server::setup(const std::string &port)
     httpRequests.push_back(newRequest);
     std::cout << "pfds_vec size at setup: " << pfds_vec.size() << std::endl;
     std::cout << "httpRequest vector size at setup: " << httpRequests.size() << std::endl;
-    
+
     return (listener_fd);
 }
 
@@ -195,13 +196,15 @@ int Server::start()
         // Run through the existing connections looking for data to read
         for (size_t i = 0; i < pfds_vec.size(); i++)
         {
-            //do the POLLIN and POLLOUT checks actually work or just using request.complete?
+            // do the POLLIN and POLLOUT checks actually work or just using request.complete?
             if (pfds_vec[i].revents & POLLIN)
             {
                 if (pfds_vec[i].fd == listener_fd) // initial created fd at index 0 is the listener
                 {
                     new_connection();
-                } else { // we are in the fd of an existing connection
+                }
+                else
+                { // we are in the fd of an existing connection
                     receiveRequest(i);
                 }
             }
@@ -217,8 +220,8 @@ int Server::start()
 void Server::receiveRequest(int i)
 {
     std::cout << "Request function called for request at index: " << i << " . Size of httpRequests vector: " << httpRequests.size() << std::endl;
-    if (!httpRequests[i].complete)//i < static_cast<int>(httpRequests.size()) && 
-    {        
+    if (!httpRequests[i].complete) // i < static_cast<int>(httpRequests.size()) &&
+    {
         int nbytes = recv(pfds_vec[i].fd, buf, sizeof buf, 0); // Receive data from client
         if (nbytes <= 0)
         {
@@ -265,7 +268,9 @@ void Server::sendResponse(int i, HttpRequest &request)
         if (response.close_connection == true)
         {
             closeConnection(pfds_vec[i].fd, i, httpRequests);
-        } else {
+        }
+        else
+        {
             // Keep connection open for further requests from same client, cleaning the request object
             pfds_vec[i].revents = POLLIN; // Set to listen for more requests
             request.reset();

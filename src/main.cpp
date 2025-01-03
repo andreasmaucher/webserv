@@ -10,16 +10,16 @@
 int main(int argc, char *argv[])
 {
     (void)argc;
-    std::string port;
+    std::string port = PORT;
     if (!argv[1])
     {
-        std::cerr << "Usage: please ./a.out <port number, has to be over 1024>" <<std::endl;
+        std::cerr << "Usage: please ./webserv <config_file>" <<std::endl;
         port = PORT;
-        std::cerr << "Using default port, since no valid port was specified: " << port <<std::endl;
+        std::cerr << "Using default config file, since no config file was specified: " << port <<std::endl;
     } else
-        port = argv[1];
+        // port = argv[1];
     try {
-        Server server(port);
+        Server server(port, argv[1]);
         server.start();
         
     } catch (const std::exception& e) {

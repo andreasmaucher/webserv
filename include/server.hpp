@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/01 18:44:29 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/03 22:40:32 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -48,6 +48,7 @@ class Server
 {
 
 private:
+    ServerConfig config;
     std::vector<ServerConfig> configs;
     // int sockfd;
     std::vector<pollfd> pfds_vec;
@@ -72,7 +73,7 @@ private:
     Server &operator=(const Server &other);
 
     std::vector<HttpRequest> httpRequests;
-    int setup(const std::string &port);
+    int setup(const std::string &port, const std::string &config_file);
     void cleanup();
     int get_listener_socket(const std::string port);
     void *get_in_addr(struct sockaddr *sa);
@@ -80,7 +81,7 @@ private:
     void del_from_pfds_vec(int fd);
 
 public:
-    Server(const std::string &config_file);
+    Server(const std::string &port, const std::string &config_file);
     ~Server();
 
     int start();
