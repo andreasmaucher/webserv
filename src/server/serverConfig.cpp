@@ -8,13 +8,9 @@ ServerConfig::ServerConfig() : port(0)
 
 ServerConfig::ServerConfig(const std::string &config_file) : port(0)
 {
-    // Initialize default values
-    root_directory = ROOT_DIR;
-
-    // Parse the config file
     if (!parseConfigFile(config_file))
     {
-        std::cerr << "Error: Failed to parse config file: " << config_file << std::endl;
+        std::cerr << "Error: Failed to parse config file" << std::endl;
     }
 }
 
@@ -69,304 +65,190 @@ void ServerConfig::setErrorPages(const std::map<int, std::string> &error_pages)
 
 bool ServerConfig::parseServerBlock(std::istream &config_file)
 {
-    (void)config_file;
-    std::string line, key, value;
-    std::cout << "Started parsing [[server]] block in config file" << std::endl;
+    std::string line;
+    std::string key, value;
+
     while (std::getline(config_file, line))
     {
-        parseKeyValue(line, key, value);
-
-        if (value.empty() || key.empty())
+        if (line.empty() || line[0] == '#')
             continue;
+
+        if (line.find("[[server]]") != std::string::npos)
+        {
+            config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+            return true;
+        }
+
+        if (line.find("[[server.location]]") != std::string::npos)
+        {
+            if (!parseLocationBlock(config_file))
+                return false;
+            continue;
+        }
+
+        std::cout << "Parsing line: " << line << std::endl;
+
+        if (!parseKeyValue(line, key, value))
+            continue;
+
+        std::cout << "Key: '" << key << "' Value: '" << value << "'" << std::endl;
+
         if (key == "listen")
         {
-            port = std::atoi(value.c_str());
-            std::cout << "Parsed port: " << port << std::endl;
+            port = atoi(value.c_str());
+            std::cout << "Set port to: " << port << std::endl;
         }
         else if (key == "host")
-        {
             host = value;
-            std::cout << "Parsed host: " << host << std::endl;
-        }
         else if (key == "root")
-        {
-            root_directory = value;
-            std::cout << "Parsed root_directory: " << root_directory << std::endl;
-        }
-        else if (key == "index")
-        {
-            index = value;
-            std::cout << "Parsed index: " << index << std::endl;
-        }
-        else if (key == "client_max_body_size")
-        {
-            client_max_body_size = value;
-            std::cout << "Parsed client_max_body_size: " << client_max_body_size << std::endl;
-        }
-        else if (line == "[[server.location]]")
-        {
-            std::cout << "Found [[server.location]] block in config file - parsing - " << line << std::endl;
-            parseLocationBlock(config_file, routes[key]);
-        }
+            setRootDirectory(value);
     }
-    //     name = "test"
-    // listen = 8001
-    // host = "127.0.0.1"
-    // root = "www"
-    // index = "index.html"
-    // error_page = "www/errors/404.html"
-    // client_max_body_size = 200000
     return true;
 }
 
 bool ServerConfig::parseConfigFile(const std::string &config_filename)
 {
-    std::ifstream config_file(config_filename);
+    std::ifstream config_file(config_filename.c_str());
     if (!config_file.is_open())
     {
         std::cerr << "Error: can't open config file" << std::endl;
         return false;
     }
 
+    bool found_server = false;
     std::string line;
+
     while (std::getline(config_file, line))
     {
-        std::cout << "Printing out each line read -- " << line << std::endl;
-
-        // ignore commments and empty lines
         if (line.empty() || line[0] == '#')
-        {
-            std::cout << "Found empty line or comment in config file - skipping - " << line << std::endl;
             continue;
-        }
-        // parse server block if found one - [[server]]
+
         if (line.find("[[server]]") != std::string::npos)
         {
-            std::cout << "Found [[server]] block in config file - parsing - " << line << std::endl;
+            if (found_server)
+            {
+                // Create a new config and copy current values
+                ServerConfig new_config;
+                new_config.host = host;
+                new_config.port = port;
+                new_config.root_directory = root_directory;
+                new_config.index = index;
+                new_config.client_max_body_size = client_max_body_size;
+                new_config.routes = routes;
+                new_config.error_pages = error_pages;
+                configs.push_back(new_config);
+
+                // Reset current values for next server
+                host.clear();
+                port = 0;
+                root_directory.clear();
+                index.clear();
+                client_max_body_size.clear();
+                routes.clear();
+                error_pages.clear();
+            }
+
             if (!parseServerBlock(config_file))
-            {
-                std::cerr << "Error parsing [[server]] block - " << line << std::endl;
                 return false;
-            }
-        }
-        if (line.find("[[server.location]]") != std::string::npos)
-        {
-            std::cout << "Found [[server]] block in config file - parsing - " << line << std::endl;
-            if (!parseLocationBlock(config_file))
-            {
-                std::cerr << "Error parsing [[server]] block - " << line << std::endl;
 
-                return false;
-            }
+            found_server = true;
         }
     }
-    config_file.close();
-    return false;
-}
 
-void trimWhitespace(std::string &str)
-{
-    while ((str[0] == ' ' || str[0] == '\t') && !str.empty())
-        str.erase(0, 1);
-    while ((str[str.length() - 1] == ' ' || str[str.length() - 1] == '\t') && !str.empty())
-        str.erase(str.length() - 1, 1);
-}
-
-void trimWhitespaceQuotes(std::string &str)
-{
-    while ((str[0] == '"' || str[0] == ' ' || str[0] == '\t') && !str.empty())
-        str.erase(0, 1);
-    while ((str[str.length() - 1] == '"' || str[str.length() - 1] == ' ' || str[str.length() - 1] == '\t') && !str.empty())
-        str.erase(str.length() - 1, 1);
-}
-
-unsigned int countQuotes(const std::string &str)
-{
-    unsigned int quote_count = 0;
-    if (str.empty())
-        return quote_count;
-
-    size_t i = 0;
-    while (i < str.length())
+    if (found_server)
     {
-        if (str[i] == '"')
-            quote_count++;
-        i++;
+        // Add the last server config
+        ServerConfig new_config;
+        new_config.host = host;
+        new_config.port = port;
+        new_config.root_directory = root_directory;
+        new_config.index = index;
+        new_config.client_max_body_size = client_max_body_size;
+        new_config.routes = routes;
+        new_config.error_pages = error_pages;
+        configs.push_back(new_config);
     }
-    // if (quote_count != 2)
-    //     return quote_count;
-    return quote_count;
-}
 
-unsigned int countSquareBrackets(const std::string &str)
-{
-    unsigned int brackets_count = 0;
-    if (str.empty())
-        return brackets_count;
+    std::cout << "Parsed " << configs.size() << " server configurations" << std::endl;
 
-    size_t i = 0;
-    while (i < str.length())
+    // Use first config as main config
+    if (!configs.empty())
     {
-        if (str[i] == '"')
-            brackets_count++;
-        i++;
+        host = configs[0].host;
+        port = configs[0].port;
+        root_directory = configs[0].root_directory;
+        index = configs[0].index;
+        client_max_body_size = configs[0].client_max_body_size;
+        routes = configs[0].routes;
+        error_pages = configs[0].error_pages;
+
+        configs.erase(configs.begin());
     }
-    // if (quote_count != 2)
-    //     return quote_count;
-    return brackets_count;
-}
 
-bool ServerConfig::parseKeyValue(const std::string &line, std::string &key, std::string &value)
-{
-    std::string::size_type position = line.find('=');
-    key = "";
-    value = "";
-
-    // Check if line is empty, comment or no '=' found
-    if (line.empty() || line[0] == '#' || position == std::string::npos)
-        return false;
-    // Get key and trim whitespace
-    key = line.substr(0, position);
-    trimWhitespace(key);
-    // Get value and trim whitespace & remove quotes
-    // If there are 2 quotes, trim whitespace & remove quotes
-    // If there are no quotes, trim whitespace
-    // Else signal that key-value pair is not valid, return false
-    value = line.substr(position + 1);
-    if (countQuotes(value) == 2)
-        trimWhitespaceQuotes(value);
-    else if (countQuotes(value) == 0)
-        trimWhitespace(value);
-    else
-        return false;
-    return true;
+    std::cout << "First server port: " << port << std::endl;
+    return found_server;
 }
 
 bool ServerConfig::parseLocationBlock(std::istream &config_file)
 {
-    (void)config_file;
-    (void)route;
+    Route route;
+    std::string line;
+    std::string key, value;
+
+    while (std::getline(config_file, line))
+    {
+        if (line.empty() || line[0] == '#')
+            continue;
+
+        // End of location block or start of new block
+        if (line.find("[[") != std::string::npos)
+        {
+            config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+            routes[route.uri] = route;
+            return true;
+        }
+
+        parseKeyValue(line, key, value);
+        if (key.empty() || value.empty())
+            continue;
+
+        if (key == "path")
+        {
+            route.uri = value;
+            route.path = value;
+        }
+        else if (key == "index")
+            route.index_file = value;
+        // Add other location configurations
+    }
+    routes[route.uri] = route;
     return true;
 }
 
-// bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value)
-// {
-//     std::string value_str;
-//     std::string::size_type position = line.find('=');
-//     key = "";
+bool ServerConfig::parseKeyValue(const std::string &line, std::string &key, std::string &value)
+{
+    std::string::size_type pos = line.find('=');
+    if (pos == std::string::npos)
+    {
+        key = "";
+        value = "";
+        return false;
+    }
 
-//     // Check if line is empty, comment or no '=' found
-//     if (line.empty() || line[0] == '#' || position == std::string::npos)
-//         return false;
+    key = line.substr(0, pos);
+    value = line.substr(pos + 1);
 
-//     // Get key and trim whitespace
-//     key = line.substr(0, position);
-//     trimWhitespace(key);
-//     value_str = line.substr(position + 1, line.length() - position - 1);
-//     if (countSquareBrackets(value_str) != 0 || countSquareBrackets(value_str) != 2)
-//         return false;
-//     if (countSquareBrackets(value_str) == 0)
-//     {
-//         trimWhitespaceQuotes(value_str);
-//         value.insert(value_str);
-//     }
-//     else if (countSquareBrackets(value_str) == 2)
-//     {
-//         trimWhitespaceQuotes(value_str);
-//         value.insert(value_str);
-//     }
+    // Trim whitespace and quotes
+    while (!key.empty() && (key[0] == ' ' || key[0] == '\t'))
+        key.erase(0, 1);
+    while (!key.empty() && (key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t'))
+        key.erase(key.length() - 1, 1);
 
-//     while (position < value_str.length())
-//     {
-//     }
-//     // Get value and trim whitespace & remove quotes
-//     // If there are 2 quotes, trim whitespace & remove quotes
-//     // If there are no quotes, trim whitespace
-//     // Else signal that key-value pair is not valid, return false
-//     value = line.substr(position + 1);
-//     if (countSquareBrackets(value) != 2)
-//         return false;
-//     if (countQuotes(value) == 2)
-//         trimWhitespaceQuotes(value);
-//     else if (countQuotes(value) == 0)
-//         trimWhitespace(value);
-//     else
-//         return false;
-//     return true;
-// }
+    while (!value.empty() && (value[0] == ' ' || value[0] == '\t' || value[0] == '"'))
+        value.erase(0, 1);
+    while (!value.empty() && (value[value.length() - 1] == ' ' ||
+                              value[value.length() - 1] == '\t' || value[value.length() - 1] == '"'))
+        value.erase(value.length() - 1, 1);
 
-// bool ServerConfig::loadConfig(const std::string &config_file) {
-//     std::ifstream file(config_file);
-//     if (!file.is_open()) {
-//         std::cerr << "Error: could not open config file " << config_file << std::endl;
-//         return false;
-//     }
-
-//     std::string line;
-//     std::string uri;
-//     std::string path;
-//     std::string index_file;
-//     std::set<std::string> methods;
-//     std::set<std::string> content_type;
-//     std::string redirect_uri;
-//     bool directory_listing_enabled;
-//     bool is_cgi;
-//     while (std::getline(file, line)) {
-//         if (line.empty() || line[0] == '#') {
-//             continue;
-//         }
-
-//         std::istringstream iss(line);
-//         std::string key;
-//         iss >> key;
-//         if (key == "root") {
-//             iss >> root_directory;
-//         } else if (key == "route") {
-//             uri.clear();
-//             path.clear();
-//             methods.clear();
-//             index_file.clear();
-//             content_type.clear();
-//             redirect_uri.clear();
-//             directory_listing_enabled = false;
-//             is_cgi = false;
-//             std::string parameter;
-//             while (iss >> parameter) {
-//                 if (parameter == "uri") {
-//                     iss >> uri;
-//                 } else if (parameter == "path") {
-//                     iss >> path;
-//                 } else if (parameter == "method") {
-//                     while (iss >> parameter) {
-//                         methods.insert(parameter);
-//                     }
-//                 } else if (parameter == "content_type") {
-//                     while (iss >> parameter) {
-//                         content_type.insert(parameter);
-//                     }
-//                 } else if (parameter == "redirection") {
-//                     iss >> redirect_uri;
-//                 } else if (parameter == "index") {
-//                         iss >> index_file;
-//                 } else if (parameter == "directory_listing_enabled") {
-//                     directory_listing_enabled = true;
-//                 } else if (parameter == "is_cgi") {
-//                     is_cgi = true;
-//                 }
-//             }
-//             Route route;
-//             route.uri = uri;
-//             route.path = path;
-//             route.methods = methods;
-//             route.index = index_file;
-//             route.content_type = content_type;
-//             route.redirect_uri = redirect_uri;
-//             route.directory_listing_enabled = directory_listing_enabled;
-//             route.is_cgi = is_cgi;
-//             routes[uri] = route;
-//         }
-//     }
-
-//     file.close();
-//     return true;
-// }
+    return true; // Return true if parsing was successful
+}

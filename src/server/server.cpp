@@ -6,19 +6,28 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/03 22:40:04 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/05 23:06:29 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/server.hpp"
 
-Server::Server(const std::string &port, const std::string &config_file) : pfds_vec(1), new_fd(-1)
+Server::Server(const std::string &config_file)
 {
-    signal(SIGINT, sigintHandler);
-    ServerConfig config(config_file);
-    configs.push_back(config);
-    setup(port, config_file);
-    // setup(port);
+    // Create and parse config
+    config = ServerConfig(config_file);
+
+    // Use the first server's port by default
+    char port_buf[32];
+    snprintf(port_buf, sizeof(port_buf), "%d", config.getPort());
+    std::string port_str = port_buf;
+
+    std::cout << "Using first server's port: " << port_str << std::endl;
+
+    if (!setup(port_str))
+    {
+        throw std::runtime_error("Failed to setup server");
+    }
 }
 
 Server::~Server()
@@ -47,71 +56,78 @@ void *Server::get_in_addr(struct sockaddr *sa)
 // It holds the resolved network addresses that match the criteria specified in hints.
 int Server::get_listener_socket(const std::string port)
 {
-    (void)port;
-    // Get us a socket and bind it
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;     // Unspecified IPv4 or IPv6, can use both
-    hints.ai_socktype = SOCK_STREAM; // TCP
-    hints.ai_flags = AI_PASSIVE;     // Fill in the IP address of the server automatically when getaddrinfo(), for listening sockets
-    reuse_socket_opt = 1;
+    int listener; // Listening socket descriptor
+    int yes = 1;  // For setsockopt() SO_REUSEADDR
 
-    std::cout << "Connecting on port " << port << std::endl;
-    if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0)
+    struct addrinfo hints, *ai, *p;
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    int rv;
+    if ((rv = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0)
     {
-        fprintf(stderr, "pollserver: %s\n", gai_strerror(addrinfo_status));
-        exit(1);
+        std::cerr << "getaddrinfo error: " << gai_strerror(rv) << std::endl;
+        return -1;
     }
+
+    // Loop through all the results and bind to the first we can
     for (p = ai; p != NULL; p = p->ai_next)
-    { // loop through the ai ll and try to create a socket
-        listener_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (listener_fd < 0)
+    {
+        listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (listener < 0)
         {
+            std::cerr << "socket() error: " << strerror(errno) << std::endl;
             continue;
         }
-        // Lose the pesky "address already in use" error message
-        // Manually added option to allow to reuse ports straight after closing the server - SO_REUSEADDR
-        if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
+
+        // Lose the "address already in use" error message
+        if (setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) < 0)
         {
-            perror("setsockopt(SO_REUSEADDR) failed");
-            exit(1);
-        }
-        // tries to bind the socket, otherwise closes it
-        if (bind(listener_fd, p->ai_addr, p->ai_addrlen) < 0)
-        {
-            close(listener_fd);
+            std::cerr << "setsockopt() error: " << strerror(errno) << std::endl;
+            close(listener);
             continue;
         }
-        // breaks loop on success
+
+        if (bind(listener, p->ai_addr, p->ai_addrlen) < 0)
+        {
+            std::cerr << "bind() error: " << strerror(errno) << std::endl;
+            close(listener);
+            continue;
+        }
+
         break;
     }
-    // If we got here, it means we didn't get bound. Reached end of ai ll
+
+    freeaddrinfo(ai);
+
     if (p == NULL)
     {
+        std::cerr << "Failed to bind to any address" << std::endl;
         return -1;
     }
-    // Cleaning up ai ll
-    freeaddrinfo(ai); // All done with this
-    ai = NULL;
 
-    // Listening
-    // Starts listening for incoming connections on the listener socket, with a maximum backlog of 10 connections waiting to be accepted.
-    if (listen(listener_fd, MAX_SIM_CONN) == -1)
+    if (listen(listener, MAX_SIM_CONN) == -1)
     {
+        std::cerr << "listen() error: " << strerror(errno) << std::endl;
         return -1;
     }
-    // returns fd of the listening socket
-    return listener_fd;
+
+    return listener;
 }
 
 void Server::add_to_pfds_vec(int newfd)
 {
-    struct pollfd new_pollfd;
-    new_pollfd.fd = newfd;
-    new_pollfd.events = POLLIN | POLLOUT;
-    new_pollfd.revents = 0;
+    struct pollfd pfd;
+    pfd.fd = newfd;
+    pfd.events = POLLIN; // Check ready-to-read
+    pfd.revents = 0;
+    pfds_vec.push_back(pfd);
 
-    pfds_vec.push_back(new_pollfd);
-    std::cout << "Added new fd: " << new_fd << " to pfds_vec at index: " << pfds_vec.size() - 1 << ". pfds_vec size: " << pfds_vec.size() << std::endl;
+    std::cout << "Added new fd: " << newfd << " to pfds_vec at index: "
+              << pfds_vec.size() - 1 << ". pfds_vec size: " << pfds_vec.size() << std::endl;
 }
 
 // Removing and index from the set
@@ -157,30 +173,23 @@ void Server::new_connection()
     }
 }
 
-int Server::setup(const std::string &port, const std::string &config_file)
+int Server::setup(const std::string &port)
 {
-    (void)port;
+    std::cout << "Connecting on port " << port << std::endl;
 
-    // calling temporary hardcoding function for testing
-    config = createFakeServerConfig(config_file);
-
+    // Get listener socket
     listener_fd = get_listener_socket(port);
     if (listener_fd == -1)
     {
-        fprintf(stderr, "error getting listening socket\n");
-        exit(1);
+        std::cerr << "Error getting listening socket" << std::endl;
+        return 0;
     }
-    pfds_vec[0].fd = listener_fd;
-    pfds_vec[0].events = POLLIN | POLLOUT;
-    pfds_vec[0].revents = 0;
 
-    // listener doesn't need a request object, just to keep the index in sync?
-    HttpRequest newRequest;
-    httpRequests.push_back(newRequest);
-    std::cout << "pfds_vec size at setup: " << pfds_vec.size() << std::endl;
-    std::cout << "httpRequest vector size at setup: " << httpRequests.size() << std::endl;
+    // Add the listener to pfds_vec
+    add_to_pfds_vec(listener_fd);
 
-    return (listener_fd);
+    std::cout << "Server: waiting for connections on port " << port << std::endl;
+    return 1; // Return success
 }
 
 int Server::start()

@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/03 22:40:32 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/05 22:35:20 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -33,7 +33,7 @@
 
 #define MAX_SIM_CONN 10
 #define BUFFER_SIZE 100
-#define PORT "8080"
+#define PORT "8000"
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
 // #define END_HEADER "close"
@@ -73,7 +73,7 @@ private:
     Server &operator=(const Server &other);
 
     std::vector<HttpRequest> httpRequests;
-    int setup(const std::string &port, const std::string &config_file);
+    int setup(const std::string &config_file);
     void cleanup();
     int get_listener_socket(const std::string port);
     void *get_in_addr(struct sockaddr *sa);
@@ -81,7 +81,7 @@ private:
     void del_from_pfds_vec(int fd);
 
 public:
-    Server(const std::string &port, const std::string &config_file);
+    Server(const std::string &config_file);
     ~Server();
 
     int start();

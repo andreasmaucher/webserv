@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
     } else
         // port = argv[1];
     try {
-        Server server(port, argv[1]);
+        Server server(argv[1]);
         server.start();
         
     } catch (const std::exception& e) {

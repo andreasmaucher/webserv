@@ -13,6 +13,7 @@
 #include <fstream>
 #include <iostream>
 #include <set>
+#include <cstdlib>
 
 // Represents a single route. One for each of the location blocks in the config file
 struct Route
@@ -37,11 +38,35 @@ public:
     ServerConfig();
     ServerConfig(const std::string &config_file);
 
+    // Add copy constructor and assignment operator
+    ServerConfig(const ServerConfig &other)
+    {
+        *this = other;
+    }
+
+    ServerConfig &operator=(const ServerConfig &other)
+    {
+        if (this != &other)
+        {
+            host = other.host;
+            port = other.port;
+            root_directory = other.root_directory;
+            index = other.index;
+            client_max_body_size = other.client_max_body_size;
+            routes = other.routes;
+            error_pages = other.error_pages;
+            configs = other.configs; // Deep copy of configs vector
+        }
+        return *this;
+    }
+
     // Getters
     const std::string &getRootDirectory() const;
     const std::map<std::string, Route> &getRoutes() const;
     Route *getRoute(const std::string &uri); // Getter for a specific Route by URI
     const std::map<int, std::string> &getErrorPages() const;
+    unsigned int getPort() const { return port; }
+    const std::string &getHost() const { return host; }
     // Setters
     void setRootDirectory(const std::string &root_directory);
     void setRoutes(const std::map<std::string, Route> &routes);
@@ -62,9 +87,12 @@ private:
     unsigned int port;
     std::string root_directory;
     std::string index;
-    std::string client_max_body_size;             // Root directory for server files
+    std::string client_max_body_size;       // Root directory for server files
     std::map<std::string, Route> routes;    // Mapping of URIs to Route objects
     std::map<int, std::string> error_pages; // Error pages mapped by status code                        // Default index file
+
+    // Add vector to store multiple server configs
+    std::vector<ServerConfig> configs;
 
     bool loadConfig(const std::string &config_file); // config file parser
 };
