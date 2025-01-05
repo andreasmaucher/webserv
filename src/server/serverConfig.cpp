@@ -70,6 +70,45 @@ void ServerConfig::setErrorPages(const std::map<int, std::string> &error_pages)
 bool ServerConfig::parseServerBlock(std::istream &config_file)
 {
     (void)config_file;
+    std::string line, key, value;
+    std::cout << "Started parsing [[server]] block in config file" << std::endl;
+    while (std::getline(config_file, line))
+    {
+        parseKeyValue(line, key, value);
+
+        if (value.empty() || key.empty())
+            continue;
+        if (key == "listen")
+        {
+            port = std::atoi(value.c_str());
+            std::cout << "Parsed port: " << port << std::endl;
+        }
+        else if (key == "host")
+        {
+            host = value;
+            std::cout << "Parsed host: " << host << std::endl;
+        }
+        else if (key == "root")
+        {
+            root_directory = value;
+            std::cout << "Parsed root_directory: " << root_directory << std::endl;
+        }
+        else if (key == "index")
+        {
+            index = value;
+            std::cout << "Parsed index: " << index << std::endl;
+        }
+        else if (key == "client_max_body_size")
+        {
+            client_max_body_size = value;
+            std::cout << "Parsed client_max_body_size: " << client_max_body_size << std::endl;
+        }
+        else if (line == "[[server.location]]")
+        {
+            std::cout << "Found [[server.location]] block in config file - parsing - " << line << std::endl;
+            parseLocationBlock(config_file, routes[key]);
+        }
+    }
     //     name = "test"
     // listen = 8001
     // host = "127.0.0.1"
@@ -92,17 +131,36 @@ bool ServerConfig::parseConfigFile(const std::string &config_filename)
     std::string line;
     while (std::getline(config_file, line))
     {
+        std::cout << "Printing out each line read -- " << line << std::endl;
+
         // ignore commments and empty lines
         if (line.empty() || line[0] == '#')
+        {
+            std::cout << "Found empty line or comment in config file - skipping - " << line << std::endl;
             continue;
-
+        }
         // parse server block if found one - [[server]]
         if (line.find("[[server]]") != std::string::npos)
         {
+            std::cout << "Found [[server]] block in config file - parsing - " << line << std::endl;
             if (!parseServerBlock(config_file))
+            {
+                std::cerr << "Error parsing [[server]] block - " << line << std::endl;
                 return false;
+            }
+        }
+        if (line.find("[[server.location]]") != std::string::npos)
+        {
+            std::cout << "Found [[server]] block in config file - parsing - " << line << std::endl;
+            if (!parseLocationBlock(config_file))
+            {
+                std::cerr << "Error parsing [[server]] block - " << line << std::endl;
+
+                return false;
+            }
         }
     }
+    config_file.close();
     return false;
 }
 
@@ -184,7 +242,7 @@ bool ServerConfig::parseKeyValue(const std::string &line, std::string &key, std:
     return true;
 }
 
-bool ServerConfig::parseLocationBlock(std::istream &config_file, Route &route)
+bool ServerConfig::parseLocationBlock(std::istream &config_file)
 {
     (void)config_file;
     (void)route;

@@ -53,14 +53,16 @@ public:
     bool parseConfigFile(const std::string &config_file);
     bool parseServerBlock(std::istream &config_file);
 
-    bool parseLocationBlock(std::istream &config_file, Route &route);
+    bool parseLocationBlock(std::istream &config_file);
 
     bool parseKeyValue(const std::string &line, std::string &key, std::string &value);
 
 private:
     std::string host;
     unsigned int port;
-    std::string root_directory;             // Root directory for server files
+    std::string root_directory;
+    std::string index;
+    std::string client_max_body_size;             // Root directory for server files
     std::map<std::string, Route> routes;    // Mapping of URIs to Route objects
     std::map<int, std::string> error_pages; // Error pages mapped by status code                        // Default index file
 
