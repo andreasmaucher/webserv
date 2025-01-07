@@ -51,7 +51,7 @@ private:
 
     struct addrinfo hints, *ai, *p;
     
-    std::vector <Server>  parseConfig(const std::string &config_file);
+    // std::vector <Server>  parseConfig(const std::string &config_file);
     void setupSockets();
     void mapFdToServer(int new_fd, Server &server);
     void addToPfdsVector(int new_fd);

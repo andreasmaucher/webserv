@@ -6,19 +6,22 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/07 15:56:45 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/08 00:29:16 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/webService.hpp"
+#include "../../include/Parser.hpp"
 
 WebService::WebService(const std::string &config_file)
 {
     signal(SIGINT, sigintHandler);
     // servers = ConfigParser::parseConfig(config_file);
-    servers = createFakeServers();
-    servers = parseConfig(config_file);
-;
+    // servers = createFakeServers();
+    // servers = parseConfig(config_file);
+    Parser parser;
+
+    servers = parser.parseConfig(config_file);
 
     std::cout << "Configured " << servers.size() << " servers." << std::endl;
     servers[0].debugPrintRoutes();
@@ -33,12 +36,12 @@ WebService::~WebService()
 }
 
 // Return a listening socket
-    // getaddrinfo(NULL, PORT, &hints, &ai)
-    // NULL - hostname or IP address of the server, NULL means any available network, use for incoming connections
-    // PORT - port
-    // hints - criteria to resolve the ip address
-    // ai - pointer to a linked list of results returned by getaddrinfo().
-    // It holds the resolved network addresses that match the criteria specified in hints.
+// getaddrinfo(NULL, PORT, &hints, &ai)
+// NULL - hostname or IP address of the server, NULL means any available network, use for incoming connections
+// PORT - port
+// hints - criteria to resolve the ip address
+// ai - pointer to a linked list of results returned by getaddrinfo().
+// It holds the resolved network addresses that match the criteria specified in hints.
 int WebService::get_listener_socket(const std::string &port)
 {
     // Get us a socket and bind it
@@ -103,7 +106,6 @@ void WebService::addToPfdsVector(int new_fd)
 
     pfds_vec.push_back(new_pollfd);
     std::cout << "Added new fd: " << new_fd << " to pfds_vec at index: " << pfds_vec.size() - 1 << ". pfds_vec size: " << pfds_vec.size() << std::endl;
-
 }
 
 void WebService::deleteFromPfdsVec(int &fd, size_t &i)
@@ -124,33 +126,35 @@ void WebService::deleteRequestObject(int &fd, Server &server)
     server.deleteRequestObject(fd);
 }
 
-void WebService::closeConnection(int &fd, size_t &i, Server &server) {
+void WebService::closeConnection(int &fd, size_t &i, Server &server)
+{
     std::cout << "Closing connection on fd: " << fd << std::endl;
-    
+
     close(fd);
     std::cout << "Closed fd: " << fd << std::endl;
-    
+
     deleteFromPfdsVec(fd, i);
     deleteRequestObject(fd, server);
-
 
     std::cout << "Erased request object for fd: " << fd << std::endl;
 }
 
-//creates a new httpRequest object for the new connection in the server object and maps the fd to the new httpRequest object
-void WebService::createRequestObject(int new_fd, Server &server) {
+// creates a new httpRequest object for the new connection in the server object and maps the fd to the new httpRequest object
+void WebService::createRequestObject(int new_fd, Server &server)
+{
     HttpRequest newRequest;
-    
-    //server.client_fd_to_request[new_fd] = &newRequest;
+
+    // server.client_fd_to_request[new_fd] = &newRequest;
     server.setRequestObject(new_fd, newRequest);
     std::cout << "New httpRequest object created for connection on fd: " << new_fd << std::endl;
     std::cout << "Mapped fd: " << new_fd << " to its httpRequest object" << std::endl;
 }
 
-void WebService::mapFdToServer(int new_fd, Server &server) {
+void WebService::mapFdToServer(int new_fd, Server &server)
+{
     this->fd_to_server[new_fd] = &server;
 }
-        
+
 void WebService::newConnection(Server &server)
 {
     printf("\nNew connection!\n");
@@ -169,17 +173,18 @@ void WebService::newConnection(Server &server)
     }
 }
 
-//get a listening socket for each server
+// get a listening socket for each server
 void WebService::setupSockets()
 {
-    for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it) {
+    for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it)
+    {
 
         int listener_fd = get_listener_socket((*it).getPort());
         if (listener_fd == -1)
         {
-            //std::cout << "Error getting listening socket for server: " << it.name << std::endl;
-            //exit(1);
-            //maybe return to main and handle cleanup from there?
+            // std::cout << "Error getting listening socket for server: " << it.name << std::endl;
+            // exit(1);
+            // maybe return to main and handle cleanup from there?
             throw std::runtime_error("Error getting listening socket for server: " + (*it).getName());
         }
         // Store the listener_fd in the Server object
@@ -188,10 +193,10 @@ void WebService::setupSockets()
         // Add the listener_fd to pfds_vec and map it to this Server
         addToPfdsVector(listener_fd);
         mapFdToServer(listener_fd, *it);
-        //fd_to_server[listener_fd] = &(*it);
+        // fd_to_server[listener_fd] = &(*it);
     }
     std::cout << "Total servers set up: " << servers.size() << std::endl;
-    return ;
+    return;
 }
 
 int WebService::start()
@@ -217,7 +222,9 @@ int WebService::start()
                 if (i < servers.size()) // it's a listener
                 {
                     newConnection(*server_obj);
-                } else {
+                }
+                else
+                {
                     receiveRequest(pollfd_obj.fd, i, *server_obj);
                 }
             }
@@ -233,12 +240,12 @@ int WebService::start()
 // implement timeout for recv()?
 void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
-    //HttpRequest *request_obj = server.client_fd_to_request[fd];
-    // HttpRequest request_obj = server.getRequestObject(fd);
+    // HttpRequest *request_obj = server.client_fd_to_request[fd];
+    //  HttpRequest request_obj = server.getRequestObject(fd);
     std::cout << "Receive function called for request on server: " << server.getName() << " - listener fd: " << server.getListenerFd() << " fd from pollfds vector: " << fd << std::endl;
-    
+
     if (!server.getRequestObject(fd).complete)
-    {        
+    {
         int nbytes = recv(fd, buf, sizeof buf, 0);
         if (nbytes <= 0)
         {
@@ -280,7 +287,9 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         if (response.close_connection == true)
         {
             closeConnection(fd, i, server);
-        } else {
+        }
+        else
+        {
             server.resetRequestObject(fd);
         }
     }
@@ -297,158 +306,158 @@ void WebService::sigintHandler(int signal)
     }
 }
 
-std::vector <Server>  WebService::parseConfig(const std::string &config_file)
-{
-    std::vector <Server> servers_vector;
+// std::vector<Server> WebService::parseConfig(const std::string &config_file)
+// {
+//     std::vector<Server> servers_vector;
+//     if (!parseConfigFile(config_file))
+//     {
+//         std::cerr << "Error: Failed to parse config file" << std::endl;
+//         return servers_vector;
+//     }
 
-    // Example of config of fake servers
-    
-    // Server server_one(0, "8080", "server_one", "www");
+//     // Example of config of fake servers
 
-    // // Add a route for static files
-    // Route staticRoute;
-    // staticRoute.uri = "/static";
-    // staticRoute.path = server_one.getRootDirectory() + staticRoute.uri;
-    // staticRoute.index_file = "index.html";
-    // staticRoute.methods.insert("GET");
-    // staticRoute.methods.insert("POST");
-    // staticRoute.methods.insert("DELETE");
-    // staticRoute.content_type.insert("text/plain");
-    // staticRoute.content_type.insert("text/html");
-    // staticRoute.is_cgi = false;
-    // server_one.setRoute(staticRoute.uri, staticRoute);
+//     // Server server_one(0, "8080", "server_one", "www");
 
-    // // Add a route for more restrictive folder in static
-    // Route restrictedstaticRoute;
-    // restrictedstaticRoute.uri = "/static/restrictedstatic";
-    // restrictedstaticRoute.path = server_one.getRootDirectory() + restrictedstaticRoute.uri;
-    // restrictedstaticRoute.index_file = "index.html";
-    // restrictedstaticRoute.methods.insert("GET");
-    // restrictedstaticRoute.content_type.insert("text/plain");
-    // restrictedstaticRoute.content_type.insert("text/html");
-    // restrictedstaticRoute.is_cgi = false;
-    // server_one.setRoute(restrictedstaticRoute.uri, restrictedstaticRoute);
+//     // // Add a route for static files
+//     // Route staticRoute;
+//     // staticRoute.uri = "/static";
+//     // staticRoute.path = server_one.getRootDirectory() + staticRoute.uri;
+//     // staticRoute.index_file = "index.html";
+//     // staticRoute.methods.insert("GET");
+//     // staticRoute.methods.insert("POST");
+//     // staticRoute.methods.insert("DELETE");
+//     // staticRoute.content_type.insert("text/plain");
+//     // staticRoute.content_type.insert("text/html");
+//     // staticRoute.is_cgi = false;
+//     // server_one.setRoute(staticRoute.uri, staticRoute);
 
-    // test_servers.push_back(server_one);
+//     // // Add a route for more restrictive folder in static
+//     // Route restrictedstaticRoute;
+//     // restrictedstaticRoute.uri = "/static/restrictedstatic";
+//     // restrictedstaticRoute.path = server_one.getRootDirectory() + restrictedstaticRoute.uri;
+//     // restrictedstaticRoute.index_file = "index.html";
+//     // restrictedstaticRoute.methods.insert("GET");
+//     // restrictedstaticRoute.content_type.insert("text/plain");
+//     // restrictedstaticRoute.content_type.insert("text/html");
+//     // restrictedstaticRoute.is_cgi = false;
+//     // server_one.setRoute(restrictedstaticRoute.uri, restrictedstaticRoute);
 
+//     // test_servers.push_back(server_one);
 
+//     // Server server_two(0, "8081", "server_two", "www");
 
-    // Server server_two(0, "8081", "server_two", "www");
-    
-    // // Add a route for images
-    // Route imageRoute;
-    // imageRoute.uri = "/images";
-    // imageRoute.path = server_one.getRootDirectory() + imageRoute.uri;
-    // imageRoute.methods.insert("GET");
-    // imageRoute.methods.insert("POST");
-    // // imageRoute.methods.insert("DELETE");
-    // imageRoute.content_type.insert("image/jpeg");
-    // imageRoute.content_type.insert("image/png");
-    // imageRoute.is_cgi = false;
-    // server_two.setRoute(imageRoute.uri, imageRoute);
+//     // // Add a route for images
+//     // Route imageRoute;
+//     // imageRoute.uri = "/images";
+//     // imageRoute.path = server_one.getRootDirectory() + imageRoute.uri;
+//     // imageRoute.methods.insert("GET");
+//     // imageRoute.methods.insert("POST");
+//     // // imageRoute.methods.insert("DELETE");
+//     // imageRoute.content_type.insert("image/jpeg");
+//     // imageRoute.content_type.insert("image/png");
+//     // imageRoute.is_cgi = false;
+//     // server_two.setRoute(imageRoute.uri, imageRoute);
 
-    // // Add a route for uploads
-    // Route uploadsRoute;
-    // uploadsRoute.uri = "/uploads";
-    // uploadsRoute.path = server_one.getRootDirectory() + uploadsRoute.uri;
-    // uploadsRoute.methods.insert("GET");
-    // uploadsRoute.methods.insert("POST");
-    // uploadsRoute.methods.insert("DELETE");
-    // uploadsRoute.content_type.insert("image/jpeg");
-    // uploadsRoute.content_type.insert("image/png");
-    // uploadsRoute.content_type.insert("text/plain");
-    // uploadsRoute.content_type.insert("text/html");
-    // uploadsRoute.is_cgi = false;
-    // server_two.setRoute(uploadsRoute.uri, uploadsRoute);
+//     // // Add a route for uploads
+//     // Route uploadsRoute;
+//     // uploadsRoute.uri = "/uploads";
+//     // uploadsRoute.path = server_one.getRootDirectory() + uploadsRoute.uri;
+//     // uploadsRoute.methods.insert("GET");
+//     // uploadsRoute.methods.insert("POST");
+//     // uploadsRoute.methods.insert("DELETE");
+//     // uploadsRoute.content_type.insert("image/jpeg");
+//     // uploadsRoute.content_type.insert("image/png");
+//     // uploadsRoute.content_type.insert("text/plain");
+//     // uploadsRoute.content_type.insert("text/html");
+//     // uploadsRoute.is_cgi = false;
+//     // server_two.setRoute(uploadsRoute.uri, uploadsRoute);
 
-    // test_servers.push_back(server_two);
+//     // test_servers.push_back(server_two);
 
-    
+//     return servers_vector;
+// }
 
-    return servers_vector;
-}
+// bool WebService::parseConfigFile(const std::string &config_filename)
+// {
+//     std::ifstream config_file(config_filename.c_str());
+//     if (!config_file.is_open())
+//     {
+//         std::cerr << "Error: can't open config file" << std::endl;
+//         return false;
+//     }
 
+//     bool found_server = false;
+//     std::string line;
 
+//     while (std::getline(config_file, line))
+//     {
+//         if (line.empty() || line[0] == '#')
+//             continue;
 
-bool WebService::parseConfigFile(const std::string &config_filename)
-{
-    std::ifstream config_file(config_filename.c_str());
-    if (!config_file.is_open())
-    {
-        std::cerr << "Error: can't open config file" << std::endl;
-        return false;
-    }
+//         if (line.find("[[server]]") != std::string::npos)
+//         {
+//             if (found_server)
+//             {
+//                 // Create a new config and copy current values
+//                 Server new_config(port, host, name, root_directory);
 
-    bool found_server = false;
-    std::string line;
+//                 new_config.host = host;
+//                 new_config.port = port;
+//                 new_config.root_directory = root_directory;
+//                 new_config.index = index;
+//                 new_config.client_max_body_size = client_max_body_size;
+//                 new_config.routes = routes;
+//                 new_config.error_pages = error_pages;
+//                 configs.push_back(new_config);
 
-    while (std::getline(config_file, line))
-    {
-        if (line.empty() || line[0] == '#')
-            continue;
+//                 // Reset current values for next server
+//                 host.clear();
+//                 port = 0;
+//                 root_directory.clear();
+//                 index.clear();
+//                 client_max_body_size.clear();
+//                 routes.clear();
+//                 error_pages.clear();
+//             }
 
-        if (line.find("[[server]]") != std::string::npos)
-        {
-            if (found_server)
-            {
-                // Create a new config and copy current values
-                ServerConfig new_config;
-                new_config.host = host;
-                new_config.port = port;
-                new_config.root_directory = root_directory;
-                new_config.index = index;
-                new_config.client_max_body_size = client_max_body_size;
-                new_config.routes = routes;
-                new_config.error_pages = error_pages;
-                configs.push_back(new_config);
+//             if (!parseServerBlock(config_file))
+//                 return false;
 
-                // Reset current values for next server
-                host.clear();
-                port = 0;
-                root_directory.clear();
-                index.clear();
-                client_max_body_size.clear();
-                routes.clear();
-                error_pages.clear();
-            }
+//             found_server = true;
+//         }
+//     }
 
-            if (!parseServerBlock(config_file))
-                return false;
+//     if (found_server)
+//     {
+//         // Add the last server config
+//         ServerConfig new_config;
+//         new_config.host = host;
+//         new_config.port = port;
+//         new_config.root_directory = root_directory;
+//         new_config.index = index;
+//         new_config.client_max_body_size = client_max_body_size;
+//         new_config.routes = routes;
+//         new_config.error_pages = error_pages;
+//         configs.push_back(new_config);
+//     }
 
-            found_server = true;
-        }
-    }
+//     std::cout << "Parsed " << configs.size() << " server configurations" << std::endl;
 
-    if (found_server)
-    {
-        // Add the last server config
-        ServerConfig new_config;
-        new_config.host = host;
-        new_config.port = port;
-        new_config.root_directory = root_directory;
-        new_config.index = index;
-        new_config.client_max_body_size = client_max_body_size;
-        new_config.routes = routes;
-        new_config.error_pages = error_pages;
-        configs.push_back(new_config);
-    }
+//     // Use first config as main config
+//     if (!configs.empty())
+//     {
+//         host = configs[0].host;
+//         port = configs[0].port;
+//         root_directory = configs[0].root_directory;
+//         index = configs[0].index;
+//         client_max_body_size = configs[0].client_max_body_size;
+//         routes = configs[0].routes;
+//         error_pages = configs[0].error_pages;
 
-    std::cout << "Parsed " << configs.size() << " server configurations" << std::endl;
+//         configs.erase(configs.begin());
+//     }
 
-    // Use first config as main config
-    if (!configs.empty())
-    {
-        host = configs[0].host;
-        port = configs[0].port;
-        root_directory = configs[0].root_directory;
-        index = configs[0].index;
-        client_max_body_size = configs[0].client_max_body_size;
-        routes = configs[0].routes;
-        error_pages = configs[0].error_pages;
-
-        configs.erase(configs.begin());
-    }
-
-    std::cout << "First server port: " << port << std::endl;
-    return found_server;
-}
+//     std::cout << "First server port: " << port << std::endl;
+//     return found_server;
+// }

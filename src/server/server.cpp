@@ -1,51 +1,67 @@
 #include "../../include/server.hpp"
 #include "../../include/httpRequest.hpp"
 
-//Server::Server() {}
+// Server::Server() {}
 
 Server::Server(int listener_fd, std::string port, std::string name, std::string root_directory) : listener_fd(listener_fd), port(port), name(name), root_directory(root_directory) {}
 
-const std::string &Server::getPort() const {
+Server::Server() : listener_fd(-1), port(""), name(""), host(""), root_directory("")
+{
+    // Initialize other members if needed
+}
+
+const std::string &Server::getPort() const
+{
     return port;
 }
 
-const std::string &Server::getName() const {
+const std::string &Server::getName() const
+{
     return name;
 }
 
-const int &Server::getListenerFd() const {
+const int &Server::getListenerFd() const
+{
     return listener_fd;
 }
 
-const std::string &Server::getRootDirectory() const {
+const std::string &Server::getRootDirectory() const
+{
     return root_directory;
 }
 
-Route* Server::getRoute(const std::string &uri) {
+Route *Server::getRoute(const std::string &uri)
+{
     std::map<std::string, Route>::iterator it = routes.find(uri);
-    if (it != routes.end()) {
-        return &it->second;  // Return pointer to the found Route
+    if (it != routes.end())
+    {
+        return &it->second; // Return pointer to the found Route
     }
-    return NULL;  // Return nullptr if not found
+    return NULL; // Return nullptr if not found
 }
 
-const std::map<std::string, Route> &Server::getRoutes() const {
+const std::map<std::string, Route> &Server::getRoutes() const
+{
     return routes;
 }
 
-const std::map<int, std::string> &Server::getErrorPages() const {
+const std::map<int, std::string> &Server::getErrorPages() const
+{
     return error_pages;
 }
 
-HttpRequest &Server::getRequestObject(int &fd) {
+HttpRequest &Server::getRequestObject(int &fd)
+{
     return this->client_fd_to_request[fd];
 }
 
-void Server::setRootDirectory(const std::string &root_directory) {
+void Server::setRootDirectory(const std::string &root_directory)
+{
     this->root_directory = root_directory;
 }
 
-void Server::setRoute(const std::string &uri, const Route &route) {
+void Server::setRoute(const std::string &uri, const Route &route)
+{
     routes[uri] = route; // This will add a new route or update an existing one
 }
 
@@ -53,41 +69,49 @@ void Server::setRoute(const std::string &uri, const Route &route) {
 //     this->routes = routes;
 // }
 
-void Server::setErrorPage(const int &code, const std::string &path) {
+void Server::setErrorPage(const int &code, const std::string &path)
+{
     error_pages[code] = path;
 }
 
-void Server::setErrorPages(const std::map<int, std::string> &error_pages) {
+void Server::setErrorPages(const std::map<int, std::string> &error_pages)
+{
     this->error_pages = error_pages;
 }
 
-void Server::setListenerFd(const int &listener_fd) {
+void Server::setListenerFd(const int &listener_fd)
+{
     this->listener_fd = listener_fd;
 }
 
-void Server::setRequestObject(int &fd, HttpRequest &request) {
+void Server::setRequestObject(int &fd, HttpRequest &request)
+{
     this->client_fd_to_request[fd] = request;
 }
 
-void Server::deleteRequestObject(int &fd) {
+void Server::deleteRequestObject(int &fd)
+{
     this->client_fd_to_request.erase(fd);
 }
 
-void Server::resetRequestObject(int &fd) {
+void Server::resetRequestObject(int &fd)
+{
     this->client_fd_to_request[fd].reset();
 }
 
-
-void Server::debugPrintRoutes() const {
+void Server::debugPrintRoutes() const
+{
     std::cout << "Debugging Routes for Server: " << name << " (Port: " << port << ")" << std::endl;
 
-    if (routes.empty()) {
+    if (routes.empty())
+    {
         std::cout << "No routes are configured for this server." << std::endl;
         return;
     }
 
     std::map<std::string, Route>::const_iterator it;
-    for (it = routes.begin(); it != routes.end(); ++it) {
+    for (it = routes.begin(); it != routes.end(); ++it)
+    {
         const std::string &uri = it->first;
         const Route &route = it->second;
 
@@ -96,27 +120,28 @@ void Server::debugPrintRoutes() const {
         std::cout << "Path: " << route.path << std::endl;
         std::cout << "Allowed Methods: ";
         std::set<std::string>::const_iterator method_it;
-        for (method_it = route.methods.begin(); method_it != route.methods.end(); ++method_it) {
+        for (method_it = route.methods.begin(); method_it != route.methods.end(); ++method_it)
+        {
             std::cout << *method_it << " ";
         }
         std::cout << std::endl;
 
         std::cout << "Content Types: ";
         std::set<std::string>::const_iterator type_it;
-        for (type_it = route.content_type.begin(); type_it != route.content_type.end(); ++type_it) {
+        for (type_it = route.content_type.begin(); type_it != route.content_type.end(); ++type_it)
+        {
             std::cout << *type_it << " ";
         }
         std::cout << std::endl;
 
         std::cout << "Redirect URI: " << route.redirect_uri << std::endl;
         std::cout << "Index File: " << route.index_file << std::endl;
-        std::cout << "Directory Listing Enabled: " 
+        std::cout << "Directory Listing Enabled: "
                   << (route.directory_listing_enabled ? "Yes" : "No") << std::endl;
         std::cout << "Is CGI: " << (route.is_cgi ? "Yes" : "No") << std::endl;
     }
     std::cout << "--------------------------------------" << std::endl;
 }
-
 
 // bool Server::loadConfig(const std::string &config_file) {
 //     std::ifstream file(config_file);

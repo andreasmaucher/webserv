@@ -6,29 +6,150 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/07 16:28:06 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/08 00:40:16 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/Parser.hpp"
+#include "../../include/server.hpp"
 
-
-
-std::vector <Server>  Parser::parseConfig(const std::string &config_file)
+Parser::Parser()
 {
-    std::vector <Server> servers_vector;
-    
-    std::ifstream config_file(config_filename.c_str());
-    if (!config_file.is_open())
+    // Initialize any necessary members
+}
+
+Parser::~Parser()
+{
+    // Cleanup if needed
+}
+
+void Parser::setRootDirectory(const std::string &root_directory)
+{
+    this->root_directory = root_directory;
+}
+
+bool Parser::parseLocationBlock(std::istream &config_file)
+{
+    Route route;
+    std::string line;
+    std::string key, value;
+
+    while (std::getline(config_file, line))
+    {
+        if (line.empty() || line[0] == '#')
+            continue;
+
+        // End of location block or start of new block
+        if (line.find("[[") != std::string::npos)
+        {
+            config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+            routes[route.uri] = route;
+            return true;
+        }
+
+        parseKeyValue(line, key, value);
+        if (key.empty() || value.empty())
+            continue;
+
+        if (key == "path")
+        {
+            route.uri = value;
+            route.path = value;
+        }
+        else if (key == "index")
+            route.index_file = value;
+        // Add other location configurations
+    }
+    routes[route.uri] = route;
+    return true;
+}
+
+bool Parser::parseKeyValue(const std::string &line, std::string &key, std::string &value)
+{
+    std::string::size_type pos = line.find('=');
+    if (pos == std::string::npos)
+    {
+        key = "";
+        value = "";
+        return false;
+    }
+
+    key = line.substr(0, pos);
+    value = line.substr(pos + 1);
+
+    // Trim whitespace and quotes
+    while (!key.empty() && (key[0] == ' ' || key[0] == '\t'))
+        key.erase(0, 1);
+    while (!key.empty() && (key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t'))
+        key.erase(key.length() - 1, 1);
+
+    while (!value.empty() && (value[0] == ' ' || value[0] == '\t' || value[0] == '"'))
+        value.erase(0, 1);
+    while (!value.empty() && (value[value.length() - 1] == ' ' ||
+                              value[value.length() - 1] == '\t' || value[value.length() - 1] == '"'))
+        value.erase(value.length() - 1, 1);
+
+    return true; // Return true if parsing was successful
+}
+
+bool Parser::parseServerBlock(std::istream &config_file)
+{
+    std::string line;
+    std::string key, value;
+
+    while (std::getline(config_file, line))
+    {
+        if (line.empty() || line[0] == '#')
+            continue;
+
+        if (line.find("[[server]]") != std::string::npos)
+        {
+            config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+            return true;
+        }
+
+        if (line.find("[[server.location]]") != std::string::npos)
+        {
+            if (!parseLocationBlock(config_file))
+                return false;
+            continue;
+        }
+
+        std::cout << "Parsing line: " << line << std::endl;
+
+        if (!parseKeyValue(line, key, value))
+            continue;
+
+        std::cout << "Key: '" << key << "' Value: '" << value << "'" << std::endl;
+
+        if (key == "listen")
+        {
+            port = atoi(value.c_str());
+            std::cout << "Set port to: " << port << std::endl;
+        }
+        else if (key == "host")
+            host = value;
+        else if (key == "root")
+            setRootDirectory(value);
+    }
+    return true;
+}
+
+std::vector<Server> Parser::parseConfig(const std::string &config_file)
+{
+    std::vector<Server> servers_vector;
+
+    std::ifstream file(config_file.c_str());
+    if (!file.is_open())
     {
         std::cerr << "Error: can't open config file" << std::endl;
-        return false;
+        return servers_vector;
     }
 
     bool found_server = false;
     std::string line;
 
-    while (std::getline(config_file, line))
+    while (std::getline(file, line))
     {
         if (line.empty() || line[0] == '#')
             continue;
@@ -38,20 +159,20 @@ std::vector <Server>  Parser::parseConfig(const std::string &config_file)
             if (found_server)
             {
                 // Create a new config and copy current values
-                Server new_config(port, host, name, root_directory);
+                Server new_config(0, port, name, root_directory);
 
                 new_config.host = host;
                 new_config.port = port;
                 new_config.root_directory = root_directory;
-                new_config.index = index;
+                // new_config.index = index;
                 new_config.client_max_body_size = client_max_body_size;
                 new_config.routes = routes;
                 new_config.error_pages = error_pages;
-                configs.push_back(new_config);
+                servers_vector.push_back(new_config);
 
                 // Reset current values for next server
                 host.clear();
-                port = 0;
+                port = "0";
                 root_directory.clear();
                 index.clear();
                 client_max_body_size.clear();
@@ -59,8 +180,8 @@ std::vector <Server>  Parser::parseConfig(const std::string &config_file)
                 error_pages.clear();
             }
 
-            if (!parseServerBlock(config_file))
-                return false;
+            if (!parseServerBlock(file))
+                return servers_vector;
 
             found_server = true;
         }
@@ -69,7 +190,7 @@ std::vector <Server>  Parser::parseConfig(const std::string &config_file)
     if (found_server)
     {
         // Add the last server config
-        ServerConfig new_config;
+        Server new_config;
         new_config.host = host;
         new_config.port = port;
         new_config.root_directory = root_directory;
@@ -77,31 +198,30 @@ std::vector <Server>  Parser::parseConfig(const std::string &config_file)
         new_config.client_max_body_size = client_max_body_size;
         new_config.routes = routes;
         new_config.error_pages = error_pages;
-        configs.push_back(new_config);
+        servers_vector.push_back(new_config);
     }
 
-    std::cout << "Parsed " << configs.size() << " server configurations" << std::endl;
+    std::cout << "Parsed " << servers_vector.size() << " server configurations" << std::endl;
 
     // Use first config as main config
-    if (!configs.empty())
+    if (!servers_vector.empty())
     {
-        host = configs[0].host;
-        port = configs[0].port;
-        root_directory = configs[0].root_directory;
-        index = configs[0].index;
-        client_max_body_size = configs[0].client_max_body_size;
-        routes = configs[0].routes;
-        error_pages = configs[0].error_pages;
+        host = servers_vector[0].host;
+        port = servers_vector[0].port;
+        root_directory = servers_vector[0].root_directory;
+        index = servers_vector[0].index;
+        client_max_body_size = servers_vector[0].client_max_body_size;
+        routes = servers_vector[0].routes;
+        error_pages = servers_vector[0].error_pages;
 
-        configs.erase(configs.begin());
+        servers_vector.erase(servers_vector.begin());
     }
 
     std::cout << "First server port: " << port << std::endl;
-    return found_server;
-
+    // return found_server;
 
     // Example of config of fake servers
-    
+
     // Server server_one(0, "8080", "server_one", "www");
 
     // // Add a route for static files
@@ -130,10 +250,8 @@ std::vector <Server>  Parser::parseConfig(const std::string &config_file)
 
     // test_servers.push_back(server_one);
 
-
-
     // Server server_two(0, "8081", "server_two", "www");
-    
+
     // // Add a route for images
     // Route imageRoute;
     // imageRoute.uri = "/images";
@@ -162,13 +280,11 @@ std::vector <Server>  Parser::parseConfig(const std::string &config_file)
 
     // test_servers.push_back(server_two);
 
-    
-
     return servers_vector;
 }
 
-
-
-bool Parser::parseConfigFile(const std::string &config_filename)
-{
-}
+// bool Parser::parseConfigFile(const std::string &config_filename)
+// {
+//     (void)config_filename;
+//     return true;
+// }
