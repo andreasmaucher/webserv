@@ -56,13 +56,21 @@ class Server {
 
         void debugPrintRoutes() const;
 
-
-    private:
+        // changed to public temporarily to integrate between two branches
         int listener_fd; //Listening socket fd
         std::string port;
         std::string name;
-        //std::string host_name;
-        std::string root_directory;                      // Root directory for server files
+        std::string host;
+        std::string root_directory;     
+
+
+
+    private:
+        // int listener_fd; //Listening socket fd
+        // std::string port;
+        // std::string name;
+        // std::string host;
+        // std::string root_directory;                      // Root directory for server files
         std::map<std::string, Route> routes;             // Mapping of URIs to Route objects
         std::map<int, std::string> error_pages;          // Error pages mapped by status code
         

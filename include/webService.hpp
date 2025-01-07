@@ -29,6 +29,7 @@
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
 
+
 class WebService {
 
 private:
@@ -50,7 +51,7 @@ private:
 
     struct addrinfo hints, *ai, *p;
     
-    void parseConfig(const std::string &config_file);
+    std::vector <Server>  parseConfig(const std::string &config_file);
     void setupSockets();
     void mapFdToServer(int new_fd, Server &server);
     void addToPfdsVector(int new_fd);
@@ -60,6 +61,10 @@ private:
     void *get_in_addr(struct sockaddr *sa);
     void deleteFromPfdsVec(int &fd, size_t &i);
     void deleteRequestObject(int &fd, Server &server);
+
+    // Parser
+    bool parseConfigFile(const std::string &config_filename);
+
 
 public:
     WebService(const std::string &config_file);
