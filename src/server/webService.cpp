@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/08 00:29:16 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/11 17:42:46 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -51,34 +51,40 @@ int WebService::get_listener_socket(const std::string &port)
     hints.ai_flags = AI_PASSIVE;     // Fill in the IP address of the server automatically when getaddrinfo(), for listening sockets
     reuse_socket_opt = 1;
 
-    std::cout << "Connecting on port " << port << std::endl;
+    std::cout << "Trying to connect on port: " << port << std::endl;
+
     if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0)
     {
-        fprintf(stderr, "pollserver: %s\n", gai_strerror(addrinfo_status));
-        exit(1);
+        std::cerr << "getaddrinfo error: " << gai_strerror(addrinfo_status) << std::endl;
+        return -1;
     }
+
     int listener_fd = -1;
     for (p = ai; p != NULL; p = p->ai_next)
-    { // loop through the ai ll and try to create a socket
+    {
+        std::cout << "Creating socket..." << std::endl;
         listener_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         if (listener_fd < 0)
         {
+            std::cerr << "socket() error: " << strerror(errno) << std::endl;
             continue;
         }
-        // Lose the pesky "address already in use" error message
-        // Manually added option to allow to reuse ports straight after closing the server - SO_REUSEADDR
+
+        std::cout << "Setting socket options..." << std::endl;
         if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
         {
-            perror("setsockopt(SO_REUSEADDR) failed");
-            exit(1);
-        }
-        // tries to bind the socket, otherwise closes it
-        if (bind(listener_fd, p->ai_addr, p->ai_addrlen) < 0)
-        {
+            std::cerr << "setsockopt error: " << strerror(errno) << std::endl;
             close(listener_fd);
             continue;
         }
-        // breaks loop on success
+
+        std::cout << "Binding socket..." << std::endl;
+        if (bind(listener_fd, p->ai_addr, p->ai_addrlen) < 0)
+        {
+            std::cerr << "bind() error: " << strerror(errno) << std::endl;
+            close(listener_fd);
+            continue;
+        }
         break;
     }
     // If we got here, it means we didn't get bound. Reached end of ai ll

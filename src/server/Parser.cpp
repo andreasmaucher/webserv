@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/08 00:40:16 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/11 17:52:40 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -124,7 +124,7 @@ bool Parser::parseServerBlock(std::istream &config_file)
 
         if (key == "listen")
         {
-            port = atoi(value.c_str());
+            port = value;
             std::cout << "Set port to: " << port << std::endl;
         }
         else if (key == "host")
@@ -204,18 +204,18 @@ std::vector<Server> Parser::parseConfig(const std::string &config_file)
     std::cout << "Parsed " << servers_vector.size() << " server configurations" << std::endl;
 
     // Use first config as main config
-    if (!servers_vector.empty())
-    {
-        host = servers_vector[0].host;
-        port = servers_vector[0].port;
-        root_directory = servers_vector[0].root_directory;
-        index = servers_vector[0].index;
-        client_max_body_size = servers_vector[0].client_max_body_size;
-        routes = servers_vector[0].routes;
-        error_pages = servers_vector[0].error_pages;
+    // if (!servers_vector.empty())
+    // {
+    //     host = servers_vector[0].host;
+    //     port = servers_vector[0].port;
+    //     root_directory = servers_vector[0].root_directory;
+    //     index = servers_vector[0].index;
+    //     client_max_body_size = servers_vector[0].client_max_body_size;
+    //     routes = servers_vector[0].routes;
+    //     error_pages = servers_vector[0].error_pages;
 
-        servers_vector.erase(servers_vector.begin());
-    }
+    //     servers_vector.erase(servers_vector.begin());
+    // }
 
     std::cout << "First server port: " << port << std::endl;
     // return found_server;
