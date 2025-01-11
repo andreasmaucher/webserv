@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/11 17:52:40 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/11 18:02:10 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -180,7 +180,7 @@ std::vector<Server> Parser::parseConfig(const std::string &config_file)
                 error_pages.clear();
             }
 
-            if (!parseServerBlock(file))
+            if (!parseServerBlock(file) && !parseLocationBlock(file))
                 return servers_vector;
 
             found_server = true;

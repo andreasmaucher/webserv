@@ -6,12 +6,15 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/11 17:42:46 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/11 18:26:26 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/webService.hpp"
 #include "../../include/Parser.hpp"
+
+std::vector<pollfd> WebService::pfds_vec;
+std::vector<Server> WebService::servers;
 
 WebService::WebService(const std::string &config_file)
 {
@@ -29,9 +32,27 @@ WebService::WebService(const std::string &config_file)
     setupSockets();
 }
 
+void WebService::cleanup()
+{
+    for (size_t i = 0; i < pfds_vec.size(); i++)
+    {
+        close(pfds_vec[i].fd);
+    }
+    pfds_vec.clear();
+
+    // Close all server listener sockets
+    for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it)
+    {
+        if ((*it).getListenerFd() != -1)
+        {
+            close((*it).getListenerFd());
+        }
+    }
+}
+
 WebService::~WebService()
 {
-    // WebService::cleanup();
+    WebService::cleanup();
     std::cout << "Service stopped" << std::endl;
 }
 
@@ -70,8 +91,16 @@ int WebService::get_listener_socket(const std::string &port)
             continue;
         }
 
-        std::cout << "Setting socket options..." << std::endl;
+        std::cout << "Setting socket option SO_REUSEADDR..." << std::endl;
         if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
+        {
+            std::cerr << "setsockopt error: " << strerror(errno) << std::endl;
+            close(listener_fd);
+            continue;
+        }
+
+        std::cout << "Setting socket option SO_REUSEPORT..." << std::endl;
+        if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
         {
             std::cerr << "setsockopt error: " << strerror(errno) << std::endl;
             close(listener_fd);
@@ -307,6 +336,7 @@ void WebService::sigintHandler(int signal)
     {
         printf("Ctrl- C Closing connection\n");
         printf("Exiting\n");
+        WebService::cleanup();
         // Memory leaks will be present, since we can't run freeaddrinfo(res) unless it is declared as a global?
         exit(0);
     }
