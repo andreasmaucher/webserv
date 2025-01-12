@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/11 18:02:10 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/12 01:18:33 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -64,6 +64,38 @@ bool Parser::parseLocationBlock(std::istream &config_file)
     return true;
 }
 
+int Parser::checkValidQuotes(const std::string &line)
+{
+    int i = 0;
+    int quoteNum = 0;
+
+    while (line[i])
+    {
+        if (line[i] == '"')
+            quoteNum++;
+        i++;
+    }
+    return quoteNum;
+}
+
+bool Parser::checkValidSquareBrackets(const std::string &line)
+{
+    int i = 0;
+    int starting_bracket = 0;
+    int ending_bracket = 0;
+
+    while (line[i])
+    {
+        if (line[i] == '[')
+            starting_bracket++;
+        if (line[i] == '[' && starting_bracket == 1)
+            ending_bracket++;
+    }
+    if (starting_bracket == 1 && ending_bracket == 1)
+        return true;
+    return false;
+}
+
 bool Parser::parseKeyValue(const std::string &line, std::string &key, std::string &value)
 {
     std::string::size_type pos = line.find('=');
@@ -75,22 +107,73 @@ bool Parser::parseKeyValue(const std::string &line, std::string &key, std::strin
     }
 
     key = line.substr(0, pos);
+    if (checkValidQuotes(key) != 0)
+        return false;
     value = line.substr(pos + 1);
+    if (checkValidQuotes(value) % 2 != 0 && checkValidQuotes(value) != 0)
+        return false;
 
-    // Trim whitespace and quotes
+    // Trim whitespace and quotes from key - leading whitespaces
     while (!key.empty() && (key[0] == ' ' || key[0] == '\t'))
         key.erase(0, 1);
+    // Trim whitespace and quotes from key - trailimg whitespaces
     while (!key.empty() && (key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t'))
         key.erase(key.length() - 1, 1);
-
+    // Trim whitespace and quotes from value - leading whitespaces and quotes
     while (!value.empty() && (value[0] == ' ' || value[0] == '\t' || value[0] == '"'))
         value.erase(0, 1);
+    // Trim whitespace and quotes from value - trailing whitespaces and quotes
     while (!value.empty() && (value[value.length() - 1] == ' ' ||
                               value[value.length() - 1] == '\t' || value[value.length() - 1] == '"'))
         value.erase(value.length() - 1, 1);
 
     return true; // Return true if parsing was successful
 }
+
+// bool Parser::parseKeyArray(const std::string &line, std::string &key, std::set<std::string> value_set)
+// {
+//     std::string value;
+//     int i = 0;
+//     std::string::size_type pos = line.find('=');
+//     if (pos == std::string::npos)
+//     {
+//         key = "";
+//         return false;
+//     }
+
+//     key = line.substr(0, pos);
+//     if (checkValidQuotes(key) != 0)
+//         return false;
+//     value = line.substr(pos + 1);
+//     checkValidSquareBrackets(value);
+//     if (checkValidQuotes(value) % 2 != 0 && checkValidSquareBrackets(value) == false)
+//         return false;
+
+//     // Trim whitespace and quotes from key - leading whitespaces
+//     while (!key.empty() && (key[0] == ' ' || key[0] == '\t'))
+//         key.erase(0, 1);
+//     // Trim whitespace and quotes from key - trailing whitespaces
+//     while (!key.empty() && (key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t'))
+//         key.erase(key.length() - 1, 1);
+
+//     while (value[i] && value[i] != '[')
+//     {
+//         i++;
+//     }
+//     value.erase(0, i);
+
+//     while (value[i] && value[i] != ']')
+//     {
+//         // Trim whitespace and quotes from value - leading whitespaces and quotes
+//         while (!value.empty() && (value[0] == ' ' || value[0] == '\t' || value[0] == '['))
+//             value.erase(0, 1);
+//         // Trim whitespace and quotes from value - trailing whitespaces and quotes
+//         while (!value.empty() && (value[value.length() - 1] == ' ' ||
+//                                 value[value.length() - 1] == '\t' || value[value.length() - 1] == ']'))
+//             value.erase(value.length() - 1, 1);
+//     }
+//     return true; // Return true if parsing was successful
+// }
 
 bool Parser::parseServerBlock(std::istream &config_file)
 {
@@ -118,7 +201,10 @@ bool Parser::parseServerBlock(std::istream &config_file)
         std::cout << "Parsing line: " << line << std::endl;
 
         if (!parseKeyValue(line, key, value))
-            continue;
+        {
+
+            return false;
+        }
 
         std::cout << "Key: '" << key << "' Value: '" << value << "'" << std::endl;
 

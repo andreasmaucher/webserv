@@ -67,6 +67,11 @@ private:
     bool parseLocationBlock(std::istream &config_file);
     bool parseKeyValue(const std::string &line, std::string &key, std::string &value);
     bool parseServerBlock(std::istream &config_file);
+    int checkValidQuotes(const std::string &line);
+    // bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> value);
+    bool checkValidSquareBrackets(const std::string &line);
+
+
     // bool parseConfigFile(const std::string &config_filename);
 
 public:
