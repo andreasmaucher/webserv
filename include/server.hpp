@@ -55,7 +55,7 @@ public:
     void setRequestObject(int &fd, HttpRequest &request);
     void deleteRequestObject(int &fd);
     void resetRequestObject(int &fd);
-
+    void debugServer() const;
     void debugPrintRoutes() const;
 
     // changed to public temporarily to integrate between two branches

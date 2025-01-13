@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/11 18:26:26 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/13 22:41:16 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,8 +27,13 @@ WebService::WebService(const std::string &config_file)
     servers = parser.parseConfig(config_file);
 
     std::cout << "Configured " << servers.size() << " servers." << std::endl;
-    servers[0].debugPrintRoutes();
-    servers[1].debugPrintRoutes();
+    
+    for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it)
+    {
+        (*it).debugServer();
+        (*it).debugPrintRoutes();
+    }
+    // servers[0].debugPrintRoutes();
     setupSockets();
 }
 

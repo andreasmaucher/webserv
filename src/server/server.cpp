@@ -99,6 +99,25 @@ void Server::resetRequestObject(int &fd)
     this->client_fd_to_request[fd].reset();
 }
 
+void Server::debugServer() const
+{
+    std::cout << "Debugging for Server: " << name << " (Port: " << port << ")" << std::endl;
+    std::cout << "--------------------------------------" << std::endl;
+    std::cout << "Listener_fd: " << listener_fd << std::endl;
+    std::cout << "Port: " << port << std::endl;
+    std::cout << "Name: " << name << std::endl;
+    std::cout << "Host: " << host << std::endl;
+    std::cout << "Root directory: " << root_directory << std::endl;
+    std::cout << "Client max body size: " << client_max_body_size << std::endl;
+    std::cout << "Index: " << index << std::endl;
+
+    for (std::map<int, std::string>::const_iterator it = error_pages.begin(); it != error_pages.end(); ++it)
+    {
+        std::cout << "Error Code: " << it->first << ", Page: " << it->second << std::endl;
+    }
+    std::cout << "--------------------------------------" << std::endl;
+}
+
 void Server::debugPrintRoutes() const
 {
     std::cout << "Debugging Routes for Server: " << name << " (Port: " << port << ")" << std::endl;

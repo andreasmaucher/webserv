@@ -63,7 +63,7 @@ private:
     void deleteRequestObject(int &fd, Server &server);
 
     // Parser
-    bool parseConfigFile(const std::string &config_filename);
+    // bool parseConfigFile(const std::string &config_filename);
 
 public:
     WebService(const std::string &config_file);
