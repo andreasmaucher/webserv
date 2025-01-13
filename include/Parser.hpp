@@ -29,6 +29,13 @@
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
 
+enum ParseKeyValueResult {
+    INVALID,
+    KEY_VALUE_PAIR,
+    KEY_VALUE_PAIR_WITH_QUOTES,
+    KEY_ARRAY_PAIR,
+};
+
 class Parser
 {
 
@@ -65,17 +72,18 @@ private:
     // Parser
     void setRootDirectory(const std::string &root_directory);
     bool parseLocationBlock(std::istream &config_file);
+    ParseKeyValueResult checkKeyPair(const std::string &line);
     bool parseKeyValue(const std::string &line, std::string &key, std::string &value);
     bool parseServerBlock(std::istream &config_file);
     int checkValidQuotes(const std::string &line);
-    // bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> value);
+    bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value);
     bool checkValidSquareBrackets(const std::string &line);
 
 
     // bool parseConfigFile(const std::string &config_filename);
 
 public:
-    Parser();
+    Parser ();
     ~Parser();
     std::vector<Server> parseConfig(const std::string &config_file);
 

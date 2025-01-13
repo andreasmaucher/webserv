@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/12 01:18:33 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/13 00:42:43 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,34 +31,60 @@ void Parser::setRootDirectory(const std::string &root_directory)
 bool Parser::parseLocationBlock(std::istream &config_file)
 {
     Route route;
-    std::string line;
-    std::string key, value;
+    std::string line, key, value;
+    std::set<std::string> value_array;
 
     while (std::getline(config_file, line))
     {
+        std::cout << " stuck in bool Parser::parseLocationBlock(std::istream &config_file)" << std::endl;
         if (line.empty() || line[0] == '#')
             continue;
 
-        // End of location block or start of new block
         if (line.find("[[") != std::string::npos)
         {
             config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
             routes[route.uri] = route;
             return true;
         }
+        std::cout << " didnt passed checkKeyPair(line)" << std::endl;
 
-        parseKeyValue(line, key, value);
-        if (key.empty() || value.empty())
-            continue;
+        ParseKeyValueResult result = checkKeyPair(line);
+        std::cout << " passed checkKeyPair(line)" << std::endl;
 
-        if (key == "path")
+        if (result == INVALID)
+            return false;
+
+        if (result == KEY_ARRAY_PAIR)
         {
-            route.uri = value;
-            route.path = value;
+            value_array.clear();
+            if (!parseKeyArray(line, key, value_array))
+            {
+                std::cout << " passed !parseKeyArray(line, key, value_array)" << std::endl;
+
+                return false;
+            }
+            if (key == "allow_methods")
+            {
+                route.methods.insert(value_array.begin(), value_array.end());
+            }
         }
-        else if (key == "index")
-            route.index_file = value;
-        // Add other location configurations
+        else if (result == KEY_VALUE_PAIR || result == KEY_VALUE_PAIR_WITH_QUOTES)
+        {
+            if (!parseKeyValue(line, key, value))
+                return false;
+            if (!key.empty() && !value.empty())
+            {
+                if (key == "path")
+                {
+                    route.uri = value;
+                    route.path = value;
+                }
+                else if (key == "index")
+                {
+                    route.index_file = value;
+                }
+            }
+        }
     }
     routes[route.uri] = route;
     return true;
@@ -90,10 +116,35 @@ bool Parser::checkValidSquareBrackets(const std::string &line)
             starting_bracket++;
         if (line[i] == '[' && starting_bracket == 1)
             ending_bracket++;
+        i++;
     }
     if (starting_bracket == 1 && ending_bracket == 1)
         return true;
     return false;
+}
+
+ParseKeyValueResult Parser::checkKeyPair(const std::string &line)
+{
+    std::string value;
+    std::string::size_type pos = line.find('=');
+    if (pos == std::string::npos)
+        return INVALID;
+    value = line.substr(pos + 1);
+
+    if (checkValidQuotes(value) % 2 != 0)
+        return INVALID;
+
+    if (checkValidSquareBrackets(line) == true && checkValidQuotes(value) % 2 == 0)
+        return KEY_ARRAY_PAIR;
+
+    if (checkValidQuotes(value) == 2)
+        return KEY_VALUE_PAIR_WITH_QUOTES;
+
+    if (checkValidQuotes(value) == 0)
+        return KEY_VALUE_PAIR;
+    std::cout << " leaving checkKeyPair(line)" << std::endl;
+
+    return INVALID;
 }
 
 bool Parser::parseKeyValue(const std::string &line, std::string &key, std::string &value)
@@ -130,50 +181,84 @@ bool Parser::parseKeyValue(const std::string &line, std::string &key, std::strin
     return true; // Return true if parsing was successful
 }
 
-// bool Parser::parseKeyArray(const std::string &line, std::string &key, std::set<std::string> value_set)
-// {
-//     std::string value;
-//     int i = 0;
-//     std::string::size_type pos = line.find('=');
-//     if (pos == std::string::npos)
-//     {
-//         key = "";
-//         return false;
-//     }
+bool Parser::parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value_set)
+{
+    std::string value;
+    std::cout << "Inside parseKeyArray" << std::endl;
 
-//     key = line.substr(0, pos);
-//     if (checkValidQuotes(key) != 0)
-//         return false;
-//     value = line.substr(pos + 1);
-//     checkValidSquareBrackets(value);
-//     if (checkValidQuotes(value) % 2 != 0 && checkValidSquareBrackets(value) == false)
-//         return false;
+    std::string::size_type pos = line.find('=');
+    if (pos == std::string::npos)
+    {
+        key = "";
+        return false;
+    }
 
-//     // Trim whitespace and quotes from key - leading whitespaces
-//     while (!key.empty() && (key[0] == ' ' || key[0] == '\t'))
-//         key.erase(0, 1);
-//     // Trim whitespace and quotes from key - trailing whitespaces
-//     while (!key.empty() && (key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t'))
-//         key.erase(key.length() - 1, 1);
+    key = line.substr(0, pos);
+    if (checkValidQuotes(key) != 0)
+        return false;
+    value = line.substr(pos + 1);
+    checkValidSquareBrackets(value);
+    if (checkValidQuotes(value) % 2 != 0 && checkValidSquareBrackets(value) == false)
+        return false;
 
-//     while (value[i] && value[i] != '[')
-//     {
-//         i++;
-//     }
-//     value.erase(0, i);
+    // Trim whitespace and quotes from key - leading whitespaces
+    while (!key.empty() && (key[0] == ' ' || key[0] == '\t'))
+        key.erase(0, 1);
+    // Trim whitespace and quotes from key - trailing whitespaces
+    while (!key.empty() && (key[key.length() - 1] == ' ' || key[key.length() - 1] == '\t'))
+        key.erase(key.length() - 1, 1);
 
-//     while (value[i] && value[i] != ']')
-//     {
-//         // Trim whitespace and quotes from value - leading whitespaces and quotes
-//         while (!value.empty() && (value[0] == ' ' || value[0] == '\t' || value[0] == '['))
-//             value.erase(0, 1);
-//         // Trim whitespace and quotes from value - trailing whitespaces and quotes
-//         while (!value.empty() && (value[value.length() - 1] == ' ' ||
-//                                 value[value.length() - 1] == '\t' || value[value.length() - 1] == ']'))
-//             value.erase(value.length() - 1, 1);
-//     }
-//     return true; // Return true if parsing was successful
-// }
+    // Trim whitespace and opening square bracket in value
+    while (!value.empty() && (value[0] == ' ' || value[0] == '\t' || value[0] == '['))
+        value.erase(0, 1);
+    // Trim whitespace and quotes from value - trailing whitespaces and quotes
+    while (!value.empty() && (value[value.length() - 1] == ' ' || value[value.length() - 1] == '\t' || value[value.length() - 1] == ']'))
+        value.erase(value.length() - 1, 1);
+
+    size_t i = 0;
+    size_t j = 0;
+    bool inside_quotes = false;
+    while (i < value.length() && value[i])
+    {
+        std::cout << "Current value: '" << value << "'" << std::endl;
+        std::cout << "i: " << i << ", j: " << j << std::endl;
+        // Skip non-quote characters
+        while (i < value.length() && value[i] != '"' && !inside_quotes)
+        {
+            i++;
+            j++;
+        }
+
+        if (i < value.length() && value[i] == '"')
+        {
+            inside_quotes = true;
+            i++;
+            j++;
+        }
+
+        // Find closing quote
+        while (j < value.length() && value[j] != '"')
+        {
+            j++;
+        }
+
+        if (j < value.length()) // Found closing quote
+        {
+            inside_quotes = false;
+            inside_quotes = false;
+            std::string extracted = value.substr(i, j - i);
+            std::cout << "Extracted: '" << extracted << "'" << std::endl;
+            value_set.insert(extracted);
+            i = j + 1;
+            j = i;
+        }
+        else // No closing quote found
+        {
+            return false;
+        }
+    }
+    return true; // Return true if parsing was successful
+}
 
 bool Parser::parseServerBlock(std::istream &config_file)
 {
@@ -265,9 +350,10 @@ std::vector<Server> Parser::parseConfig(const std::string &config_file)
                 routes.clear();
                 error_pages.clear();
             }
-
+            std::cout << "before if (!parseServerBlock(file) && !parseLocationBlock(file)) block" << std::endl;
             if (!parseServerBlock(file) && !parseLocationBlock(file))
                 return servers_vector;
+            std::cout << "after if (!parseServerBlock(file) && !parseLocationBlock(file)) block" << std::endl;
 
             found_server = true;
         }
@@ -285,6 +371,7 @@ std::vector<Server> Parser::parseConfig(const std::string &config_file)
         new_config.routes = routes;
         new_config.error_pages = error_pages;
         servers_vector.push_back(new_config);
+        std::cout << "stuck in found server" << std::endl;
     }
 
     std::cout << "Parsed " << servers_vector.size() << " server configurations" << std::endl;
