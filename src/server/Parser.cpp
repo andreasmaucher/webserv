@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/17 19:33:25 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/17 20:44:16 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -259,12 +259,35 @@ bool Parser::parseKeyArray(const std::string &line, std::string &key, std::set<s
     }
     return true; // Return true if parsing was successful
 }
-bool Parser::parseErrorBlock(std::istream &config_file)
+bool Parser::parseErrorBlock(std::istream &config_file, Server server)
 {
-    (void)config_file;
+    std::string line, key, value;
+    char *end; // To capture the position where parsing stops
+    int error_code_long;
+
+    while (std::getline(config_file, line))
+    {
+        if (line.empty() || line[0] == '#')
+            continue;
+        ParseKeyValueResult result = checkKeyPair(line);
+        if (result == KEY_VALUE_PAIR)
+        {
+            if (!parseKeyValue(line, key, value))
+                return false;
+            if (!key.empty() && !value.empty())
+            {
+                error_code_long = strtol(key.c_str(), &end, 10); // Base 10 conversion
+                if (error_code_long == 0)
+                    return false;
+                if (error_code_long > 0 && error_code_long < 1000)
+                    server.error_pages.insert(std::make_pair((int)error_code_long, value));
+                else
+                    return false;
+            }
+        }
+    }
     return true;
 }
-
 
 bool Parser::parseServerBlock(std::istream &config_file)
 {

@@ -14,6 +14,8 @@
 
 class HttpRequest;
 
+
+
 // Represents a single route. One for each of the location blocks in the config file
 struct Route
 {
@@ -28,6 +30,7 @@ struct Route
 
     Route() : is_cgi(false) {}
 };
+
 
 // Represents the overall server configuration
 class Server
