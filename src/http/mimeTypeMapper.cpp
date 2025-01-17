@@ -38,12 +38,11 @@ void MimeTypeMapper::extractFileExtension(HttpRequest &request) {
         size_t pos = request.uri.find_last_of('.');
         if (pos != std::string::npos) {
             request.file_extension = request.uri.substr(pos + 1);
-            request.is_cgi = isCGIRequest(request.file_extension); //! CGI
+            request.is_cgi = isCGIRequest(request.file_extension);
             // it might have an extra directory between the valid route and the file name. How to handle?
             std::cout << "Extracted file extension: " << request.file_extension << std::endl;
             return;
         }
-
     }
     request.is_directory = true;
 }

@@ -87,15 +87,15 @@ class HttpRequest {
     bool is_directory;
     bool is_cgi;
     int error_code;
-    std::string queryString; //! ANDY should be included in uri
-    std::string contentType; //! ANDY
+    std::string queryString;
+    std::string contentType;
 
     //for parsing
     size_t position;
     bool complete;
     bool headers_parsed;
     ChunkState chunk_state;
-    int clientSocket; //! ANDY
+    int clientSocket;
   
 };
 

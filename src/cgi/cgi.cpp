@@ -1,63 +1,15 @@
 #include "../../include/cgi.hpp"
-#include <unistd.h>     // for execve
-#include <cstdlib>      // for environ
-
-extern char **environ;  //! am I allowed to use this?
+#include "../../include/httpRequest.hpp"
+#include "../../include/httpResponse.hpp"
 
 /*
-    - have a parser object and a server_config object
-    Parser object:
-        - method: get / post / delete
-        - path
-        - protocol: http version
-        - a map of headers (each header name is associated with its value)
-        - body: body of the request may contain data if POST request
-        - CGI: if cgi request this contains paramters from query string or body
-        - if applicable upload information (upload filename)
-        -> access to all these fields via getter functions
-
-    Server_config object:
-        - I need root: root directory where the php scripts are located
-        - 
-        
-
-
-    addENVfunction:
-        - extract info from parser object and formats them into env variable strings
-        1. check if request body is empty
-            - if empty set CONTENT_LENGTH to 0
-            - else set CONTENT_LENGTH to length of request body
-        2. determine http method (get.method)
-            - assign corresponding value to method variable (GET, POST, DELETE)
-        3. set upload path
-            - add a dot to the requested path
-        4. get CGI parameters:
-            - CGI parameters are key-value pairs that are passed to a CGI script when it is executed
-            - one function to retrieve CGI parameters from the map
-            - convert the parameters into string format and add them to env table (format: KEY=VALUE)
-            Example:
-            request URL is http://example.com/script.php?username=john_doe&age=30, the CGI parameters would include:
-                - username=john_doe
-                - age=30
-        ///? I take from Carina her HTTP Object with all fields
-        ///? which fields exist in the cgi mapping?
-
-
+standard way to pass environment variables to the child process
 */
+extern char **environ;
 
 // Default constructor for the CGI class
 CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requestBody("") {}
 
-//! I need to fill all those fields
-// Constructor for the CGI class
-// Initializes all member variables with the provided parameters
-CGI::CGI(int clientSocket, const std::string& scriptPath, const std::string& method,
-         const std::string& queryString, const std::string& requestBody)
-    : clientSocket(clientSocket), scriptPath(scriptPath), method(method),
-      queryString(queryString), requestBody(requestBody) {}
-
-//! env setup still lacking, dependent on parser output & structure
-//! probably needs to go into the parser, not used in my code
 // Static method to check if a given path is a CGI request
 // Returns true if the path contains "/cgi-bin/", ".py", or ".cgi"
 bool CGI::isCGIRequest(const std::string& path) {
@@ -66,76 +18,55 @@ bool CGI::isCGIRequest(const std::string& path) {
            (len > 4 && path.substr(len - 4) == ".php");
 }
 
+/*
+1. gets current working directory
+2. removes leading "/cgi-bin" from uri e.g. "/cgi-bin/script.py" -> "script.py"
+3. combines with project root
+4. returns full path
+*/
 std::string CGI::resolveCGIPath(const std::string& uri) {
     char buffer[PATH_MAX];
-    getcwd(buffer, PATH_MAX);
-    std::string projectRoot = std::string(buffer); //check
-    
-    // Debug print
+    if (getcwd(buffer, PATH_MAX) == NULL) {
+        throw std::runtime_error("Failed to get current working directory");
+    }
+    std::string projectRoot = std::string(buffer);
     std::cout << "Project root: " << projectRoot << std::endl;
     std::cout << "URI: " << uri << std::endl;
-    
-    // Remove the leading "/cgi-bin" from uri and combine with project root
-    std::string relativePath = uri.substr(8); // remove "/cgi-bin"
+    std::string relativePath = uri.substr(8);
     std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
-    
-    // Debug print
     std::cout << "Full resolved path: " << fullPath << std::endl;
-    
     return fullPath;
 }
 
-// Main method to handle a CGI request
-// it was determined before if CGI request or not
-// Sets up the environment, executes the CGI script and sends the response
-void CGI::handleCGIRequest(HttpRequest request) {
+/*
+1. converts URI to full path (e.g., "/your/server/path/cgi-bin/script.py")
+2. check permissions: F_OK: Checks if file exists, X_OK: Checks if file is executable
+3. set environment
+4. execute cgi (creates pipe, forks a process and executes the script)
+5. response: store script output in request body and mark request as complete
+*/
+void CGI::handleCGIRequest(HttpRequest& request) {
     std::cerr << "1. Starting handleCGIRequest..." << std::endl;
-    std::cerr << "Request URI: " << request.uri << std::endl;
-    std::cerr.flush();
-    
     try {
-        // Resolve the actual path to the script
         std::string fullScriptPath = resolveCGIPath(request.uri);
-        std::cerr << "2. Resolved path: " << fullScriptPath << std::endl;
-        
-        std::cerr << "File exists? " << (access(fullScriptPath.c_str(), F_OK) == 0 ? "Yes" : "No") << std::endl;
-        std::cerr << "File executable? " << (access(fullScriptPath.c_str(), X_OK) == 0 ? "Yes" : "No") << std::endl;
-        
-        // Update the scriptPath member variable
         scriptPath = fullScriptPath;
-
         if (access(fullScriptPath.c_str(), F_OK | X_OK) == -1) {
-            std::cerr << "Error: " << strerror(errno) << std::endl;
             throw std::runtime_error("Script not found or not executable: " + fullScriptPath);
         }
-        
-        std::cerr << "3. Setting environment..." << std::endl;
-        std::cerr.flush();
         setCGIEnvironment(request);
-        
-        std::cerr << "4. About to execute CGI..." << std::endl;
-        std::cerr.flush();
-        std::string response = executeCGI();
-        
-        std::cerr << "5. Sending response..." << std::endl;
-        std::cerr.flush();
-        sendResponse(response);
-        
-        std::cerr << "6. CGI request completed" << std::endl;
-        std::cerr.flush();
-        return; // Make sure we return after sending the response
-    }
+        std::string cgiOutput = executeCGI();
+        request.body = cgiOutput;
+        request.complete = true;
+    } 
     catch (const std::exception& e) {
-        std::cerr << "Error in handleCGIRequest: " << e.what() << std::endl;
-        std::cerr.flush();
-        // Send error response to client
-        std::string errorResponse = "Status: 500\r\nContent-Type: text/plain\r\n\r\nCGI Error: " + std::string(e.what());
-        sendResponse(errorResponse);
-        throw; // Re-throw to let the server handle the connection cleanup
+        std::cerr << "CGI Error: " << e.what() << std::endl;
+        throw;
     }
 }
 
-// Sets up the environment variables for the CGI script
+/* 
+Sets up the environment variables for the CGI script; second part converts http headers to env variables 
+*/
 void CGI::setCGIEnvironment(const HttpRequest& httpRequest) const
 {
     setenv("REQUEST_METHOD", httpRequest.method.c_str(), 1);
@@ -144,8 +75,6 @@ void CGI::setCGIEnvironment(const HttpRequest& httpRequest) const
     setenv("SCRIPT_NAME", httpRequest.uri.c_str(), 1);
     setenv("SERVER_PROTOCOL", httpRequest.version.c_str(), 1);
     setenv("CONTENT_TYPE", httpRequest.contentType.c_str(), 1);
-
-    // for all other env variables
     std::map<std::string, std::string>::const_iterator it;
     for (it = httpRequest.headers.begin(); it != httpRequest.headers.end(); ++it) {
         std::string envName = "HTTP_" + it->first;
@@ -155,57 +84,54 @@ void CGI::setCGIEnvironment(const HttpRequest& httpRequest) const
     }
 }
 
-// Executes the CGI script and handles its output
+/*
+CGI LOGIC:
+1. Creates communication channels (pipes) between server and CGI script
+2. Forks into two processes (parent and child)
+3. Child process executes the CGI script
+4. Parent process reads the script's output
+5. Returns the output as a string
+*/
 std::string CGI::executeCGI() {
     std::cerr << "A. Starting executeCGI..." << std::endl;
-    std::cerr.flush();
-
-    // Create pipe
     int pipefd[2];
     if (pipe(pipefd) == -1) {
         throw std::runtime_error("Pipe creation failed");
     }
-
     std::cerr << "B. Pipe created, forking..." << std::endl;
-    std::cerr.flush();
-    
     pid_t pid = fork();
     std::cerr << "C. Fork result: " << pid << std::endl;
-    std::cerr.flush();
-
     if (pid == -1) {
         throw std::runtime_error("Fork failed");
     }
-
     if (pid == 0) {  // Child process
         std::cerr << "D. Child process starting..." << std::endl;
         std::cerr << "Script path: " << scriptPath << std::endl;
-        std::cerr.flush();
-        
         close(pipefd[0]);  // Close read end
-        
-        if (dup2(pipefd[1], STDOUT_FILENO) == -1) {
-            std::cerr << "dup2 failed: " << strerror(errno) << std::endl;
+        dup2(pipefd[1], STDOUT_FILENO);  // Redirect stdout to pipe
+        close(pipefd[1]);
+        // Create pipe for POST data
+        int post_pipe[2];
+        if (pipe(post_pipe) == -1) {
+            std::cerr << "POST pipe creation failed" << std::endl;
             exit(1);
         }
-        
-        close(pipefd[1]);
-
-        // this is my specific python path (cmd: which python3)
+        // Write POST data to pipe, GET requests have an empty body (pipe will be created but not written to)
+        if (!requestBody.empty()) {
+            write(post_pipe[1], requestBody.c_str(), requestBody.length());
+        }
+        close(post_pipe[1]);
+        // Redirect stdin to read end of POST pipe
+        dup2(post_pipe[0], STDIN_FILENO);
+        close(post_pipe[0]);
+        // Execute the script
         const char* pythonPath = "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3";
         char *const args[] = {
             const_cast<char*>(pythonPath),
             const_cast<char*>(scriptPath.c_str()),
             NULL
         };
-
-        std::cerr << "About to execve with:" << std::endl;
-        std::cerr << "Python path: " << pythonPath << std::endl;
-        std::cerr << "Script path: " << scriptPath << std::endl;
-        std::cerr.flush();
-
         execve(pythonPath, args, environ);
-        
         // If we get here, execve failed
         std::cerr << "execve failed: " << strerror(errno) << std::endl;
         exit(1);
@@ -229,7 +155,7 @@ std::string CGI::executeCGI() {
     tv.tv_usec = 0;
 
     while (1) {
-        int ready = select(pipefd[0] + 1, &readfds, NULL, NULL, &tv);
+        int ready = select(pipefd[0] + 1, &readfds, NULL, NULL, &tv); // checks if data is available to read
         if (ready == -1) {
             perror("select failed");
             break;
@@ -258,50 +184,6 @@ std::string CGI::executeCGI() {
         std::cout << "No response received from CGI script" << std::endl;
         return "Status: 500\r\nContent-Type: text/plain\r\n\r\nNo response from CGI script";
     }
-
-    std::cout << "CGI Response:\n" << response << std::endl;
     std::cout << "=== CGI Execution End ===" << std::endl;
-    
     return response;
-}
-
-//! not used anymore it's now directly integrated in exectuteCGI, let's see if i want to keep it after response flow is clear
-
-// Reads the CGI script's output from the pipe
-// this is where the response is captured
-std::string CGI::readFromPipe(int pipefd) const
-{
-    std::stringstream return_string;
-    char buffer[1024];
-    int bytesRead;
-
-    while ((bytesRead = read(pipefd, buffer, sizeof(buffer))) > 0) {
-        return_string.write(buffer, bytesRead);
-    }
-
-    close(pipefd);
-    return return_string.str();
-}
-
-//! use carinas functions instead!!!
-// Sends the complete response (headers + body) to the client
-void CGI::sendResponse(const std::string& response) const
-{
-    std::string fullResponse = response;
-    
-    // Check if the CGI script provided headers
-    if (fullResponse.find("Status: ") == std::string::npos &&
-        fullResponse.find("Content-Type: ") == std::string::npos) {
-        // If no headers, add default headers
-        fullResponse = "Status: 200 OK\r\nContent-Type: text/html\r\n\r\n" + fullResponse;
-    } else if (fullResponse.find("\r\n\r\n") == std::string::npos) {
-        // If headers are present but no empty line, add it
-        fullResponse += "\r\n";
-    }
-
-    // Send the full response to the client
-    // Log errors if sending the response fails.
-     if (send(clientSocket, fullResponse.c_str(), fullResponse.length(), 0) == -1) {
-        perror("send");
-    }
 }

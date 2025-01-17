@@ -24,6 +24,5 @@ std::string HttpResponse::generateRawResponseStr() {
   if (!this->body.empty()) {
    raw_string += this->body; // + "/r/n" ??
   }
-
   return raw_string;
 }

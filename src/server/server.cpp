@@ -161,7 +161,7 @@ int Server::setup(const std::string &port)
     (void)port;
 
     // calling temporary hardcoding function for testing
-    config = createFakeServerConfig(); //!
+    config = createFakeServerConfig(); //! This needs to be changed!
 
     listener_fd = get_listener_socket(port);
     if (listener_fd == -1)
@@ -202,16 +202,13 @@ int Server::start()
                 {
                     new_connection();
                 } else { // we are in the fd of an existing connection
-                    receiveRequest(i); //! ANDY: Main logic
-                    std::cout << "after receive request" << i << std::endl; //! ANDY this prints out!!!
+                    receiveRequest(i);
                 }
             }
             // POLLOUT is set when the socket is ready to send data (bc not receiving anymore)
             if (pfds_vec[i].revents & POLLOUT)
             {
-                std::cout << "in pollout loop" << i << std::endl; //! ANDY goes into infinite loop
-                sendResponse(i, httpRequests[i]); //! ANDY: Main logic
-                std::cout << "after send response" << i << std::endl; //! ANDY goes into infinite loop
+                sendResponse(i, httpRequests[i]);
             }
         }
     }
@@ -235,7 +232,7 @@ void Server::receiveRequest(int i)
             // }
             closeConnection(pfds_vec[i].fd, i, httpRequests);
         }
-        //! ANDY do i need a cgi condition in here?!
+        /* no need for a cgi condition in here it is the same for all requests */
         else
         {
             buf[nbytes] = '\0';
@@ -244,8 +241,7 @@ void Server::receiveRequest(int i)
             if (httpRequests[i].raw_request.find(END_HEADER) != std::string::npos)
             {
                 std::cout << "Parsing request from request object at index:" << i << std::endl;
-                RequestParser::parseRawRequest(httpRequests[i]); //! ANDY PARSER HERE
-                std::cout << "now we are after the parser:" << i << std::endl; //! ANDY it prints until here!!!
+                RequestParser::parseRawRequest(httpRequests[i]);
             }
         }
     }
@@ -253,9 +249,7 @@ void Server::receiveRequest(int i)
 
 void Server::sendResponse(int i, HttpRequest &request)
 {
-    // ANDY: commented out for easier testing
-    std::cout << "Response function called for request at index:" << i << std::endl; 
-    std::cout << "Request complete: " << request.complete << std::endl;
+    //std::cout << "Response function called for request at index:" << i << std::endl; 
     if (request.complete)
     {
         HttpResponse response;

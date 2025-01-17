@@ -16,7 +16,7 @@ void HttpRequest::reset() {
   file_extension.clear();
   content_type.clear();
   is_directory = false;
-  is_cgi = true; //! ANDY changed manually for testing
+  is_cgi = false;
   error_code = 0;
   position = 0;
   complete = false;

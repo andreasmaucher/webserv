@@ -2,42 +2,89 @@
 #include "../../include/cgi.hpp"
 
 void ResponseHandler::processRequest(const ServerConfig &config, HttpRequest &request, HttpResponse &response) {
-
-    std::cout << "Processing request" << std::endl;
-    std::cout << "Request URI: " << request.uri << "\n";
     //! ANDY
     // Find matching route
     if (!findMatchingRoute(config, request, response)) {
-      std::cout << "No matching route found" << std::endl;
+        std::cout << "No matching route found" << std::endl;
         response.status_code = 404;
         return;
     }
- std::cout << "we are here" << std::endl;
-    // If it's a CGI request, handle it differently
-      // Check if this is a CGI request
-    if (request.route && request.route->is_cgi) {
-        std::cout << "CGI request detected\n";
+    const Route* route = request.route;  // Route is already stored in request
+    std::cout << "Route found: " << route->uri << std::endl;
+    std::cout << "Is CGI route? " << (route->is_cgi ? "yes" : "no") << std::endl;
+    // If it's a CGI request, handle it
+    if (route->is_cgi) {
+        std::cout << "Handling CGI request..." << std::endl;
         try {
-            CGI cgi;  // Create CGI handler
+            CGI cgi;
             cgi.handleCGIRequest(request);
-            response.status_code = 200;  // Assuming success
+            
+            // Always start with HTTP status line for valid HTTP/1.1 response
+            response.status_code = 200;
+            response.version = "HTTP/1.1";
+            response.reason_phrase = "OK";
+            
+            // Parse CGI headers into response object
+            size_t headerEnd = request.body.find("\r\n\r\n");
+            if (headerEnd != std::string::npos) {
+                std::string headers = request.body.substr(0, headerEnd);
+                // Set body to everything AFTER the headers and the blank line
+                response.body = request.body.substr(headerEnd + 4);
+                
+                // Parse headers
+                size_t pos = 0;
+                std::string headerSection = headers;
+                while ((pos = headerSection.find("\r\n")) != std::string::npos) {
+                    std::string header = headerSection.substr(0, pos);
+                    size_t colonPos = header.find(": ");
+                    if (colonPos != std::string::npos) {
+                        std::string name = header.substr(0, colonPos);
+                        std::string value = header.substr(colonPos + 2);
+                        response.setHeader(name, value);
+                    }
+                    headerSection = headerSection.substr(pos + 2);
+                }
+                
+                // Handle last header if exists
+                if (!headerSection.empty()) {
+                    size_t colonPos = headerSection.find(": ");
+                    if (colonPos != std::string::npos) {
+                        std::string name = headerSection.substr(0, colonPos);
+                        std::string value = headerSection.substr(colonPos + 2);
+                        response.setHeader(name, value);
+                    }
+                }
+            } else {
+                // No headers found in CGI output
+                response.body = request.body;
+                response.setHeader("Content-Type", "text/plain");
+            }
+            
+            response.close_connection = true;
+            request.complete = true;
             return;
         } catch (const std::exception& e) {
-            std::cerr << "CGI execution failed: " << e.what() << "\n";
+            std::cerr << "CGI execution failed: " << e.what() << std::endl;
             response.status_code = 500;
-            response.body = "CGI execution failed: " + std::string(e.what());
+            response.body = "CGI execution failed";
+            response.close_connection = true;
+            request.complete = true;  // Make sure request is marked complete
             return;
         }
     }
-
-
+    
+    /* -- Carinas part starts here -- */
+    std::cout << "Processing request" << std::endl;
     // from here on, we will populate & use the response object status code only
-    response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
+    // response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
     // find connection header and set close_connection in response object
-
+    if (request.error_code == 0) {  // Check error_code but don't set response status
+        ResponseHandler::routeRequest(config, request, response);
+    }
     if (response.status_code == 0) {
         // serve_file, process_api_request & populate response body (content) or error code  
-        ResponseHandler::routeRequest(config, request, response);
+        // ResponseHandler::routeRequest(config, request, response);
+        response.status_code = 200;
     }
 
     if (request.headers.find("Connection") != request.headers.end() && request.headers["Connection"] == "close")
@@ -448,6 +495,8 @@ bool ResponseHandler::findMatchingRoute(const ServerConfig &config, HttpRequest 
 
     std::cout << "Route found: " << best_match->uri << std::endl;
     request.route = best_match;
+    request.is_cgi = best_match->is_cgi;  //! ANDY
+    //! Does this fuck up anything for http?! or when do I undo it?!
     return true;
 }
 

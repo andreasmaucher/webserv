@@ -7,7 +7,7 @@ import subprocess
 sys.stderr.write("Python CGI script starting...\n")
 
 # Print headers
-print("Content-Type: text/plain")
+print("Finally this shit works!")
 print()  # Empty line to separate headers from body
 
 # Run ls command and capture output

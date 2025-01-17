@@ -89,6 +89,7 @@ ServerConfig createFakeServerConfig()
     cgiRoute.content_type.insert("application/octet-stream");
     cgiRoute.content_type.insert("application/x-python");
     cgiRoute.content_type.insert("text/plain"); //! ANDY
+    cgiRoute.content_type.insert("application/json"); //! ANDY
     //! what other content types do I need to add here?
     cgiRoute.is_cgi = true;
     config.setRoute(cgiRoute.uri, cgiRoute);
