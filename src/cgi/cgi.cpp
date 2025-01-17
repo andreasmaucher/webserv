@@ -143,7 +143,7 @@ std::string CGI::executeCGI()
         dup2(post_pipe[0], STDIN_FILENO);
         close(post_pipe[0]);
         // Execute the script
-        const char *pythonPath = "/opt/homebrew/bin/python3";
+        const char *pythonPath = "/usr/local/bin/python3";
         char *const args[] = {
             const_cast<char *>(pythonPath),
             const_cast<char *>(scriptPath.c_str()),
