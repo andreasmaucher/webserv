@@ -43,7 +43,6 @@ void MimeTypeMapper::extractFileExtension(HttpRequest &request) {
             std::cout << "Extracted file extension: " << request.file_extension << std::endl;
             return;
         }
-
     }
     request.is_directory = true;
 }

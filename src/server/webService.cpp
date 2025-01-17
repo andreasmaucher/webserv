@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/13 22:41:16 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/17 21:35:15 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,7 +27,7 @@ WebService::WebService(const std::string &config_file)
     servers = parser.parseConfig(config_file);
 
     std::cout << "Configured " << servers.size() << " servers." << std::endl;
-    
+
     for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it)
     {
         (*it).debugServer();
@@ -316,7 +316,8 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
     {
         HttpRequest request = server.getRequestObject(fd);
         HttpResponse response;
-        ResponseHandler::processRequest(server, request, response);
+        ResponseHandler handler;
+        handler.processRequest(server, request, response);
 
         std::string responseStr = response.generateRawResponseStr();
         if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
