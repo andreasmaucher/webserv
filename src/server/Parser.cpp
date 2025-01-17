@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/13 00:42:43 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/17 19:33:25 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -259,6 +259,12 @@ bool Parser::parseKeyArray(const std::string &line, std::string &key, std::set<s
     }
     return true; // Return true if parsing was successful
 }
+bool Parser::parseErrorBlock(std::istream &config_file)
+{
+    (void)config_file;
+    return true;
+}
+
 
 bool Parser::parseServerBlock(std::istream &config_file)
 {
@@ -343,7 +349,7 @@ std::vector<Server> Parser::parseConfig(const std::string &config_file)
 
                 // Reset current values for next server
                 host.clear();
-                port = "0";
+                port.clear();
                 root_directory.clear();
                 index.clear();
                 client_max_body_size.clear();
@@ -370,94 +376,11 @@ std::vector<Server> Parser::parseConfig(const std::string &config_file)
         new_config.client_max_body_size = client_max_body_size;
         new_config.routes = routes;
         new_config.error_pages = error_pages;
-        servers_vector.push_back(new_config);
-        std::cout << "stuck in found server" << std::endl;
+        // adding server only in case these 4 min variables are not empty
+        if (!host.empty() && !port.empty() && !root_directory.empty() && !error_pages.empty())
+            servers_vector.push_back(new_config);
     }
 
-    std::cout << "Parsed " << servers_vector.size() << " server configurations" << std::endl;
-
-    // Use first config as main config
-    // if (!servers_vector.empty())
-    // {
-    //     host = servers_vector[0].host;
-    //     port = servers_vector[0].port;
-    //     root_directory = servers_vector[0].root_directory;
-    //     index = servers_vector[0].index;
-    //     client_max_body_size = servers_vector[0].client_max_body_size;
-    //     routes = servers_vector[0].routes;
-    //     error_pages = servers_vector[0].error_pages;
-
-    //     servers_vector.erase(servers_vector.begin());
-    // }
-
     std::cout << "First server port: " << port << std::endl;
-    // return found_server;
-
-    // Example of config of fake servers
-
-    // Server server_one(0, "8080", "server_one", "www");
-
-    // // Add a route for static files
-    // Route staticRoute;
-    // staticRoute.uri = "/static";
-    // staticRoute.path = server_one.getRootDirectory() + staticRoute.uri;
-    // staticRoute.index_file = "index.html";
-    // staticRoute.methods.insert("GET");
-    // staticRoute.methods.insert("POST");
-    // staticRoute.methods.insert("DELETE");
-    // staticRoute.content_type.insert("text/plain");
-    // staticRoute.content_type.insert("text/html");
-    // staticRoute.is_cgi = false;
-    // server_one.setRoute(staticRoute.uri, staticRoute);
-
-    // // Add a route for more restrictive folder in static
-    // Route restrictedstaticRoute;
-    // restrictedstaticRoute.uri = "/static/restrictedstatic";
-    // restrictedstaticRoute.path = server_one.getRootDirectory() + restrictedstaticRoute.uri;
-    // restrictedstaticRoute.index_file = "index.html";
-    // restrictedstaticRoute.methods.insert("GET");
-    // restrictedstaticRoute.content_type.insert("text/plain");
-    // restrictedstaticRoute.content_type.insert("text/html");
-    // restrictedstaticRoute.is_cgi = false;
-    // server_one.setRoute(restrictedstaticRoute.uri, restrictedstaticRoute);
-
-    // test_servers.push_back(server_one);
-
-    // Server server_two(0, "8081", "server_two", "www");
-
-    // // Add a route for images
-    // Route imageRoute;
-    // imageRoute.uri = "/images";
-    // imageRoute.path = server_one.getRootDirectory() + imageRoute.uri;
-    // imageRoute.methods.insert("GET");
-    // imageRoute.methods.insert("POST");
-    // // imageRoute.methods.insert("DELETE");
-    // imageRoute.content_type.insert("image/jpeg");
-    // imageRoute.content_type.insert("image/png");
-    // imageRoute.is_cgi = false;
-    // server_two.setRoute(imageRoute.uri, imageRoute);
-
-    // // Add a route for uploads
-    // Route uploadsRoute;
-    // uploadsRoute.uri = "/uploads";
-    // uploadsRoute.path = server_one.getRootDirectory() + uploadsRoute.uri;
-    // uploadsRoute.methods.insert("GET");
-    // uploadsRoute.methods.insert("POST");
-    // uploadsRoute.methods.insert("DELETE");
-    // uploadsRoute.content_type.insert("image/jpeg");
-    // uploadsRoute.content_type.insert("image/png");
-    // uploadsRoute.content_type.insert("text/plain");
-    // uploadsRoute.content_type.insert("text/html");
-    // uploadsRoute.is_cgi = false;
-    // server_two.setRoute(uploadsRoute.uri, uploadsRoute);
-
-    // test_servers.push_back(server_two);
-
     return servers_vector;
 }
-
-// bool Parser::parseConfigFile(const std::string &config_filename)
-// {
-//     (void)config_filename;
-//     return true;
-// }

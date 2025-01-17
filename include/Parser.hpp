@@ -74,6 +74,8 @@ private:
     bool parseLocationBlock(std::istream &config_file);
     ParseKeyValueResult checkKeyPair(const std::string &line);
     bool parseKeyValue(const std::string &line, std::string &key, std::string &value);
+    bool parseErrorBlock(std::istream &config_file);
+
     bool parseServerBlock(std::istream &config_file);
     int checkValidQuotes(const std::string &line);
     bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value);
