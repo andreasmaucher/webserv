@@ -32,7 +32,9 @@ std::string CGI::resolveCGIPath(const std::string& uri) {
     std::string projectRoot = std::string(buffer);
     std::cout << "Project root: " << projectRoot << std::endl;
     std::cout << "URI: " << uri << std::endl;
-    std::string relativePath = uri.substr(8);
+    
+    // Make sure cgi-bin exists in your project root
+    std::string relativePath = uri.substr(8);  // removes "/cgi-bin"
     std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
     std::cout << "Full resolved path: " << fullPath << std::endl;
     return fullPath;
@@ -71,7 +73,9 @@ void CGI::setCGIEnvironment(const HttpRequest& httpRequest) const
 {
     setenv("REQUEST_METHOD", httpRequest.method.c_str(), 1);
     setenv("QUERY_STRING", httpRequest.queryString.c_str(), 1);
-    setenv("CONTENT_LENGTH", std::to_string(httpRequest.body.length()).c_str(), 1);
+    std::ostringstream ss;
+    ss << httpRequest.body.length();
+    setenv("CONTENT_LENGTH", ss.str().c_str(), 1);
     setenv("SCRIPT_NAME", httpRequest.uri.c_str(), 1);
     setenv("SERVER_PROTOCOL", httpRequest.version.c_str(), 1);
     setenv("CONTENT_TYPE", httpRequest.contentType.c_str(), 1);
@@ -125,7 +129,7 @@ std::string CGI::executeCGI() {
         dup2(post_pipe[0], STDIN_FILENO);
         close(post_pipe[0]);
         // Execute the script
-        const char* pythonPath = "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3";
+        const char* pythonPath = "/usr/bin/python3";
         char *const args[] = {
             const_cast<char*>(pythonPath),
             const_cast<char*>(scriptPath.c_str()),

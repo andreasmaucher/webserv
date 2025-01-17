@@ -9,6 +9,10 @@
 #include <sys/socket.h>
 #include <string.h>
 #include <sstream>
+#include <cerrno>
+#include <cstdio>
+#include <algorithm> 
+#include <limits.h> 
 #include "../include/httpRequest.hpp"
 #include "../include/requestParser.hpp"
 
