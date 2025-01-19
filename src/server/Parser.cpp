@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/20 00:03:09 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/20 00:37:22 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -85,7 +85,7 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
         // if (result == INVALID && !(line.empty() || line[0] == '#'))
         if (result == EMPTY_LINE)
         {
-            
+
             continue;
         }
 
@@ -183,7 +183,7 @@ ParseKeyValueResult Parser::checkKeyPair(const std::string &line)
     std::string value;
     std::string::size_type pos = line.find('=');
     std::cout << "In checkKeyPair line is : " << line << std::endl;
-    
+
     if (line.empty() || line[0] == '#')
         return EMPTY_LINE;
 
@@ -401,15 +401,19 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
             server.port = value;
             std::cout << "Set port to: " << port << std::endl;
         }
-        else if (key == "host")
+        if (key == "host")
             server.host = value;
-        else if (key == "root")
-            setRootDirectory(server.root_directory);
-        if (!server.port.empty() && !server.host.empty() && !server.root_directory.empty())
-            server_block_ok = true;
+        if (key == "root")
+            server.setRootDirectory(value);
+        std::cout << "!!!!!!!!server.port.empty() && server.host.empty() && server.root_directory.empty()" << server.port.empty() << server.host.empty() << server.root_directory.empty() << std::endl;
+        std::cout << "server.root_directory is " << server.root_directory << std::endl;
 
+        if (!server.port.empty() && !server.host.empty() && !server.root_directory.empty())
+        {
+            server_block_ok = true;
+        }
         // TODO: check what is manadatory
-        server_block_ok = true;
+        // server_block_ok = false;
         // if (line.find("[[server.error_page]]") != std::string::npos)
         // {
         //     std::cerr << "Found new server block, line is : " << line << std::endl;
