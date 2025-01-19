@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/19 21:50:31 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/20 00:03:09 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,13 +46,13 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
         //     routes[route.uri] = route;
         //     return true;
         // }
-        if (line.find("[[server.error_page]]") != std::string::npos)
-        {
-            std::cerr << "Location block found new Servernor Error block, exiting to main loop" << std::endl;
-            config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
-            return true;
-        }
-        if (line.find("[[server]]") != std::string::npos)
+        // if (line.find("[[server.error_page]]") != std::string::npos)
+        // {
+        //     std::cerr << "Location block found new Servernor Error block, exiting to main loop" << std::endl;
+        //     config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+        //     return true;
+        // }
+        if (line.find("[[server]]") != std::string::npos || line.find("[[server.error_page]]") != std::string::npos)
         {
             std::cerr << "Location block found new Servernor Error block, added the current routea and exiting to main loop" << std::endl;
             server.setRoute(route.uri, route);
@@ -63,9 +63,13 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
         if (line.find("[[server.location]]") != std::string::npos)
         {
             std::cerr << "Location block found new Location block, exiting to main loop" << std::endl;
-            server.setRoute(route.uri, route);
-            continue;
+            std::cerr << "Added new route --------->" << std::endl;
 
+            server.setRoute(route.uri, route);
+            // route.clear();
+            server.debugPrintRoutes();
+            route = Route();
+            continue;
         }
 
         // if (line.find("[[") != std::string::npos)
@@ -78,15 +82,21 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
 
         ParseKeyValueResult result = checkKeyPair(line);
         std::cout << " passed checkKeyPair(line)" << std::endl;
-
-        if (result == INVALID && !(line.empty() || line[0] == '#'))
+        // if (result == INVALID && !(line.empty() || line[0] == '#'))
+        if (result == EMPTY_LINE)
         {
-            std::cout << "Location block - result INVALID" << std::endl;
+            
+            continue;
+        }
+
+        else if (result == INVALID)
+        {
+            std::cout << "Location block checkKeyPair(line) - result INVALID, exited to main loop" << std::endl;
             std::cout << "line.empty() || line[0] == '#'" << (line.empty() || line[0] == '#') << std::endl;
             return false;
         }
 
-        if (result == KEY_ARRAY_PAIR)
+        else if (result == KEY_ARRAY_PAIR)
         {
             value_array.clear();
 
@@ -98,7 +108,8 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
             }
             if (key == "allow_methods")
             {
-                server.routes[route.uri].methods.insert(value_array.begin(), value_array.end());
+                // server.routes[route.uri].methods.insert(value_array.begin(), value_array.end());
+                route.methods.insert(value_array.begin(), value_array.end());
             }
         }
         else if (result == KEY_VALUE_PAIR || result == KEY_VALUE_PAIR_WITH_QUOTES)
@@ -125,7 +136,10 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
         location_bloc_ok = true;
         std::cout << "Location block : location block ok " << location_bloc_ok << std::endl;
     }
+    std::cerr << "Added new route --------->" << std::endl;
     server.setRoute(route.uri, route);
+
+    server.debugPrintRoutes();
 
     return true;
 }
@@ -169,6 +183,9 @@ ParseKeyValueResult Parser::checkKeyPair(const std::string &line)
     std::string value;
     std::string::size_type pos = line.find('=');
     std::cout << "In checkKeyPair line is : " << line << std::endl;
+    
+    if (line.empty() || line[0] == '#')
+        return EMPTY_LINE;
 
     if (pos == std::string::npos)
         return INVALID;
@@ -480,11 +497,27 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
         {
             std::cout << "---------->> Adding a server!" << std::endl;
             servers_vector.push_back(new_server);
+            new_server.clear();
             server_block_ok = false;
             error_block_ok = false;
             location_bloc_ok = false;
             new_server_found = false;
         }
+    }
+    std::cout << "---------->> server_block_ok: " << server_block_ok << std::endl;
+    std::cout << "---------->> error_block_ok: " << error_block_ok << std::endl;
+    std::cout << "---------->> location_bloc_ok: " << location_bloc_ok << std::endl;
+    std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
+
+    if (server_block_ok && error_block_ok && location_bloc_ok && new_server_found)
+    {
+        std::cout << "---------->> Adding a server!" << std::endl;
+        servers_vector.push_back(new_server);
+        new_server.clear();
+        server_block_ok = false;
+        error_block_ok = false;
+        location_bloc_ok = false;
+        new_server_found = false;
     }
     return servers_vector;
 }

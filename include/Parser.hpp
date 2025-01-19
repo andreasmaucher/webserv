@@ -35,6 +35,7 @@ enum ParseKeyValueResult
     KEY_VALUE_PAIR,
     KEY_VALUE_PAIR_WITH_QUOTES,
     KEY_ARRAY_PAIR,
+    EMPTY_LINE
 };
 
 class Parser
