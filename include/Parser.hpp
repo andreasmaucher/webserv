@@ -72,23 +72,24 @@ private:
 
     // Parser
     void setRootDirectory(const std::string &root_directory);
-    bool parseLocationBlock(std::istream &config_file);
+    bool parseLocationBlock(std::istream &config_file, Server &server);
     ParseKeyValueResult checkKeyPair(const std::string &line);
     bool parseKeyValue(const std::string &line, std::string &key, std::string &value);
-    bool parseErrorBlock(std::istream &config_file);
+    bool parseErrorBlock(std::istream &config_file, Server &server);
 
-    bool parseServerBlock(std::istream &config_file);
+    bool parseServerBlock(std::istream &config_file, Server &server);
     int checkValidQuotes(const std::string &line);
     bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value);
     bool checkValidSquareBrackets(const std::string &line);
-    bool parseErrorBlock(std::istream &config_file, Server server);
+    // bool parseErrorBlock(std::istream &config_file, Server server);
 
     // bool parseConfigFile(const std::string &config_filename);
 
 public:
     Parser();
     ~Parser();
-    std::vector<Server> parseConfig(const std::string &config_file);
+    std::vector<Server> parseConfig(const std::string config_file);
+    std::vector<Server> parseConfigFile(const std::string &config_file);
 
     int listener_fd; // Listening socket fd
     std::string port;
@@ -96,6 +97,7 @@ public:
     std::string name;
     std::string client_max_body_size;
     std::string index;
+    bool server_block_ok, error_block_ok, location_bloc_ok, new_server_found;
 
     // std::string host_name;
     std::string root_directory;

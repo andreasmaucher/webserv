@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/17 20:44:16 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/19 21:50:31 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,7 +28,7 @@ void Parser::setRootDirectory(const std::string &root_directory)
     this->root_directory = root_directory;
 }
 
-bool Parser::parseLocationBlock(std::istream &config_file)
+bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
 {
     Route route;
     std::string line, key, value;
@@ -36,27 +36,60 @@ bool Parser::parseLocationBlock(std::istream &config_file)
 
     while (std::getline(config_file, line))
     {
-        std::cout << " stuck in bool Parser::parseLocationBlock(std::istream &config_file)" << std::endl;
+        std::cerr << "Found location block" << std::endl;
+
+        std::cerr << "Location block : line is: " << line << std::endl;
         if (line.empty() || line[0] == '#')
             continue;
-
-        if (line.find("[[") != std::string::npos)
+        // if (line.find("[[server.location]]") != std::string::npos)
+        // {
+        //     routes[route.uri] = route;
+        //     return true;
+        // }
+        if (line.find("[[server.error_page]]") != std::string::npos)
         {
+            std::cerr << "Location block found new Servernor Error block, exiting to main loop" << std::endl;
             config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
-            routes[route.uri] = route;
             return true;
         }
+        if (line.find("[[server]]") != std::string::npos)
+        {
+            std::cerr << "Location block found new Servernor Error block, added the current routea and exiting to main loop" << std::endl;
+            server.setRoute(route.uri, route);
+
+            config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+            return true;
+        }
+        if (line.find("[[server.location]]") != std::string::npos)
+        {
+            std::cerr << "Location block found new Location block, exiting to main loop" << std::endl;
+            server.setRoute(route.uri, route);
+            continue;
+
+        }
+
+        // if (line.find("[[") != std::string::npos)
+        // {
+        //     config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+        //     routes[route.uri] = route;
+        //     return true;
+        // }
         std::cout << " didnt passed checkKeyPair(line)" << std::endl;
 
         ParseKeyValueResult result = checkKeyPair(line);
         std::cout << " passed checkKeyPair(line)" << std::endl;
 
-        if (result == INVALID)
+        if (result == INVALID && !(line.empty() || line[0] == '#'))
+        {
+            std::cout << "Location block - result INVALID" << std::endl;
+            std::cout << "line.empty() || line[0] == '#'" << (line.empty() || line[0] == '#') << std::endl;
             return false;
+        }
 
         if (result == KEY_ARRAY_PAIR)
         {
             value_array.clear();
+
             if (!parseKeyArray(line, key, value_array))
             {
                 std::cout << " passed !parseKeyArray(line, key, value_array)" << std::endl;
@@ -65,11 +98,13 @@ bool Parser::parseLocationBlock(std::istream &config_file)
             }
             if (key == "allow_methods")
             {
-                route.methods.insert(value_array.begin(), value_array.end());
+                server.routes[route.uri].methods.insert(value_array.begin(), value_array.end());
             }
         }
         else if (result == KEY_VALUE_PAIR || result == KEY_VALUE_PAIR_WITH_QUOTES)
         {
+            std::cout << "This is a KEY_VALUE_PAIR || result == KEY_VALUE_PAIR_WITH_QUOTES" << std::endl;
+
             if (!parseKeyValue(line, key, value))
                 return false;
             if (!key.empty() && !value.empty())
@@ -85,8 +120,13 @@ bool Parser::parseLocationBlock(std::istream &config_file)
                 }
             }
         }
+        // TODO: check which values are mandatory before giving ok
+
+        location_bloc_ok = true;
+        std::cout << "Location block : location block ok " << location_bloc_ok << std::endl;
     }
-    routes[route.uri] = route;
+    server.setRoute(route.uri, route);
+
     return true;
 }
 
@@ -101,6 +141,7 @@ int Parser::checkValidQuotes(const std::string &line)
             quoteNum++;
         i++;
     }
+    std::cout << "Quote number is " << quoteNum << std::endl;
     return quoteNum;
 }
 
@@ -127,6 +168,8 @@ ParseKeyValueResult Parser::checkKeyPair(const std::string &line)
 {
     std::string value;
     std::string::size_type pos = line.find('=');
+    std::cout << "In checkKeyPair line is : " << line << std::endl;
+
     if (pos == std::string::npos)
         return INVALID;
     value = line.substr(pos + 1);
@@ -259,7 +302,7 @@ bool Parser::parseKeyArray(const std::string &line, std::string &key, std::set<s
     }
     return true; // Return true if parsing was successful
 }
-bool Parser::parseErrorBlock(std::istream &config_file, Server server)
+bool Parser::parseErrorBlock(std::istream &config_file, Server &server)
 {
     std::string line, key, value;
     char *end; // To capture the position where parsing stops
@@ -269,13 +312,29 @@ bool Parser::parseErrorBlock(std::istream &config_file, Server server)
     {
         if (line.empty() || line[0] == '#')
             continue;
-        ParseKeyValueResult result = checkKeyPair(line);
-        if (result == KEY_VALUE_PAIR)
+        if (line.find("[[server]]") != std::string::npos || line.find("[[server.error_page]]") != std::string::npos || line.find("[[server.location]]") != std::string::npos)
         {
+            std::cerr << "Error block found new block, exiting to main loop" << std::endl;
+            config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+            return true;
+        }
+        // if (line.find("[[server.error_page]]") != std::string::npos)
+        // {
+        std::cerr << "Found error block" << std::endl;
+
+        ParseKeyValueResult result = checkKeyPair(line);
+        std::cerr << "ParseKeyValueResult is : " << result << std::endl;
+
+        if (result == KEY_VALUE_PAIR_WITH_QUOTES)
+        {
+            std::cerr << "KEY_VALUE_PAIR_WITH_QUOTES" << std::endl;
+
             if (!parseKeyValue(line, key, value))
                 return false;
             if (!key.empty() && !value.empty())
             {
+                std::cerr << "Error block - key : " << key << "Value : " << value << std::endl;
+
                 error_code_long = strtol(key.c_str(), &end, 10); // Base 10 conversion
                 if (error_code_long == 0)
                     return false;
@@ -285,60 +344,87 @@ bool Parser::parseErrorBlock(std::istream &config_file, Server server)
                     return false;
             }
         }
+        // TODO: check which values are mandatory before giving ok
+        error_block_ok = true;
+        // }
     }
     return true;
 }
 
-bool Parser::parseServerBlock(std::istream &config_file)
+bool Parser::parseServerBlock(std::istream &config_file, Server &server)
 {
     std::string line;
     std::string key, value;
 
     while (std::getline(config_file, line))
     {
+        std::cout << "Server block: line is: " << line << std::endl;
+
         if (line.empty() || line[0] == '#')
             continue;
-
-        if (line.find("[[server]]") != std::string::npos)
+        if (line.find("[[server]]") != std::string::npos || line.find("[[server.error_page]]") != std::string::npos || line.find("[[server.location]]") != std::string::npos)
         {
+            std::cerr << "Found new block, line is : " << line << std::endl;
             config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+
             return true;
         }
-
-        if (line.find("[[server.location]]") != std::string::npos)
-        {
-            if (!parseLocationBlock(config_file))
-                return false;
-            continue;
-        }
-
         std::cout << "Parsing line: " << line << std::endl;
 
         if (!parseKeyValue(line, key, value))
         {
 
-            return false;
+            return true;
         }
 
         std::cout << "Key: '" << key << "' Value: '" << value << "'" << std::endl;
 
         if (key == "listen")
         {
-            port = value;
+            server.port = value;
             std::cout << "Set port to: " << port << std::endl;
         }
         else if (key == "host")
-            host = value;
+            server.host = value;
         else if (key == "root")
-            setRootDirectory(value);
+            setRootDirectory(server.root_directory);
+        if (!server.port.empty() && !server.host.empty() && !server.root_directory.empty())
+            server_block_ok = true;
+
+        // TODO: check what is manadatory
+        server_block_ok = true;
+        // if (line.find("[[server.error_page]]") != std::string::npos)
+        // {
+        //     std::cerr << "Found new server block, line is : " << line << std::endl;
+        //     parseErrorBlock(config_file, server);
+
+        //     return true;
+        // }
+        // if (line.find("[[server.location]]") != std::string::npos)
+        // {
+        //     std::cerr << "Found new server block, line is : " << line << std::endl;
+        //     parseLocationBlock(config_file, server);
+
+        //     return true;
+        // }
+
+        // config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+        // return true;
     }
+
+    // if (line.find("[[server.location]]") != std::string::npos)
+    // {
+    //     if (!parseLocationBlock(config_file))
+    //         return false;
+    //     continue;
+    // }
+
     return true;
 }
 
-std::vector<Server> Parser::parseConfig(const std::string &config_file)
+std::vector<Server> Parser::parseConfig(const std::string config_file)
 {
     std::vector<Server> servers_vector;
-
     std::ifstream file(config_file.c_str());
     if (!file.is_open())
     {
@@ -346,64 +432,59 @@ std::vector<Server> Parser::parseConfig(const std::string &config_file)
         return servers_vector;
     }
 
-    bool found_server = false;
     std::string line;
+    server_block_ok = false;
+    error_block_ok = false;
+    location_bloc_ok = false;
+    new_server_found = false;
+
+    Server new_server(0, "", "", "");
 
     while (std::getline(file, line))
     {
+        std::cout << "Main loop: line is: " << line << std::endl;
+
         if (line.empty() || line[0] == '#')
             continue;
 
         if (line.find("[[server]]") != std::string::npos)
         {
-            if (found_server)
-            {
-                // Create a new config and copy current values
-                Server new_config(0, port, name, root_directory);
+            std::cout << "Main loop: Found server block" << std::endl;
+            // Parse all blocks without seeking back
+            new_server_found = true;
+            parseServerBlock(file, new_server);
+            // return servers_vector;
+            std::cout << "Line is " << line << std::endl;
+        }
+        if (line.find("server.error_page]]") != std::string::npos)
+        {
+            std::cout << "Main loop: Found error block" << std::endl;
 
-                new_config.host = host;
-                new_config.port = port;
-                new_config.root_directory = root_directory;
-                // new_config.index = index;
-                new_config.client_max_body_size = client_max_body_size;
-                new_config.routes = routes;
-                new_config.error_pages = error_pages;
-                servers_vector.push_back(new_config);
+            parseErrorBlock(file, new_server);
+        }
+        if (line.find("server.location]]") != std::string::npos && server_block_ok)
+        {
+            std::cout << "Main loop: Found location block" << std::endl;
+            parseLocationBlock(file, new_server);
+        }
+        // if (!parseServerBlock(file, new_server) ||
+        //     !parseErrorBlock(file, new_server) ||
+        //     !parseLocationBlock(file, new_server))
+        //     return servers_vector;
+        std::cout << "---------->> server_block_ok: " << server_block_ok << std::endl;
+        std::cout << "---------->> error_block_ok: " << error_block_ok << std::endl;
+        std::cout << "---------->> location_bloc_ok: " << location_bloc_ok << std::endl;
+        std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
 
-                // Reset current values for next server
-                host.clear();
-                port.clear();
-                root_directory.clear();
-                index.clear();
-                client_max_body_size.clear();
-                routes.clear();
-                error_pages.clear();
-            }
-            std::cout << "before if (!parseServerBlock(file) && !parseLocationBlock(file)) block" << std::endl;
-            if (!parseServerBlock(file) && !parseLocationBlock(file))
-                return servers_vector;
-            std::cout << "after if (!parseServerBlock(file) && !parseLocationBlock(file)) block" << std::endl;
-
-            found_server = true;
+        if (server_block_ok && error_block_ok && location_bloc_ok && new_server_found)
+        {
+            std::cout << "---------->> Adding a server!" << std::endl;
+            servers_vector.push_back(new_server);
+            server_block_ok = false;
+            error_block_ok = false;
+            location_bloc_ok = false;
+            new_server_found = false;
         }
     }
-
-    if (found_server)
-    {
-        // Add the last server config
-        Server new_config;
-        new_config.host = host;
-        new_config.port = port;
-        new_config.root_directory = root_directory;
-        new_config.index = index;
-        new_config.client_max_body_size = client_max_body_size;
-        new_config.routes = routes;
-        new_config.error_pages = error_pages;
-        // adding server only in case these 4 min variables are not empty
-        if (!host.empty() && !port.empty() && !root_directory.empty() && !error_pages.empty())
-            servers_vector.push_back(new_config);
-    }
-
-    std::cout << "First server port: " << port << std::endl;
     return servers_vector;
 }

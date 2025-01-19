@@ -60,6 +60,7 @@ public:
     void resetRequestObject(int &fd);
     void debugServer() const;
     void debugPrintRoutes() const;
+    void clear();
 
     // changed to public temporarily to integrate between two branches
     int listener_fd; // Listening socket fd
