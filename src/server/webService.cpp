@@ -282,7 +282,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
     // HttpRequest *request_obj = server.client_fd_to_request[fd];
     //  HttpRequest request_obj = server.getRequestObject(fd);
-    std::cout << "Receive function called for request on server: " << server.getName() << " - listener fd: " << server.getListenerFd() << " fd from pollfds vector: " << fd << std::endl;
+    //std::cout << "Receive function called for request on server: " << server.getName() << " - listener fd: " << server.getListenerFd() << " fd from pollfds vector: " << fd << std::endl;
 
     if (!server.getRequestObject(fd).complete)
     {

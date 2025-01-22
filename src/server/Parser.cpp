@@ -78,6 +78,11 @@ bool Parser::parseLocationBlock(std::istream &config_file)
                 {
                     route.uri = value;
                     route.path = value;
+                    //! ANDY Set CGI flag if this is a cgi-bin path
+                    route.is_cgi = (value.find("/cgi-bin/") != std::string::npos);
+                    if (route.is_cgi) {
+                        std::cout << "CGI route detected: " << value << std::endl;
+    }
                 }
                 else if (key == "index")
                 {

@@ -3,8 +3,17 @@
 void RequestParser::parseRawRequest(HttpRequest &request) { 
   
   try {
+    // Check if we have a complete request (headers end with \r\n\r\n)
+    if (request.raw_request.find("\r\n\r\n") == std::string::npos) {
+      std::cout << "Request incomplete, waiting for more data..." << std::endl;
+      return; // Wait for more data
+    }
+
     // parse until headers only in 1st iteration
     if (request.headers_parsed == false) {
+      std::cout << "Complete request received, parsing..." << std::endl;
+      std::cout << "Raw request:\n[" << request.raw_request << "]" << std::endl;
+
       RequestParser::tokenizeRequestLine(request);
       std::cout << "Request Line parsed: " << request.method << " " << request.uri << " " << request.version << std::endl;
 

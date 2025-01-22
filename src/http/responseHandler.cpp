@@ -452,28 +452,43 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
 // Store the best match if there are multiple matches (longest prefix match)
 bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Finding matching route for " << request.uri << std::endl;
-  const std::map<std::string, Route> &routes = server.getRoutes();
-  const Route *best_match = NULL;
-  size_t longest_match_length = 0;
+    std::cout << "Finding matching route for [" << request.uri << "]" << std::endl;
+    const std::map<std::string, Route> &routes = server.getRoutes();
+    const Route *best_match = NULL;
+    size_t longest_match_length = 0;
 
-  for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
-  {
-    const std::string &route_uri = it->first;
-    std::cout << "Comparing to route: " << route_uri << std::endl;
-    const Route &route_object = it->second;
-
-    if (request.uri.compare(0, route_uri.size(), route_uri) == 0 &&
-        (request.uri.size() == route_uri.size() || request.uri[route_uri.size()] == '/'))
-    {
-      size_t match_length = route_uri.size();
-      if (match_length > longest_match_length)
-      {
-        best_match = &route_object;
-        longest_match_length = match_length;
-      }
+    // Debug output for all routes
+    std::cout << "Available routes:" << std::endl;
+    for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it) {
+        std::cout << "Route: [" << it->first << "] CGI: " << (it->second.is_cgi ? "Yes" : "No") << std::endl;
     }
-  }
+
+    for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
+    {
+        const std::string &route_uri = it->first;
+        std::cout << "Comparing request [" << request.uri << "] to route [" << route_uri << "]" << std::endl;
+        const Route &route_object = it->second;
+
+        // Modified matching logic to handle CGI paths better
+        bool is_match = false;
+        if (route_object.is_cgi) {
+            // For CGI routes, check if the URI starts with the route path
+            is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
+        } else {
+            // For regular routes, use the existing logic
+            is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0 &&
+                      (request.uri.size() == route_uri.size() || request.uri[route_uri.size()] == '/'));
+        }
+
+        if (is_match) {
+            size_t match_length = route_uri.size();
+            if (match_length > longest_match_length) {
+                best_match = &route_object;
+                longest_match_length = match_length;
+                std::cout << "Found better match: [" << route_uri << "]" << std::endl;
+            }
+        }
+    }
 
   if (best_match == NULL)
   {
@@ -482,19 +497,10 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
     return false;
   }
 
-  if (!best_match->redirect_uri.empty())
-  {
-    std::cout << "Redirecting to new location" << std::endl;
-    response.status_code = 301;
-    response.setHeader("Location", best_match->redirect_uri);
-    return false;
-  }
-
-  std::cout << "Route found: " << best_match->uri << std::endl;
-  request.route = best_match;
-  request.is_cgi = best_match->is_cgi; //! ANDY
-  //! Does this fuck up anything for http?! or when do I undo it?!
-  return true;
+    std::cout << "Best matching route: [" << best_match->uri << "] CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
+    request.route = best_match;
+    request.is_cgi = best_match->is_cgi;
+    return true;
 }
 
 bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &response)
@@ -718,7 +724,7 @@ std::string ResponseHandler::getStatusMessage(int code)
 
 // add to parser!!!
 
-// URI Path Validation: If you haven’t already, ensure that the URI path is validated early on (for malicious paths like ../ or symbols that could attempt directory traversal)
+// URI Path Validation: If you haven't already, ensure that the URI path is validated early on (for malicious paths like ../ or symbols that could attempt directory traversal)
 //  bool RequestParser::validatePath(HttpRequest &request) {
 //      // Check for empty URI or starting character
 //      if (request.uri.empty() || request.uri[0] != '/') {

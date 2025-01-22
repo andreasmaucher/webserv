@@ -14,6 +14,10 @@ CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requ
 // Returns true if the path contains "/cgi-bin/", ".py", or ".cgi"
 bool CGI::isCGIRequest(const std::string &path)
 {
+     // First check if it's in the cgi-bin directory
+    /* if (path.find("/cgi-bin/") == std::string::npos) {
+        return false;
+    } */
     size_t len = path.length();
     return (len > 3 && path.substr(len - 3) == ".py") ||
            (len > 4 && path.substr(len - 4) == ".php");
