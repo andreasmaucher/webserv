@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/20 00:37:22 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/22 23:56:19 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -142,6 +142,45 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
     server.debugPrintRoutes();
 
     return true;
+}
+
+bool Parser::ipValidityChecker(std::string &ip)
+{
+    if (ip.empty())
+        return false;
+    int num_dots = 0;
+    const char *ip_char = ip.c_str();
+    int num_digits = 0;
+    while (*ip_char && (*ip_char == '.' || (*ip_char >= '0' && *ip_char <= '9')))
+    {
+        if (*ip_char == '.')
+        {
+            std::cerr << "Found a . " << std::endl;
+            if (*(ip_char + 1) == '.')
+            {
+                std::cerr << "Next char is a . " << std::endl;
+                return false;
+            }
+            num_dots++;
+            num_digits = 0;
+        }
+        if (*ip_char >= '0' && *ip_char <= '9')
+        {
+            std::cerr << "Found a number " << std::endl;
+            num_digits++;
+        }
+        if (num_digits > 3)
+            return false;
+        ip_char++;
+    }
+    if (*ip_char != '.' || *ip_char < '0' || *ip_char > '9')
+        return false;
+    std::cerr << "Current value " << *ip_char << std::endl;
+
+    if (num_dots != 3)
+        return false;
+    else
+        return true;
 }
 
 int Parser::checkValidQuotes(const std::string &line)
@@ -383,35 +422,51 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
         {
             std::cerr << "Found new block, line is : " << line << std::endl;
             config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
-
             return true;
         }
         std::cout << "Parsing line: " << line << std::endl;
 
         if (!parseKeyValue(line, key, value))
         {
-
             return true;
         }
 
         std::cout << "Key: '" << key << "' Value: '" << value << "'" << std::endl;
 
-        if (key == "listen")
+        if (key == "listen" && atoi(value.c_str()) > 0 && atoi(value.c_str()) < 65535)
         {
             server.port = value;
-            std::cout << "Set port to: " << port << std::endl;
         }
+        else
+            std::cerr << "Incorrect host ip address: " << value << std::endl;
         if (key == "host")
+        {
+            std::cerr << "Host ip address : " << value << std::endl;
+
+            if (ipValidityChecker(value))
+            {
+                std::cerr << "Port : " << value << " is correct" << std::endl;
+                exit(0);
+            }
+            else
+            {
+                std::cerr << "Port : " << value << " is incorrect" << std::endl;
+                exit(1);
+            }
             server.host = value;
+        }
         if (key == "root")
             server.setRootDirectory(value);
-        std::cout << "!!!!!!!!server.port.empty() && server.host.empty() && server.root_directory.empty()" << server.port.empty() << server.host.empty() << server.root_directory.empty() << std::endl;
-        std::cout << "server.root_directory is " << server.root_directory << std::endl;
-
-        if (!server.port.empty() && !server.host.empty() && !server.root_directory.empty())
+        if (!server.port.empty() && !server.host.empty() && !server.root_directory.empty() && ipValidityChecker(server.host))
         {
             server_block_ok = true;
+            return true;
         }
+        // else
+        // {
+        //     std::cerr << "Server host " << server.host << " configured on port " << server.port << " was malconfigured and will be excluded from the configuration" << std::endl;
+        //     return false;
+        // }
         // TODO: check what is manadatory
         // server_block_ok = false;
         // if (line.find("[[server.error_page]]") != std::string::npos)

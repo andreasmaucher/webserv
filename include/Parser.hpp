@@ -79,6 +79,8 @@ private:
     bool parseErrorBlock(std::istream &config_file, Server &server);
 
     bool parseServerBlock(std::istream &config_file, Server &server);
+    bool ipValidityChecker(std::string &ip);
+
     int checkValidQuotes(const std::string &line);
     bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value);
     bool checkValidSquareBrackets(const std::string &line);
