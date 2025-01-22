@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/22 23:56:19 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/23 00:30:32 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -148,39 +148,39 @@ bool Parser::ipValidityChecker(std::string &ip)
 {
     if (ip.empty())
         return false;
+
     int num_dots = 0;
-    const char *ip_char = ip.c_str();
+    int segment_value = 0;
     int num_digits = 0;
+    const char *ip_char = ip.c_str();
+
     while (*ip_char && (*ip_char == '.' || (*ip_char >= '0' && *ip_char <= '9')))
     {
         if (*ip_char == '.')
         {
-            std::cerr << "Found a . " << std::endl;
-            if (*(ip_char + 1) == '.')
-            {
-                std::cerr << "Next char is a . " << std::endl;
+            if (num_digits == 0 || segment_value > 255)
                 return false;
-            }
+            if (*(ip_char + 1) == '.')
+                return false;
             num_dots++;
+            segment_value = 0;
             num_digits = 0;
         }
-        if (*ip_char >= '0' && *ip_char <= '9')
+        else if (*ip_char >= '0' && *ip_char <= '9')
         {
-            std::cerr << "Found a number " << std::endl;
+            segment_value = segment_value * 10 + (*ip_char - '0');
             num_digits++;
+            if (num_digits > 3 || segment_value > 255)
+                return false;
         }
-        if (num_digits > 3)
-            return false;
         ip_char++;
     }
-    if (*ip_char != '.' || *ip_char < '0' || *ip_char > '9')
-        return false;
-    std::cerr << "Current value " << *ip_char << std::endl;
 
-    if (num_dots != 3)
+    // Check final segment
+    if (num_digits == 0 || segment_value > 255)
         return false;
-    else
-        return true;
+
+    return (num_dots == 3 && *ip_char == '\0');
 }
 
 int Parser::checkValidQuotes(const std::string &line)
@@ -446,12 +446,10 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
             if (ipValidityChecker(value))
             {
                 std::cerr << "Port : " << value << " is correct" << std::endl;
-                exit(0);
             }
             else
             {
                 std::cerr << "Port : " << value << " is incorrect" << std::endl;
-                exit(1);
             }
             server.host = value;
         }
