@@ -84,6 +84,8 @@ private:
     int checkValidQuotes(const std::string &line);
     bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value);
     bool checkValidSquareBrackets(const std::string &line);
+    bool checkMaxBodySize(const std::string &value);
+
     // bool parseErrorBlock(std::istream &config_file, Server server);
 
     // bool parseConfigFile(const std::string &config_filename);
