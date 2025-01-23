@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/23 18:26:45 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/23 19:56:35 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -40,6 +40,7 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
             continue;
         if (line.find("[[server]]") != std::string::npos || line.find("[[server.error_page]]") != std::string::npos)
         {
+            //if (!route.path.empty() && !route.methods.empty())
             server.setRoute(route.uri, route);
             config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
             return true;
@@ -47,7 +48,7 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
         if (line.find("[[server.location]]") != std::string::npos)
         {
             server.setRoute(route.uri, route);
-            server.debugPrintRoutes();
+            //server.debugPrintRoutes();
             route = Route();
             continue;
         }
@@ -310,7 +311,10 @@ bool Parser::parseErrorBlock(std::istream &config_file, Server &server)
         if (line.find("[[server]]") != std::string::npos || line.find("[[server.error_page]]") != std::string::npos || line.find("[[server.location]]") != std::string::npos)
         {
             config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
-            return true;
+            if (error_block_ok)
+                return true;
+            else
+                return false;
         }
         ParseKeyValueResult result = checkKeyPair(line);
         if (result == KEY_VALUE_PAIR_WITH_QUOTES)
@@ -320,12 +324,16 @@ bool Parser::parseErrorBlock(std::istream &config_file, Server &server)
             if (!key.empty() && !value.empty())
             {
                 error_code_long = strtol(key.c_str(), &end, 10); // Base 10 conversion
-                if (error_code_long == 0)
-                    return false;
-                if (error_code_long > 0 && error_code_long < 1000)
+                if (*end == '\0' && (error_code_long > 0 && error_code_long < 1000))
+                {
+                    error_block_ok = true;
                     server.error_pages.insert(std::make_pair((int)error_code_long, value));
+                }
                 else
+                {
+                    error_block_ok = false;
                     return false;
+                }
             }
         }
         // TODO: check which values are mandatory before giving ok
