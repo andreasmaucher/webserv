@@ -61,6 +61,8 @@ void CGI::handleCGIRequest(HttpRequest &request)
     {
         std::string fullScriptPath = resolveCGIPath(request.uri);
         scriptPath = fullScriptPath;
+        method = request.method;  // Store the method
+        requestBody = request.body;  // Store the request body
         if (access(fullScriptPath.c_str(), F_OK | X_OK) == -1)
         {
             throw std::runtime_error("Script not found or not executable: " + fullScriptPath);
@@ -89,7 +91,13 @@ void CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     setenv("CONTENT_LENGTH", ss.str().c_str(), 1);
     setenv("SCRIPT_NAME", httpRequest.uri.c_str(), 1);
     setenv("SERVER_PROTOCOL", httpRequest.version.c_str(), 1);
-    setenv("CONTENT_TYPE", httpRequest.contentType.c_str(), 1);
+    
+    // Set content type from headers if available
+    std::map<std::string, std::string>::const_iterator contentTypeIt = httpRequest.headers.find("Content-Type");
+    if (contentTypeIt != httpRequest.headers.end()) {
+        setenv("CONTENT_TYPE", contentTypeIt->second.c_str(), 1);
+    }
+    
     std::map<std::string, std::string>::const_iterator it;
     for (it = httpRequest.headers.begin(); it != httpRequest.headers.end(); ++it)
     {
