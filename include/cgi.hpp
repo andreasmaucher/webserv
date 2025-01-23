@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <algorithm> 
 #include <limits.h> 
+#include <signal.h>
 #include "../include/httpRequest.hpp"
 #include "../include/requestParser.hpp"
 

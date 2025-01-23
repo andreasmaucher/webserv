@@ -1,53 +1,108 @@
 #include "../../include/requestParser.hpp"
 
 void RequestParser::parseRawRequest(HttpRequest &request) { 
-  
-  try {
-    // Check if we have a complete request (headers end with \r\n\r\n)
-    if (request.raw_request.find("\r\n\r\n") == std::string::npos) {
-      std::cout << "Request incomplete, waiting for more data..." << std::endl;
-      return; // Wait for more data
+    try {
+        // Reset state for new request
+        if (!request.headers_parsed) {
+            request.error_code = 0;
+            request.position = 0;
+            request.method.clear();
+            request.uri.clear();
+            request.version.clear();
+            request.headers.clear();
+            request.body.clear();
+            request.complete = false;
+            // Don't clear raw_request here as it might still be receiving data
+        }
+        
+        // Debug output
+        std::cout << "Raw request size: " << request.raw_request.size() << std::endl;
+        std::cout << "Current position: " << request.position << std::endl;
+        
+        // Check if we have a complete request
+        size_t header_end = request.raw_request.find("\r\n\r\n");
+        if (header_end == std::string::npos) {
+            std::cout << "Waiting for complete request..." << std::endl;
+            return; // Wait for more data
+        }
+
+        // Only parse headers once
+        if (!request.headers_parsed) {
+            std::cout << "Starting header parsing..." << std::endl;
+            
+            try {
+                // Check for complete request line
+                if (request.raw_request.find("\r\n") != std::string::npos) {
+                    RequestParser::tokenizeRequestLine(request);
+                    RequestParser::tokenizeHeaders(request);
+                    request.headers_parsed = true;
+                    std::cout << "Headers parsed successfully" << std::endl;
+                } else {
+                    std::cout << "Waiting for complete request line..." << std::endl;
+                    return; // Wait for more data
+                }
+            } catch (const std::exception &e) {
+                // Reset state on parsing error
+                request.headers_parsed = false;
+                request.position = 0;
+                request.method.clear();
+                request.uri.clear();
+                request.version.clear();
+                request.headers.clear();
+                request.body.clear();
+                request.complete = false;
+                std::cerr << "Parsing failed: " << e.what() << std::endl;
+                throw;
+            }
+        }
+
+        // After headers are parsed, handle body if present
+        if (request.headers_parsed) {
+            return RequestParser::parseBody(request);
+        }
+
+    } catch (const std::exception &e) {
+        std::cerr << "Parse Error: " << e.what() << std::endl;
+        if (request.error_code == 0) {
+            request.error_code = 400;
+        }
+        request.complete = true;
+        throw;
     }
-
-    // parse until headers only in 1st iteration
-    if (request.headers_parsed == false) {
-      std::cout << "Complete request received, parsing..." << std::endl;
-      std::cout << "Raw request:\n[" << request.raw_request << "]" << std::endl;
-
-      RequestParser::tokenizeRequestLine(request);
-      std::cout << "Request Line parsed: " << request.method << " " << request.uri << " " << request.version << std::endl;
-
-      RequestParser::tokenizeHeaders(request);
-      std::cout << "Headers parsed....................................." << std::endl;
-    }
-
-    std::cout << "Parsing body..." << std::endl;
-
-    return RequestParser::parseBody(request);
-
-  } catch (std::exception &e) {
-    std::cerr << "Error: " << e.what() << std::endl;
-    std::cerr << "HTTP Error Code: " << request.error_code << std::endl;
-
-    request.complete = true;
-
-    return; // error. Stop reading. Handle error code in calling func to create appropriate response & clean resources
-  }
-
 }
 
 std::string RequestParser::readLine(const std::string &raw_request, size_t &position) {
-  
-  size_t line_end = raw_request.find("\r\n", position);
-  std::string line;
-  if (line_end != std::string::npos) { // \r\n found
-    line = raw_request.substr(position, line_end - position);
-    position = line_end + 2; // Move past the '\r\n' so line is pointing to the next line or the end
-  }
-  else {
-    std::cout << "Line incomplete.\nHint: Is buffer size enough? Or chunked transfer encoding used? -> make sure to read until end of headers before starting to parse" << std::endl;
-  }
-  return line;
+    // Skip any leading \r\n, but only if we're at the start of parsing
+    if (position == 0) {
+        while (position < raw_request.size() && 
+               (raw_request[position] == '\r' || raw_request[position] == '\n')) {
+            position++;
+        }
+    }
+    
+    // Check if we're at the end
+    if (position >= raw_request.size()) {
+        return "";
+    }
+    
+    // Find the next line ending
+    size_t line_end = raw_request.find("\r\n", position);
+    if (line_end == std::string::npos) {
+        // No complete line found
+        return "";
+    }
+    
+    // Make sure we have actual content
+    if (line_end == position) {
+        position += 2;  // Skip empty line
+        return "";
+    }
+    
+    // Extract the line without the \r\n
+    std::string line = raw_request.substr(position, line_end - position);
+    position = line_end + 2; // Move past the \r\n
+    
+    return line;
 }
 
 bool RequestParser::isBodyExpected(HttpRequest &request) {
@@ -223,20 +278,47 @@ bool RequestParser::validHeaderFormat(std::map<std::string, std::string> &header
 
 // Extract method, URI, and version from the request line
 void RequestParser::tokenizeRequestLine(HttpRequest &request) {
-  
-  std::string current_line = readLine(request.raw_request, request.position);
-  if (current_line.empty()){
-    request.error_code = 400;
-    throw std::runtime_error("Empty request line");
-  }
-  
-  std::istringstream stream(current_line);
-  
-  stream >> request.method >> request.uri >> request.version;
-  if (stream.fail() || !validRequestLine(request)) {
-    request.error_code = 400;
-    throw std::runtime_error("Bad request line");
-  }
+    std::cout << "Tokenizing request line..." << std::endl;
+    
+    // Ensure position is valid
+    if (request.position >= request.raw_request.size()) {
+        throw std::runtime_error("Invalid position in request");
+    }
+    
+    // Skip any leading whitespace or empty lines
+    while (request.position < request.raw_request.size()) {
+        char c = request.raw_request[request.position];
+        if (c != '\r' && c != '\n' && c != ' ' && c != '\t') {
+            break;
+        }
+        request.position++;
+    }
+    
+    // Find the first complete line
+    size_t line_end = request.raw_request.find("\r\n", request.position);
+    if (line_end == std::string::npos) {
+        throw std::runtime_error("No complete request line found");
+    }
+    
+    std::string current_line = request.raw_request.substr(request.position, line_end - request.position);
+    request.position = line_end + 2; // Move past \r\n
+    
+    if (current_line.empty()) {
+        throw std::runtime_error("Empty request line after skipping whitespace");
+    }
+    
+    std::cout << "Request line found: " << current_line << std::endl;
+    
+    std::istringstream stream(current_line);
+    stream >> request.method >> request.uri >> request.version;
+    
+    if (stream.fail() || request.uri.empty() || !validRequestLine(request)) {
+        throw std::runtime_error("Invalid request line format");
+    }
+    
+    std::cout << "Request line parsed: Method=" << request.method 
+              << " URI=" << request.uri 
+              << " Version=" << request.version << std::endl;
 }
 
 bool RequestParser::validRequestLine(HttpRequest &request)

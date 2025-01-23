@@ -56,23 +56,49 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 */
 void CGI::handleCGIRequest(HttpRequest &request)
 {
-    std::cerr << "1. Starting handleCGIRequest..." << std::endl;
+    std::cerr << "Starting CGI handling for URI: " << request.uri << std::endl;
     try
     {
+        // Validate request state
+        if (request.uri.empty() || request.method.empty())
+        {
+            throw std::runtime_error("Invalid request state for CGI");
+        }
+
         std::string fullScriptPath = resolveCGIPath(request.uri);
         scriptPath = fullScriptPath;
-        if (access(fullScriptPath.c_str(), F_OK | X_OK) == -1)
+        
+        // Add extra validation
+        if (access(fullScriptPath.c_str(), F_OK) == -1)
         {
-            throw std::runtime_error("Script not found or not executable: " + fullScriptPath);
+            request.error_code = 404;
+            throw std::runtime_error("Script not found: " + fullScriptPath);
         }
+        if (access(fullScriptPath.c_str(), X_OK) == -1)
+        {
+            request.error_code = 403;
+            throw std::runtime_error("Script not executable: " + fullScriptPath);
+        }
+
         setCGIEnvironment(request);
         std::string cgiOutput = executeCGI();
+        
+        if (cgiOutput.empty())
+        {
+            request.error_code = 502;
+            throw std::runtime_error("CGI script returned empty response");
+        }
+
         request.body = cgiOutput;
         request.complete = true;
     }
     catch (const std::exception &e)
     {
         std::cerr << "CGI Error: " << e.what() << std::endl;
+        if (request.error_code == 0)
+        { // Only set if not already set
+            request.error_code = 500;
+        }
         throw;
     }
 }
@@ -110,106 +136,127 @@ CGI LOGIC:
 */
 std::string CGI::executeCGI()
 {
-    std::cerr << "A. Starting executeCGI..." << std::endl;
-    int pipefd[2];
-    if (pipe(pipefd) == -1)
-    {
-        throw std::runtime_error("Pipe creation failed");
+    int stdout_pipe[2];
+    int stdin_pipe[2];
+    
+    // Create pipes
+    if (pipe(stdout_pipe) == -1 || pipe(stdin_pipe) == -1) {
+        throw std::runtime_error("Pipe creation failed: " + std::string(strerror(errno)));
     }
-    std::cerr << "B. Pipe created, forking..." << std::endl;
+
     pid_t pid = fork();
-    std::cerr << "C. Fork result: " << pid << std::endl;
-    if (pid == -1)
-    {
-        throw std::runtime_error("Fork failed");
+    if (pid == -1) {
+        close(stdout_pipe[0]); close(stdout_pipe[1]);
+        close(stdin_pipe[0]); close(stdin_pipe[1]);
+        throw std::runtime_error("Fork failed: " + std::string(strerror(errno)));
     }
-    if (pid == 0)
-    { // Child process
-        std::cerr << "D. Child process starting..." << std::endl;
-        std::cerr << "Script path: " << scriptPath << std::endl;
-        close(pipefd[0]);               // Close read end
-        dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
-        close(pipefd[1]);
-        // Create pipe for POST data
-        int post_pipe[2];
-        if (pipe(post_pipe) == -1)
-        {
-            std::cerr << "POST pipe creation failed" << std::endl;
-            exit(1);
+
+    if (pid == 0) { // Child process
+        try {
+            // Close unused pipe ends
+            close(stdout_pipe[0]);  // Close read end of stdout pipe
+            close(stdin_pipe[1]);   // Close write end of stdin pipe
+
+            // Redirect stdin and stdout
+            if (dup2(stdin_pipe[0], STDIN_FILENO) == -1 ||
+                dup2(stdout_pipe[1], STDOUT_FILENO) == -1) {
+                throw std::runtime_error("Failed to redirect IO");
+            }
+
+            // Close original file descriptors
+            close(stdin_pipe[0]);
+            close(stdout_pipe[1]);
+
+            // Execute the script
+            const char *pythonPath = "/usr/bin/python3";  // Use system python path
+            char *const args[] = {
+                const_cast<char *>(pythonPath),
+                const_cast<char *>(scriptPath.c_str()),
+                NULL
+            };
+
+            execve(pythonPath, args, environ);
+            throw std::runtime_error("execve failed: " + std::string(strerror(errno)));
         }
-        // Write POST data to pipe, GET requests have an empty body (pipe will be created but not written to)
-        if (!requestBody.empty())
-        {
-            write(post_pipe[1], requestBody.c_str(), requestBody.length());
+        catch (const std::exception& e) {
+            std::cerr << "Child process error: " << e.what() << std::endl;
+            _exit(1);  // Use _exit in child process
         }
-        close(post_pipe[1]);
-        // Redirect stdin to read end of POST pipe
-        dup2(post_pipe[0], STDIN_FILENO);
-        close(post_pipe[0]);
-        // Execute the script
-        const char *pythonPath = "/usr/local/bin/python3";
-        char *const args[] = {
-            const_cast<char *>(pythonPath),
-            const_cast<char *>(scriptPath.c_str()),
-            NULL};
-        execve(pythonPath, args, environ);
-        // If we get here, execve failed
-        std::cerr << "execve failed: " << strerror(errno) << std::endl;
-        exit(1);
     }
 
     // Parent process
-    std::cout << "Parent process waiting (Child PID: " << pid << ")" << std::endl;
+    close(stdout_pipe[1]);  // Close write end of stdout pipe
+    close(stdin_pipe[0]);   // Close read end of stdin pipe
 
-    // Close write end
-    close(pipefd[1]);
+    // Write request body to script's stdin if present
+    if (!requestBody.empty()) {
+        write(stdin_pipe[1], requestBody.c_str(), requestBody.length());
+    }
+    close(stdin_pipe[1]);  // Close stdin pipe after writing
 
     // Read response with timeout
     std::string response;
     char buffer[4096];
     fd_set readfds;
     struct timeval tv;
+    int max_retries = 3;
+    int retries = 0;
 
-    FD_ZERO(&readfds);
-    FD_SET(pipefd[0], &readfds);
-    tv.tv_sec = 5; // 5 second timeout
-    tv.tv_usec = 0;
+    while (retries < max_retries) {
+        FD_ZERO(&readfds);
+        FD_SET(stdout_pipe[0], &readfds);
 
-    while (1)
-    {
-        int ready = select(pipefd[0] + 1, &readfds, NULL, NULL, &tv); // checks if data is available to read
-        if (ready == -1)
-        {
-            perror("select failed");
-            break;
+        tv.tv_sec = 5;  // Increased timeout
+        tv.tv_usec = 0;
+
+        int ready = select(stdout_pipe[0] + 1, &readfds, NULL, NULL, &tv);
+        if (ready == -1) {
+            if (errno == EINTR) {
+                continue;  // Retry on interrupt
+            }
+            close(stdout_pipe[0]);
+            throw std::runtime_error("select() failed: " + std::string(strerror(errno)));
         }
-        if (ready == 0)
-        {
-            std::cout << "Read timeout" << std::endl;
-            break;
+        if (ready == 0) {
+            retries++;
+            continue;
         }
 
-        ssize_t bytes_read = read(pipefd[0], buffer, sizeof(buffer) - 1);
-        if (bytes_read <= 0)
-            break;
+        ssize_t bytes_read = read(stdout_pipe[0], buffer, sizeof(buffer) - 1);
+        if (bytes_read <= 0) {
+            if (bytes_read == 0) break;  // EOF
+            if (errno == EINTR) continue;  // Retry on interrupt
+            throw std::runtime_error("read() failed: " + std::string(strerror(errno)));
+        }
 
         buffer[bytes_read] = '\0';
         response += buffer;
     }
 
-    // Close read end
-    close(pipefd[0]);
+    close(stdout_pipe[0]);
 
     // Wait for child process
     int status;
-    waitpid(pid, &status, 0);
-    std::cout << "Child process exited with status: " << status << std::endl;
+    pid_t wait_result;
+    do {
+        wait_result = waitpid(pid, &status, WNOHANG);
+        if (wait_result == -1) {
+            throw std::runtime_error("waitpid() failed: " + std::string(strerror(errno)));
+        }
+        if (wait_result == 0) {
+            kill(pid, SIGTERM);
+            usleep(100000);  // Wait 100ms
+        }
+    } while (wait_result == 0);
 
-    if (response.empty())
-    {
-        std::cout << "No response received from CGI script" << std::endl;
+    // Check if script executed successfully
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        throw std::runtime_error("CGI script failed with status: " + std::to_string(WEXITSTATUS(status)));
+    }
+
+    if (response.empty()) {
         return "Status: 500\r\nContent-Type: text/plain\r\n\r\nNo response from CGI script";
     }
-    std::cout << "=== CGI Execution End ===" << std::endl;
+
     return response;
 }
