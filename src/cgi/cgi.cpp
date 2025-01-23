@@ -199,6 +199,9 @@ std::string CGI::executeCGI()
     // Wait for child process
     int status;
     waitpid(pid, &status, 0);
+    //waitpid(pid, &status, WNOHANG);
+    //waitpid(pid, &status, WNOHANG); <- waiting for any child to change state
+
     std::cout << "Child process exited with status: " << status << std::endl;
 
     if (response.empty())

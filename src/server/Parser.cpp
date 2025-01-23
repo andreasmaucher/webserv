@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/23 19:56:35 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/24 00:38:42 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -94,13 +94,19 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
     return true;
 }
 
-// bool Parser::checkMaxBodySize(const std::string &value)
-// {
-//     if (is)
+bool Parser::checkMaxBodySize(const std::string &value)
+{
+    char *end;
+    long value_long = strtol(value.c_str(), &end, 10);
+    // if (is)
+    if (end == value.c_str() || *end != '\0')
+        return false;
 
-//     (atoi(value) >)
-
-// }
+    if (value_long <= 0 || value_long >MAX_BODY_SIZE)
+        return false;
+    // (atoi(value) >)
+    return true;
+}
 
 bool Parser::ipValidityChecker(std::string &ip)
 {
@@ -324,7 +330,7 @@ bool Parser::parseErrorBlock(std::istream &config_file, Server &server)
             if (!key.empty() && !value.empty())
             {
                 error_code_long = strtol(key.c_str(), &end, 10); // Base 10 conversion
-                if (*end == '\0' && (error_code_long > 0 && error_code_long < 1000))
+                if (*end == '\0' && end != key.c_str() && (error_code_long > 0 && error_code_long < 1000))
                 {
                     error_block_ok = true;
                     server.error_pages.insert(std::make_pair((int)error_code_long, value));
@@ -362,26 +368,38 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
             return false;
         }
         if (!parseKeyValue(line, key, value))
-            return true;
-        if (key == "listen" && atoi(value.c_str()) > 0 && atoi(value.c_str()) < 65535)
+            return false;
+        if (key == "listen")
         {
-            server.port = value;
+            if (atoi(value.c_str()) > 0 && atoi(value.c_str()) < 65535)
+                server.port = value;
+            else
+                std::cerr << "Incorrect port: " << value << std::endl;
         }
-        else
-            std::cerr << "Incorrect host ip address: " << value << std::endl;
+        
         if (key == "host")
         {
             if (ipValidityChecker(value))
                 server.host = value;
             else
-                std::cerr << "Port : " << value << " is incorrect" << std::endl;
+                std::cerr << "Incorrect ip address: " << value  << std::endl;
         }
         if (key == "root")
             server.setRootDirectory(value);
         if (key == "index")
             server.index = value;
         if (key == "client_max_body_size")
-            server.client_max_body_size = value;
+        {
+            if (checkMaxBodySize(value))
+                server.client_max_body_size = value;
+            else
+            {
+                std::cerr << "Invalid client max body size : " << value << std::endl;
+                server.clear();
+                return false;
+            }
+        }
+        
     }
     return true;
 }
@@ -418,13 +436,15 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
         {
             parseLocationBlock(file, new_server);
         }
-        // std::cout << "---------->> server_block_ok: " << server_block_ok << std::endl;
-        // std::cout << "---------->> error_block_ok: " << error_block_ok << std::endl;
-        // std::cout << "---------->> location_bloc_ok: " << location_bloc_ok << std::endl;
-        // std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
+        std::cout << "---------->> server_block_ok: " << server_block_ok << std::endl;
+        std::cout << "---------->> error_block_ok: " << error_block_ok << std::endl;
+        std::cout << "---------->> location_bloc_ok: " << location_bloc_ok << std::endl;
+        std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
 
         if (server_block_ok && error_block_ok && location_bloc_ok && new_server_found)
-        {
+        {        
+            std::cout << "Added server, host: " << new_server.host <<" port: " << new_server.port << std::endl;
+
             servers_vector.push_back(new_server);
             new_server.clear();
             server_block_ok = false;

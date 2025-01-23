@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/17 21:35:15 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/23 22:34:45 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -241,10 +241,14 @@ void WebService::setupSockets()
 
 int WebService::start()
 {
+    //
     while (true)
     {
         // poll changes the state of the pfds_vec; POLLOUT is the default state of the sockets (writable) unless theres incoming data detected
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), -1);
+        // TODO: if_cgi then put the timeout in a MACRO
+        //int poll_count = poll(pfds_vec.data(), pfds_vec.size(), 3000);
+
         if (poll_count == -1)
         {
             throw std::runtime_error("poll failed");

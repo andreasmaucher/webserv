@@ -8,6 +8,7 @@
 #include "../include/cgi.hpp"
 #include "../tests/testsHeader.hpp"
 
+
 int main(int argc, char *argv[])
 {
     (void)argc;
