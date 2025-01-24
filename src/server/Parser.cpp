@@ -59,7 +59,7 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
             if (!route.path.empty() && !route.methods.empty())
             {
                 server.setRoute(route.uri, route);
-                //server.debugPrintRoutes();
+                // server.debugPrintRoutes();
                 route = Route();
                 continue;
             }
@@ -98,14 +98,22 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                     route.uri = value;
                     route.path = value;
                     //! ANDY Set CGI flag if this is a cgi-bin path
-                    route.is_cgi = (value.find("/cgi-bin/") != std::string::npos);
-                    if (route.is_cgi) {
-                        std::cout << "CGI route detected: " << value << std::endl;
-    }
+                    // route.is_cgi = (value.find("/cgi-bin/") != std::string::npos);
+                    // if (route.is_cgi)
+                    // {
+                    //     std::cout << "CGI route detected: " << value << std::endl;
+                    // }
                 }
                 else if (key == "index")
                 {
                     route.index_file = value;
+                }
+                // std::cout << "CGI route detected: " << value << std::endl;
+
+                if (key == "is_cgi"  && value == "true")
+                {
+                    // std::cout << "CGI route detected: " << key << "| value: |" << value << "|" <<  std::endl;
+                    route.is_cgi = true;
                 }
             }
         }
