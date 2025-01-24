@@ -46,6 +46,16 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     return fullPath;
 }
 
+// Add this helper function
+std::string CGI::constructErrorResponse(int status_code, const std::string& message)
+{
+    std::ostringstream response;
+    response << "Status: " << status_code << "\r\n";
+    response << "Content-Type: text/plain\r\n\r\n";
+    response << message;
+    return response.str();
+}
+
 /*
 1. converts URI to full path (e.g., "/your/server/path/cgi-bin/script.py")
 2. check permissions: F_OK: Checks if file exists, X_OK: Checks if file is executable
@@ -62,10 +72,23 @@ void CGI::handleCGIRequest(HttpRequest &request)
         scriptPath = fullScriptPath;
         method = request.method;
         requestBody = request.body;
-        if (access(fullScriptPath.c_str(), F_OK | X_OK) == -1)
+
+        // Separate checks for better error messages
+        if (access(fullScriptPath.c_str(), F_OK) == -1)
         {
-            throw std::runtime_error("Script not found or not executable: " + fullScriptPath);
+            request.error_code = 404;  // Not Found
+            request.body = constructErrorResponse(404, "Script not found: " + fullScriptPath);
+            request.complete = true;
+            return;
         }
+        if (access(fullScriptPath.c_str(), X_OK) == -1)
+        {
+            request.error_code = 403;  // Forbidden
+            request.body = constructErrorResponse(403, "Script not executable: " + fullScriptPath);
+            request.complete = true;
+            return;
+        }
+
         setCGIEnvironment(request);
         std::string cgiOutput = executeCGI();
         request.body = cgiOutput;
@@ -74,7 +97,9 @@ void CGI::handleCGIRequest(HttpRequest &request)
     catch (const std::exception &e)
     {
         std::cerr << "CGI Error: " << e.what() << std::endl;
-        throw;
+        request.error_code = 500;  // Internal Server Error
+        request.body = constructErrorResponse(500, "CGI Error: " + std::string(e.what()));
+        request.complete = true;
     }
 }
 
