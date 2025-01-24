@@ -19,8 +19,7 @@ bool CGI::isCGIRequest(const std::string &path)
         return false;
     } */
     size_t len = path.length();
-    return (len > 3 && path.substr(len - 3) == ".py") ||
-           (len > 4 && path.substr(len - 4) == ".php");
+    return (len > 3 && path.substr(len - 3) == ".py")
 }
 
 /*
@@ -40,7 +39,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     std::cout << "Project root: " << projectRoot << std::endl;
     std::cout << "URI: " << uri << std::endl;
 
-    // Make sure cgi-bin exists in your project root
+    // Make sure cgi-bin exists in project root
     std::string relativePath = uri.substr(8); // removes "/cgi-bin"
     std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
     std::cout << "Full resolved path: " << fullPath << std::endl;
@@ -61,8 +60,8 @@ void CGI::handleCGIRequest(HttpRequest &request)
     {
         std::string fullScriptPath = resolveCGIPath(request.uri);
         scriptPath = fullScriptPath;
-        method = request.method;  // Store the method
-        requestBody = request.body;  // Store the request body
+        method = request.method;
+        requestBody = request.body;
         if (access(fullScriptPath.c_str(), F_OK | X_OK) == -1)
         {
             throw std::runtime_error("Script not found or not executable: " + fullScriptPath);
