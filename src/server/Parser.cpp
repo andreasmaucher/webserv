@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/24 16:01:47 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/24 17:25:27 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -59,7 +59,7 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
             if (!route.path.empty() && !route.methods.empty())
             {
                 server.setRoute(route.uri, route);
-                //server.debugPrintRoutes();
+                // server.debugPrintRoutes();
                 route = Route();
                 continue;
             }
@@ -93,19 +93,44 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                 return false;
             if (!key.empty() && !value.empty())
             {
-                if (key == "path")
+                if (key == "uri")
                 {
                     route.uri = value;
-                    route.path = value;
-                    //! ANDY Set CGI flag if this is a cgi-bin path
-                    route.is_cgi = (value.find("/cgi-bin/") != std::string::npos);
-                    if (route.is_cgi) {
-                        std::cout << "CGI route detected: " << value << std::endl;
-    }
+                    route.path = server.getRootDirectory() + route.uri;
                 }
+                //     route.path = value;
+                //     //staticRoute.uri = "/static";
+                //     //     staticRoute.path = config.getRootDirectory() + staticRoute.uri;
+                //     //! ANDY Set CGI flag if this is a cgi-bin path
+                //     // route.is_cgi = (value.find("/cgi-bin/") != std::string::npos);
+                //     // if (route.is_cgi)
+                //     // {
+                //     //     std::cout << "CGI route detected: " << value << std::endl;
+                //     // }
+                // }
+                // if (key == "path")
+                // {
+                //     route.uri = value;
+                //     route.path = value;
+                //     //staticRoute.uri = "/static";
+                //     //     staticRoute.path = config.getRootDirectory() + staticRoute.uri;
+                //     //! ANDY Set CGI flag if this is a cgi-bin path
+                //     // route.is_cgi = (value.find("/cgi-bin/") != std::string::npos);
+                //     // if (route.is_cgi)
+                //     // {
+                //     //     std::cout << "CGI route detected: " << value << std::endl;
+                //     // }
+                // }
                 else if (key == "index")
                 {
                     route.index_file = value;
+                }
+                // std::cout << "CGI route detected: " << value << std::endl;
+
+                if (key == "is_cgi"  && value == "true")
+                {
+                    // std::cout << "CGI route detected: " << key << "| value: |" << value << "|" <<  std::endl;
+                    route.is_cgi = true;
                 }
             }
         }
@@ -131,7 +156,7 @@ bool Parser::checkMaxBodySize(const std::string &value)
     if (end == value.c_str() || *end != '\0')
         return false;
 
-    if (value_long <= 0 || value_long >MAX_BODY_SIZE)
+    if (value_long <= 0 || value_long > MAX_BODY_SIZE)
         return false;
     // (atoi(value) >)
     return true;
@@ -409,7 +434,7 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
             if (ipValidityChecker(value))
                 server.host = value;
             else
-                std::cerr << "Incorrect ip address: " << value  << std::endl;
+                std::cerr << "Incorrect ip address: " << value << std::endl;
         }
         if (key == "root")
             server.setRootDirectory(value);
@@ -426,7 +451,6 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
                 return false;
             }
         }
-        
     }
     return true;
 }
@@ -469,7 +493,7 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
         // std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
 
         if (server_block_ok && error_block_ok && location_bloc_ok && new_server_found)
-        {        
+        {
             // std::cout << "Added server, host: " << new_server.host <<" port: " << new_server.port << std::endl;
 
             servers_vector.push_back(new_server);
