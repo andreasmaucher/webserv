@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/24 00:38:42 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/24 15:44:14 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -40,17 +40,34 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
             continue;
         if (line.find("[[server]]") != std::string::npos || line.find("[[server.error_page]]") != std::string::npos)
         {
-            //if (!route.path.empty() && !route.methods.empty())
-            server.setRoute(route.uri, route);
-            config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
-            return true;
+            if (!route.path.empty() && !route.methods.empty())
+            {
+                location_bloc_ok = true;
+                server.setRoute(route.uri, route);
+                config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+                return true;
+            }
+            else
+            {
+                location_bloc_ok = false;
+                config_file.seekg(-static_cast<int>(line.length()) - 1, std::ios::cur);
+                return false;
+            }
         }
         if (line.find("[[server.location]]") != std::string::npos)
         {
-            server.setRoute(route.uri, route);
-            //server.debugPrintRoutes();
-            route = Route();
-            continue;
+            if (!route.path.empty() && !route.methods.empty())
+            {
+                server.setRoute(route.uri, route);
+                //server.debugPrintRoutes();
+                route = Route();
+                continue;
+            }
+            else
+            {
+                route = Route();
+                continue;
+            }
         }
         ParseKeyValueResult result = checkKeyPair(line);
         if (result == EMPTY_LINE || line[0] == '#')
@@ -87,10 +104,17 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                 }
             }
         }
-        location_bloc_ok = true;
+        // location_bloc_ok = true;
     }
-    server.setRoute(route.uri, route);
-    server.debugPrintRoutes();
+
+    if (!route.path.empty() && !route.methods.empty())
+    {
+        location_bloc_ok = true;
+        server.setRoute(route.uri, route);
+        return true;
+    }
+    // server.setRoute(route.uri, route);
+    // server.debugPrintRoutes();
     return true;
 }
 
