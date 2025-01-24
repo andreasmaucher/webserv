@@ -19,7 +19,7 @@ bool CGI::isCGIRequest(const std::string &path)
         return false;
     } */
     size_t len = path.length();
-    return (len > 3 && path.substr(len - 3) == ".py")
+    return (len > 3 && path.substr(len - 3) == ".py");
 }
 
 /*
