@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/24 15:44:14 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/24 16:01:47 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -321,7 +321,6 @@ bool Parser::parseKeyArray(const std::string &line, std::string &key, std::set<s
             inside_quotes = false;
             inside_quotes = false;
             std::string extracted = value.substr(i, j - i);
-            std::cout << "Extracted: '" << extracted << "'" << std::endl;
             value_set.insert(extracted);
             i = j + 1;
             j = i;
@@ -405,7 +404,6 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
             else
                 std::cerr << "Incorrect port: " << value << std::endl;
         }
-        
         if (key == "host")
         {
             if (ipValidityChecker(value))
@@ -465,14 +463,14 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
         {
             parseLocationBlock(file, new_server);
         }
-        std::cout << "---------->> server_block_ok: " << server_block_ok << std::endl;
-        std::cout << "---------->> error_block_ok: " << error_block_ok << std::endl;
-        std::cout << "---------->> location_bloc_ok: " << location_bloc_ok << std::endl;
-        std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
+        // std::cout << "---------->> server_block_ok: " << server_block_ok << std::endl;
+        // std::cout << "---------->> error_block_ok: " << error_block_ok << std::endl;
+        // std::cout << "---------->> location_bloc_ok: " << location_bloc_ok << std::endl;
+        // std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
 
         if (server_block_ok && error_block_ok && location_bloc_ok && new_server_found)
         {        
-            std::cout << "Added server, host: " << new_server.host <<" port: " << new_server.port << std::endl;
+            // std::cout << "Added server, host: " << new_server.host <<" port: " << new_server.port << std::endl;
 
             servers_vector.push_back(new_server);
             new_server.clear();
