@@ -96,7 +96,6 @@ void CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     if (contentTypeIt != httpRequest.headers.end()) {
         setenv("CONTENT_TYPE", contentTypeIt->second.c_str(), 1);
     }
-    
     std::map<std::string, std::string>::const_iterator it;
     for (it = httpRequest.headers.begin(); it != httpRequest.headers.end(); ++it)
     {
