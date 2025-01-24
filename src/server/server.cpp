@@ -111,6 +111,11 @@ void Server::debugServer() const
     std::cout << "Client max body size: " << client_max_body_size << std::endl;
     std::cout << "Index: " << index << std::endl;
 
+    if (error_pages.empty())
+    {
+        std::cout << "No error pages are configured for this server." << std::endl;
+        return;
+    }
     for (std::map<int, std::string>::const_iterator it = error_pages.begin(); it != error_pages.end(); ++it)
     {
         std::cout << "Error Code: " << it->first << ", Page: " << it->second << std::endl;
@@ -160,6 +165,18 @@ void Server::debugPrintRoutes() const
         std::cout << "Is CGI: " << (route.is_cgi ? "Yes" : "No") << std::endl;
     }
     std::cout << "--------------------------------------" << std::endl;
+}
+
+void Server::clear()
+{
+    host.clear();
+    port.clear();
+    name.clear();
+    root_directory.clear();
+    client_max_body_size.clear();
+    index.clear();
+    routes.clear();
+    error_pages.clear();
 }
 
 // bool Server::loadConfig(const std::string &config_file) {
