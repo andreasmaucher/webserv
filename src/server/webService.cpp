@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/25 17:41:05 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/25 22:24:15 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -248,7 +248,9 @@ int WebService::start()
     {
         std::cout << "Waiting for connections..." << std::endl;
         // poll changes the state of the pfds_vec; POLLOUT is the default state of the sockets (writable) unless theres incoming data detected
-        int poll_count = poll(pfds_vec.data(), pfds_vec.size(), -1);
+        int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
+        // int poll_count = poll(pfds_vec.data(), pfds_vec.size(), -1);
+
         // TODO: if_cgi then put the timeout in a MACRO
         // int poll_count = poll(pfds_vec.data(), pfds_vec.size(), 3000);
 
@@ -260,8 +262,8 @@ int WebService::start()
         // Run through all existing fds, sending or receiving data depending on POLL status; or create a new connection if fd 0 (listener)
         for (size_t i = 0; i < pfds_vec.size(); i++)
         {
-            std::cout << "Checking FD: " << pfds_vec[i].fd
-                      << " Events: " << pfds_vec[i].revents << std::endl;
+            // std::cout << "Checking FD: " << pfds_vec[i].fd
+            //           << " Events: " << pfds_vec[i].revents << std::endl;
             pollfd pollfd_obj = pfds_vec[i];
             Server *server_obj = fd_to_server[pollfd_obj.fd];
             if (pollfd_obj.revents & POLLIN)
@@ -298,7 +300,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
     if (!server.getRequestObject(fd).complete)
     {
         int nbytes = recv(fd, buf, sizeof buf, 0);
-        std::cout << "Bytes received: " << nbytes << std::endl;
+            std::cout << "Bytes received: " << nbytes << std::endl;
 
         if (nbytes <= 0)
         {

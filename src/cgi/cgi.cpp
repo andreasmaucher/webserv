@@ -153,7 +153,7 @@ std::string CGI::executeCGI()
         dup2(post_pipe[0], STDIN_FILENO);
         close(post_pipe[0]);
         // Execute the script
-        const char *pythonPath = "/usr/local/bin/python3";
+        const char *pythonPath = "/usr/bin/python3";
         char *const args[] = {
             const_cast<char *>(pythonPath),
             const_cast<char *>(scriptPath.c_str()),
@@ -208,8 +208,8 @@ std::string CGI::executeCGI()
 
     // Wait for child process
     int status;
-    waitpid(pid, &status, 0);
-    //waitpid(pid, &status, WNOHANG);
+    // waitpid(pid, &status, 0);
+    waitpid(pid, &status, WNOHANG);
     //waitpid(pid, &status, WNOHANG); <- waiting for any child to change state
 
     std::cout << "Child process exited with status: " << status << std::endl;

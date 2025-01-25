@@ -94,7 +94,7 @@ public:
     Parser();
     ~Parser();
     std::vector<Server> parseConfig(const std::string config_file);
-    std::vector<Server> parseConfigFile(const std::string &config_file);
+    // std::vector<Server> parseConfigFile(const std::string &config_file);
 
     int listener_fd; // Listening socket fd
     std::string port;
