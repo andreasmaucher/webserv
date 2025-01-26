@@ -1,7 +1,7 @@
 #include "../../include/responseHandler.hpp"
 #include "../../include/cgi.hpp"
 
-void ResponseHandler::processRequest(Server &config, HttpRequest &request, HttpResponse &response)
+void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
   //! ANDY
   // Find matching route
@@ -21,7 +21,7 @@ void ResponseHandler::processRequest(Server &config, HttpRequest &request, HttpR
     try
     {
       CGI cgi;
-      cgi.handleCGIRequest(request);
+      cgi.handleCGIRequest(fd, request, response);
 
       // Always start with HTTP status line for valid HTTP/1.1 response
       response.status_code = 200;
@@ -67,6 +67,7 @@ void ResponseHandler::processRequest(Server &config, HttpRequest &request, HttpR
       else
       {
         // No headers found in CGI output
+        // MICHAEL: this seems strange - need to check
         response.body = request.body;
         response.setHeader("Content-Type", "text/plain");
       }
@@ -93,7 +94,7 @@ void ResponseHandler::processRequest(Server &config, HttpRequest &request, HttpR
   // find connection header and set close_connection in response object
   if (request.error_code == 0)
   { // Check error_code but don't set response status
-    ResponseHandler::routeRequest(config, request, response);
+    ResponseHandler::routeRequest(fd, config, request, response);
   }
   if (response.status_code == 0)
   {
@@ -110,21 +111,19 @@ void ResponseHandler::processRequest(Server &config, HttpRequest &request, HttpR
   ResponseHandler::responseBuilder(response);
 }
 
-void ResponseHandler::routeRequest(Server &server, HttpRequest &request, HttpResponse &response)
+void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
-
   std::cout << "Routing request" << std::endl;
   MimeTypeMapper mapper;
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
-  if (findMatchingRoute(server, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response))
+  if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response))
   {
-
     if (request.is_cgi)
     { // at this point its been routed already and checked if (CGI)extension is allowed
       std::cout << "calling CGI handler" << std::endl;
       //! CGI PROCESS STARTS
-      CGI cgiHandler;                       // create an instance of CGI
-      cgiHandler.handleCGIRequest(request); //! i need to add response
+      CGI cgiHandler;
+      cgiHandler.handleCGIRequest(fd, request, response);
     }
     else
     {
@@ -136,7 +135,6 @@ void ResponseHandler::routeRequest(Server &server, HttpRequest &request, HttpRes
 
 void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &response)
 {
-
   if (request.method == "GET")
   {
     ResponseHandler::serveStaticFile(request, response);
@@ -184,7 +182,6 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
 
 bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response)
 {
-
   std::ifstream file;
   file.open(request.path.c_str(), std::ios::in | std::ios::binary);
 
@@ -206,7 +203,6 @@ bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response)
 
 void ResponseHandler::processFileUpload(HttpRequest &request, HttpResponse &response)
 {
-
   std::cout << "Processing file upload" << std::endl;
 
   if (request.body.empty())
@@ -258,7 +254,6 @@ void ResponseHandler::processFileDeletion(HttpRequest &request, HttpResponse &re
 
 void ResponseHandler::removeFile(HttpRequest &request, HttpResponse &response)
 {
-
   if (std::remove(request.path.c_str()) == 0)
   {
     response.status_code = 200;
@@ -316,7 +311,6 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
 
 void ResponseHandler::constructFullPath(HttpRequest &request, HttpResponse &response)
 {
-
   // path is relative to the current working directory
   //(where the server is running, if we execute from inside src for ex ../werbserv, the root dir is src and it won't work)
   // std::string full_path = request.route->path; // Assuming route_path is the matched route's path
@@ -439,7 +433,6 @@ std::string ResponseHandler::generateTimestampName()
 
 bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpResponse &response)
 {
-
   if (access(file_path.c_str(), R_OK) == 0)
     return true;
   else
@@ -452,43 +445,49 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
 // Store the best match if there are multiple matches (longest prefix match)
 bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, HttpResponse &response)
 {
-    std::cout << "Finding matching route for [" << request.uri << "]" << std::endl;
-    const std::map<std::string, Route> &routes = server.getRoutes();
-    const Route *best_match = NULL;
-    size_t longest_match_length = 0;
+  std::cout << "Finding matching route for [" << request.uri << "]" << std::endl;
+  const std::map<std::string, Route> &routes = server.getRoutes();
+  const Route *best_match = NULL;
+  size_t longest_match_length = 0;
 
-    // Debug output for all routes
-    std::cout << "Available routes:" << std::endl;
-    for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it) {
-        std::cout << "Route: [" << it->first << "] CGI: " << (it->second.is_cgi ? "Yes" : "No") << std::endl;
-    }
+  // Debug output for all routes
+  std::cout << "Available routes:" << std::endl;
+  for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
+  {
+    std::cout << "Route: [" << it->first << "] CGI: " << (it->second.is_cgi ? "Yes" : "No") << std::endl;
+  }
 
-    for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
+  for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
+  {
+    const std::string &route_uri = it->first;
+    std::cout << "Comparing request [" << request.uri << "] to route [" << route_uri << "]" << std::endl;
+    const Route &route_object = it->second;
+
+    // Modified matching logic to handle CGI paths better
+    bool is_match = false;
+    if (route_object.is_cgi)
     {
-        const std::string &route_uri = it->first;
-        std::cout << "Comparing request [" << request.uri << "] to route [" << route_uri << "]" << std::endl;
-        const Route &route_object = it->second;
-
-        // Modified matching logic to handle CGI paths better
-        bool is_match = false;
-        if (route_object.is_cgi) {
-            // For CGI routes, check if the URI starts with the route path
-            is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
-        } else {
-            // For regular routes, use the existing logic
-            is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0 &&
-                      (request.uri.size() == route_uri.size() || request.uri[route_uri.size()] == '/'));
-        }
-
-        if (is_match) {
-            size_t match_length = route_uri.size();
-            if (match_length > longest_match_length) {
-                best_match = &route_object;
-                longest_match_length = match_length;
-                std::cout << "Found better match: [" << route_uri << "]" << std::endl;
-            }
-        }
+      // For CGI routes, check if the URI starts with the route path
+      is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
     }
+    else
+    {
+      // For regular routes, use the existing logic
+      is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0 &&
+                  (request.uri.size() == route_uri.size() || request.uri[route_uri.size()] == '/'));
+    }
+
+    if (is_match)
+    {
+      size_t match_length = route_uri.size();
+      if (match_length > longest_match_length)
+      {
+        best_match = &route_object;
+        longest_match_length = match_length;
+        std::cout << "Found better match: [" << route_uri << "]" << std::endl;
+      }
+    }
+  }
 
   if (best_match == NULL)
   {
@@ -497,15 +496,14 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
     return false;
   }
 
-    std::cout << "Best matching route: [" << best_match->uri << "] CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
-    request.route = best_match;
-    request.is_cgi = best_match->is_cgi;
-    return true;
+  std::cout << "Best matching route: [" << best_match->uri << "] CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
+  request.route = best_match;
+  request.is_cgi = best_match->is_cgi;
+  return true;
 }
 
 bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &response)
 {
-
   std::cout << "Checking if method " << request.method << " is allowed" << std::endl;
   // Verify the requested method is allowed in that route searching in the set
   if (request.route->methods.find(request.method) == request.route->methods.end())
@@ -535,7 +533,6 @@ void ResponseHandler::setFullPath(HttpRequest &request)
 
 std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string> &methods)
 {
-
   std::string allowed;
   for (std::set<std::string>::iterator it = methods.begin(); it != methods.end(); ++it)
   {
@@ -554,7 +551,6 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 // Populates the response object. The formatted response function is in the response class
 void ResponseHandler::responseBuilder(HttpResponse &response)
 {
-
   std::cout << "Building response" << std::endl;
 
   std::cout << "Status code: " << response.status_code << std::endl;
@@ -586,7 +582,6 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
 
 std::string ResponseHandler::generateDateHeader()
 {
-
   std::time_t now = std::time(0);
   std::tm *gmtm = std::gmtime(&now);
 
@@ -598,7 +593,6 @@ std::string ResponseHandler::generateDateHeader()
 
 void ResponseHandler::serveErrorPage(HttpResponse &response)
 {
-
   std::string file_path = buildFullPath(response.status_code);
 
   response.body = read_error_file(file_path);
@@ -630,7 +624,6 @@ std::string ResponseHandler::buildFullPath(int status_code)
 
 std::string ResponseHandler::read_error_file(std::string &file_path)
 {
-
   std::cout << "Trying to read error file path: " << file_path << std::endl;
   std::ifstream file;
 

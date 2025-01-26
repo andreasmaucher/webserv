@@ -22,11 +22,11 @@
 class ResponseHandler
 {
 public:
-    void processRequest(Server &config, HttpRequest &request, HttpResponse &response);
+    void processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response);
 
 private:
     // Routing
-    static void routeRequest(Server &server, HttpRequest &request, HttpResponse &response);
+    static void routeRequest(int &fd, Server &server, HttpRequest &request, HttpResponse &response);
     static bool findMatchingRoute(Server &server, HttpRequest &request, HttpResponse &response);
     static bool isMethodAllowed(const HttpRequest &request, HttpResponse &response);
     static std::string createAllowedMethodsStr(const std::set<std::string> &methods);

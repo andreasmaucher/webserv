@@ -23,7 +23,7 @@
 #include "../tests/testsHeader.hpp"
 
 #define DEFAULT_CONFIG "./server/default.conf"
-#define MAX_SIM_CONN 20
+#define MAX_BACKLOG_UNACCEPTED_CON 260
 #define BUFFER_SIZE 100
 // #define PORT "8080"
 #define INIT_FD_SIZE 2

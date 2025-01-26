@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/25 22:24:15 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/26 22:55:14 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -130,7 +130,7 @@ int WebService::get_listener_socket(const std::string &port)
     ai = NULL;
 
     // Starts listening for incoming connections on the listener socket, with a maximum backlog of 10 connections waiting to be accepted.
-    if (listen(listener_fd, MAX_SIM_CONN) == -1)
+    if (listen(listener_fd, MAX_BACKLOG_) == -1)
     {
         return -1;
     }
@@ -168,11 +168,12 @@ void WebService::deleteRequestObject(int &fd, Server &server)
 
 void WebService::closeConnection(int &fd, size_t &i, Server &server)
 {
+    close(fd);
+
+    std::cout << "Closed fd: " << fd << std::endl;
+
     std::cout << "Closing connection FD: " << fd
               << " Reason: " << strerror(errno) << std::endl;
-
-    close(fd);
-    std::cout << "Closed fd: " << fd << std::endl;
 
     deleteFromPfdsVec(fd, i);
     deleteRequestObject(fd, server);
@@ -296,11 +297,11 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 
     std::cout << "\n=== RECEIVE REQUEST ===\n";
     std::cout << "FD: " << fd << std::endl;
-    
+
     if (!server.getRequestObject(fd).complete)
     {
         int nbytes = recv(fd, buf, sizeof buf, 0);
-            std::cout << "Bytes received: " << nbytes << std::endl;
+        std::cout << "Bytes received: " << nbytes << std::endl;
 
         if (nbytes <= 0)
         {
@@ -332,7 +333,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         HttpRequest request = server.getRequestObject(fd);
         HttpResponse response;
         ResponseHandler handler;
-        handler.processRequest(server, request, response);
+        handler.processRequest(fd, server, request, response);
 
         std::string responseStr = response.generateRawResponseStr();
         if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
