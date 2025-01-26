@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/26 22:55:14 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/26 23:19:48 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -130,7 +130,7 @@ int WebService::get_listener_socket(const std::string &port)
     ai = NULL;
 
     // Starts listening for incoming connections on the listener socket, with a maximum backlog of 10 connections waiting to be accepted.
-    if (listen(listener_fd, MAX_BACKLOG_) == -1)
+    if (listen(listener_fd, MAX_BACKLOG_UNACCEPTED_CON) == -1)
     {
         return -1;
     }

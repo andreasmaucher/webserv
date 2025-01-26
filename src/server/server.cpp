@@ -1,5 +1,6 @@
 #include "../../include/server.hpp"
 #include "../../include/httpRequest.hpp"
+#include "../../include/webService.hpp"
 
 // Server::Server() {}
 
@@ -101,70 +102,69 @@ void Server::resetRequestObject(int &fd)
 
 void Server::debugServer() const
 {
-    std::cout << "Debugging for Server: " << name << " (Port: " << port << ")" << std::endl;
-    std::cout << "--------------------------------------" << std::endl;
-    std::cout << "Listener_fd: " << listener_fd << std::endl;
-    std::cout << "Port: " << port << std::endl;
-    std::cout << "Name: " << name << std::endl;
-    std::cout << "Host: " << host << std::endl;
-    std::cout << "Root directory: " << root_directory << std::endl;
-    std::cout << "Client max body size: " << client_max_body_size << std::endl;
-    std::cout << "Index: " << index << std::endl;
+    DEBUG_MSG("Server Name", name);
+    DEBUG_MSG("Port", port);
+    DEBUG_MSG("Listener FD", listener_fd);
+    DEBUG_MSG("Host", host);
+    DEBUG_MSG("Root Directory", root_directory);
+    DEBUG_MSG("Client Max Body Size", client_max_body_size);
+    DEBUG_MSG("Index", index);
 
     if (error_pages.empty())
     {
-        std::cout << "No error pages are configured for this server." << std::endl;
+        DEBUG_MSG("Error Pages", "None configured");
         return;
     }
+
     for (std::map<int, std::string>::const_iterator it = error_pages.begin(); it != error_pages.end(); ++it)
     {
-        std::cout << "Error Code: " << it->first << ", Page: " << it->second << std::endl;
+        DEBUG_MSG("Error Code " + std::to_string(it->first), it->second);
     }
-    std::cout << "--------------------------------------" << std::endl;
+    DEBUG_MSG("Server Debug", "----------------------------------------");
 }
 
 void Server::debugPrintRoutes() const
 {
-    std::cout << "Debugging Routes for Server: " << name << " (Port: " << port << ")" << std::endl;
+    DEBUG_MSG("Routes Debug for Server", name);
+    DEBUG_MSG("(Port: ", port);
 
     if (routes.empty())
     {
-        std::cout << "No routes are configured for this server." << std::endl;
+        DEBUG_MSG("Routes Status", "No routes configured");
         return;
     }
 
     std::map<std::string, Route>::const_iterator it;
     for (it = routes.begin(); it != routes.end(); ++it)
     {
-        const std::string &uri = it->first;
+        // const std::string &uri = it->first;
         const Route &route = it->second;
 
-        std::cout << "--------------------------------------" << std::endl;
-        std::cout << "URI: " << uri << std::endl;
-        std::cout << "Path: " << route.path << std::endl;
-        std::cout << "Allowed Methods: ";
-        std::set<std::string>::const_iterator method_it;
-        for (method_it = route.methods.begin(); method_it != route.methods.end(); ++method_it)
-        {
-            std::cout << *method_it << " ";
-        }
-        std::cout << std::endl;
+        DEBUG_MSG("Route URI", uri);
+        DEBUG_MSG("Route Path", route.path);
 
-        std::cout << "Content Types: ";
-        std::set<std::string>::const_iterator type_it;
-        for (type_it = route.content_type.begin(); type_it != route.content_type.end(); ++type_it)
+        std::string methods_str;
+        for (std::set<std::string>::const_iterator method_it = route.methods.begin();
+             method_it != route.methods.end(); ++method_it)
         {
-            std::cout << *type_it << " ";
+            methods_str += *method_it + " ";
         }
-        std::cout << std::endl;
+        DEBUG_MSG("Allowed Methods", methods_str);
 
-        std::cout << "Redirect URI: " << route.redirect_uri << std::endl;
-        std::cout << "Index File: " << route.index_file << std::endl;
-        std::cout << "Directory Listing Enabled: "
-                  << (route.directory_listing_enabled ? "Yes" : "No") << std::endl;
-        std::cout << "Is CGI: " << (route.is_cgi ? "Yes" : "No") << std::endl;
+        std::string types_str;
+        for (std::set<std::string>::const_iterator type_it = route.content_type.begin();
+             type_it != route.content_type.end(); ++type_it)
+        {
+            types_str += *type_it + " ";
+        }
+        DEBUG_MSG("Content Types", types_str);
+
+        DEBUG_MSG("Redirect URI", route.redirect_uri);
+        DEBUG_MSG("Index File", route.index_file);
+        DEBUG_MSG("Directory Listing", route.directory_listing_enabled ? "Enabled" : "Disabled");
+        DEBUG_MSG("CGI Status", route.is_cgi ? "Enabled" : "Disabled");
+        DEBUG_MSG("Route Debug", "----------------------------------------");
     }
-    std::cout << "--------------------------------------" << std::endl;
 }
 
 void Server::clear()

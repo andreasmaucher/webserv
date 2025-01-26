@@ -1,5 +1,4 @@
-#ifndef WEBSERVICE_HPP
-#define WEBSERVICE_HPP
+#pragma once
 
 #include <iostream>
 #include <cstring>
@@ -20,7 +19,7 @@
 #include "httpResponse.hpp"
 #include "responseHandler.hpp"
 #include "server.hpp"
-#include "../tests/testsHeader.hpp"
+#include "debug.hpp"
 
 #define DEFAULT_CONFIG "./server/default.conf"
 #define MAX_BACKLOG_UNACCEPTED_CON 260
@@ -77,5 +76,3 @@ public:
     void handleSigint(int signal);
     static void sigintHandler(int signal);
 };
-
-#endif
