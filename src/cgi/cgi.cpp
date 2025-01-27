@@ -50,6 +50,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     DEBUG_MSG("Project root", projectRoot);
     DEBUG_MSG("URI", uri);
 
+    // Make sure cgi-bin exists in project root
     std::string relativePath = uri.substr(8); // removes "/cgi-bin"
     std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
     DEBUG_MSG("Full resolved path", fullPath);
@@ -65,96 +66,29 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 */
 void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response)
 {
+    DEBUG_MSG("Starting CGI Request", request.uri);
     (void)fd;
     (void)response;
-    DEBUG_MSG("CGI Request Handler - Client FD", fd);
-    DEBUG_MSG("CGI Request Handler - Method", request.method);
-    DEBUG_MSG("CGI Request Handler - URI", request.uri);
-
-    if (!isCGIRequest(request.uri))
+    try
     {
-        DEBUG_MSG("Invalid CGI Request for URI", request.uri);
-        throw std::runtime_error("Not a CGI request");
-    }
-
-    scriptPath = resolveCGIPath(request.uri);
-    DEBUG_MSG("Resolved CGI Script Path", scriptPath);
-
-    // Create pipes for communication
-    int pipe_in[2], pipe_out[2];
-    if (pipe(pipe_in) < 0 || pipe(pipe_out) < 0)
-    {
-        DEBUG_MSG("Pipe creation failed with errno", errno);
-        throw std::runtime_error("Failed to create pipes");
-    }
-
-    pid_t pid = fork();
-    if (pid < 0)
-    {
-        DEBUG_MSG("Fork failed with errno", errno);
-        throw std::runtime_error("Fork failed");
-    }
-
-    if (pid == 0)
-    { // Child process
-        DEBUG_MSG("Child Process - PID", getpid());
-
-        // Redirect stdin/stdout
-        if (dup2(pipe_in[0], STDIN_FILENO) < 0 ||
-            dup2(pipe_out[1], STDOUT_FILENO) < 0)
+        std::string fullScriptPath = resolveCGIPath(request.uri);
+        scriptPath = fullScriptPath;
+        method = request.method;
+        requestBody = request.body;
+        if (access(fullScriptPath.c_str(), F_OK | X_OK) == -1)
         {
-            DEBUG_MSG("dup2 failed with errno", errno);
-            exit(1);
+            throw std::runtime_error("Script not found or not executable: " + fullScriptPath);
         }
-
-        // Close unused pipe ends
-        close(pipe_in[1]);
-        close(pipe_out[0]);
-
-        // Set up environment variables
         setCGIEnvironment(request);
-
-        DEBUG_MSG("Executing CGI Script", scriptPath);
-        execl(scriptPath.c_str(), scriptPath.c_str(), NULL);
-
-        DEBUG_MSG("execl failed with errno", errno);
-        exit(1);
+        std::string cgiOutput = executeCGI(fd, response);
+        request.body = cgiOutput;
+        request.complete = true;
     }
-
-    // Parent process
-    DEBUG_MSG("Parent Process - Child PID", pid);
-
-    // Close unused pipe ends
-    close(pipe_in[0]);
-    close(pipe_out[1]);
-
-    // Write POST data if necessary
-    if (request.method == "POST")
+    catch (const std::exception &e)
     {
-        DEBUG_MSG("Writing POST data, size", request.body.length());
-        write(pipe_in[1], request.body.c_str(), request.body.length());
+        DEBUG_MSG("CGI Error", e.what());
+        throw;
     }
-    close(pipe_in[1]);
-
-    // Read CGI output
-    char buffer[4096];
-    std::string cgi_output;
-    ssize_t bytes_read;
-
-    while ((bytes_read = read(pipe_out[0], buffer, sizeof(buffer))) > 0)
-    {
-        DEBUG_MSG("Read from CGI output", bytes_read);
-        cgi_output.append(buffer, bytes_read);
-    }
-    close(pipe_out[0]);
-
-    // Wait for child process
-    int status;
-    waitpid(pid, &status, 0);
-    DEBUG_MSG("CGI Process Exit Status", WEXITSTATUS(status));
-
-    response.body = cgi_output;
-    DEBUG_MSG("CGI Response Size", response.body.length());
 }
 
 /*
@@ -203,31 +137,36 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response)
     DEBUG_MSG("Script Path", scriptPath);
     DEBUG_MSG("Method", method);
 
+    // Define pipes for stdin and stdout
     int pipe_in[2];  // Parent writes to pipe_in[1], child reads from pipe_in[0]
     int pipe_out[2]; // Child writes to pipe_out[1], parent reads from pipe_out[0]
 
+    // Create input pipe
     if (pipe(pipe_in) == -1)
     {
         DEBUG_MSG("Pipe creation for stdin failed", strerror(errno));
         throw std::runtime_error("Pipe creation for stdin failed");
     }
-    DEBUG_MSG("Created input pipe - Read FD", pipe_in[0]);
-    DEBUG_MSG("Created input pipe - Write FD", pipe_in[1]);
+    DEBUG_MSG("Input pipe - Read FD", pipe_in[0]);
+    DEBUG_MSG("Input pipe - Write FD", pipe_in[1]);
 
+    // Create output pipe
     if (pipe(pipe_out) == -1)
     {
         DEBUG_MSG("Pipe creation for stdout failed", strerror(errno));
+        // Close previously opened pipe_in before throwing
         close(pipe_in[0]);
         close(pipe_in[1]);
         throw std::runtime_error("Pipe creation for stdout failed");
     }
-    DEBUG_MSG("Created output pipe - Read FD", pipe_out[0]);
-    DEBUG_MSG("Created output pipe - Write FD", pipe_out[1]);
+    DEBUG_MSG("Output pipe - Read FD", pipe_out[0]);
+    DEBUG_MSG("Output pipe - Write FD", pipe_out[1]);
 
     pid_t pid = fork();
     if (pid == -1)
     {
         DEBUG_MSG("Fork failed", strerror(errno));
+        // Close all opened file descriptors before throwing
         close(pipe_in[0]);
         close(pipe_in[1]);
         close(pipe_out[0]);
@@ -237,30 +176,37 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response)
 
     if (pid == 0)
     { // Child process
-        DEBUG_MSG("Child process started", getpid());
+        DEBUG_MSG("Child process", "started");
 
+        // Redirect stdin to pipe_in[0]
         if (dup2(pipe_in[0], STDIN_FILENO) == -1)
         {
             DEBUG_MSG("Child: dup2 for stdin failed", strerror(errno));
             exit(EXIT_FAILURE);
         }
 
+        // Redirect stdout to pipe_out[1]
         if (dup2(pipe_out[1], STDOUT_FILENO) == -1)
         {
             DEBUG_MSG("Child: dup2 for stdout failed", strerror(errno));
             exit(EXIT_FAILURE);
         }
 
+        // Close unused file descriptors in child
         close(pipe_in[0]);
         close(pipe_in[1]);
         close(pipe_out[0]);
         close(pipe_out[1]);
 
+        // Set environment variables (already done in setCGIEnvironment())
+
+        // Execute the CGI script
         DEBUG_MSG("Child: Executing CGI script", scriptPath);
         const char *pythonPath = "/usr/bin/python3";
         char *const args[] = {const_cast<char *>(pythonPath), const_cast<char *>(scriptPath.c_str()), NULL};
         execve(pythonPath, args, environ);
 
+        // If execve fails
         DEBUG_MSG("Child: execve failed", strerror(errno));
         exit(EXIT_FAILURE);
     }
@@ -268,48 +214,63 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response)
     // Parent process
     DEBUG_MSG("Parent: Child PID", pid);
 
-    close(pipe_in[0]);
-    close(pipe_out[1]);
+    // Close unused file descriptors in parent
+    close(pipe_in[0]);  // Close read end of input pipe
+    close(pipe_out[1]); // Close write end of output pipe
 
-    if (method == "POST" && !requestBody.empty())
+    // If POST request, write the request body to the CGI's stdin
+    if (method == "POST")
     {
-        ssize_t bytes_written = write(pipe_in[1], requestBody.c_str(), requestBody.length());
-        if (bytes_written == -1)
+        if (!requestBody.empty())
         {
-            DEBUG_MSG("Parent: Failed to write POST data", strerror(errno));
-            close(pipe_in[1]);
-            close(pipe_out[0]);
-            throw std::runtime_error("Failed to write POST data to CGI stdin");
+            ssize_t bytes_written = write(pipe_in[1], requestBody.c_str(), requestBody.length());
+            if (bytes_written == -1)
+            {
+                DEBUG_MSG("Parent: Failed to write POST data", strerror(errno));
+                // Close file descriptors and throw
+                close(pipe_in[1]);
+                close(pipe_out[0]);
+                throw std::runtime_error("Failed to write POST data to CGI stdin");
+            }
+            DEBUG_MSG("Parent: Wrote bytes to CGI stdin", bytes_written);
         }
-        DEBUG_MSG("Parent: Wrote bytes to CGI stdin", bytes_written);
+        // After writing, close the write end to send EOF to CGI's stdin
+        close(pipe_in[1]);
+        DEBUG_MSG("Parent: Closed write end of input pipe after writing POST data", "");
     }
-    close(pipe_in[1]);
-    DEBUG_MSG("Parent: Closed write end of input pipe", method == "POST" ? "after POST data" : "no POST data");
+    else
+    {
+        // For GET requests, close the write end as there's no data to send
+        close(pipe_in[1]);
+        DEBUG_MSG("Parent: Closed write end of input pipe (no POST data)", "");
+    }
 
+    // Read CGI output from pipe_out[0]
     std::string cgi_output;
     char buffer[4096];
     ssize_t bytes_read;
     size_t total_bytes = 0;
-    (void)total_bytes;
 
-    DEBUG_MSG("Parent: Reading CGI output", "started");
+    DEBUG_MSG("Parent: Reading CGI output from output pipe", "");
     while ((bytes_read = read(pipe_out[0], buffer, sizeof(buffer))) > 0)
     {
         cgi_output.append(buffer, bytes_read);
         total_bytes += bytes_read;
-        DEBUG_MSG("Parent: Read bytes from CGI output", bytes_read);
+        DEBUG_MSG("Parent: Read bytes from CGI", bytes_read);
     }
 
     if (bytes_read == -1)
     {
         DEBUG_MSG("Parent: Error reading CGI output", strerror(errno));
+        // Close output pipe before throwing
         close(pipe_out[0]);
         throw std::runtime_error("Error reading CGI output");
     }
 
     DEBUG_MSG("Parent: Total bytes read", total_bytes);
-    close(pipe_out[0]);
+    close(pipe_out[0]); // Close read end after reading
 
+    // Wait for child process to finish
     int status;
     if (waitpid(pid, &status, 0) == -1)
     {
@@ -330,9 +291,9 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response)
         DEBUG_MSG("Parent: Child exit status", "abnormal");
     }
 
+    // Assign CGI output to request.body
     response.body = cgi_output;
     DEBUG_MSG("Parent: Response body size", response.body.length());
     DEBUG_MSG("=== CGI EXECUTION END ===", "");
-
     return cgi_output;
 }

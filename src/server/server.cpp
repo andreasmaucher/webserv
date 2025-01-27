@@ -118,7 +118,8 @@ void Server::debugServer() const
 
     for (std::map<int, std::string>::const_iterator it = error_pages.begin(); it != error_pages.end(); ++it)
     {
-        DEBUG_MSG("Error Code " + std::to_string(it->first), it->second);
+        DEBUG_MSG("Error Code ", it->first);
+        DEBUG_MSG("Error Code ", it->second);
     }
     DEBUG_MSG("Server Debug", "----------------------------------------");
 }
@@ -140,7 +141,7 @@ void Server::debugPrintRoutes() const
         // const std::string &uri = it->first;
         const Route &route = it->second;
 
-        DEBUG_MSG("Route URI", uri);
+        // DEBUG_MSG("Route URI", uri);
         DEBUG_MSG("Route Path", route.path);
 
         std::string methods_str;
@@ -161,8 +162,8 @@ void Server::debugPrintRoutes() const
 
         DEBUG_MSG("Redirect URI", route.redirect_uri);
         DEBUG_MSG("Index File", route.index_file);
-        DEBUG_MSG("Directory Listing", route.directory_listing_enabled ? "Enabled" : "Disabled");
-        DEBUG_MSG("CGI Status", route.is_cgi ? "Enabled" : "Disabled");
+        DEBUG_MSG("Directory Listing", route.directory_listing_enabled);
+        DEBUG_MSG("CGI Status", route.is_cgi);
         DEBUG_MSG("Route Debug", "----------------------------------------");
     }
 }

@@ -64,12 +64,12 @@ void HttpRequest::printRequest()
     DEBUG_MSG("Allowed Content Types", content_types_str);
 
     DEBUG_MSG("Redirect URI", this->route->redirect_uri);
-    DEBUG_MSG("Directory Listing Enabled", this->route->directory_listing_enabled ? "Yes" : "No");
-    DEBUG_MSG("Is CGI Directory", this->route->is_cgi ? "Yes" : "No");
+    DEBUG_MSG("Directory Listing Enabled", this->route->directory_listing_enabled);
+    DEBUG_MSG("Is CGI Directory", this->route->is_cgi);
   }
 
   DEBUG_MSG("File Name", this->file_name);
   DEBUG_MSG("File Extension", this->file_extension);
   DEBUG_MSG("Content Type", this->content_type);
-  DEBUG_MSG("Is CGI", this->is_cgi ? "Yes" : "No");
+  DEBUG_MSG("Is CGI", this->is_cgi);
 }

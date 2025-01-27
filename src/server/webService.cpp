@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/26 23:19:48 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/27 00:06:53 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,21 +19,15 @@ std::vector<Server> WebService::servers;
 WebService::WebService(const std::string &config_file)
 {
     signal(SIGINT, sigintHandler);
-    // servers = ConfigParser::parseConfig(config_file);
-    // servers = createFakeServers();
-    // servers = parseConfig(config_file);
     Parser parser;
-
     servers = parser.parseConfig(config_file);
-
-    std::cout << "Configured " << servers.size() << " servers." << std::endl;
+    DEBUG_MSG("Configured servers", servers.size());
 
     for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it)
     {
         (*it).debugServer();
         (*it).debugPrintRoutes();
     }
-    // servers[0].debugPrintRoutes();
     setupSockets();
 }
 
@@ -58,7 +52,7 @@ void WebService::cleanup()
 WebService::~WebService()
 {
     WebService::cleanup();
-    std::cout << "Service stopped" << std::endl;
+    DEBUG_MSG("Service status", "stopped");
 }
 
 // Return a listening socket
@@ -70,70 +64,66 @@ WebService::~WebService()
 // It holds the resolved network addresses that match the criteria specified in hints.
 int WebService::get_listener_socket(const std::string &port)
 {
-    // Get us a socket and bind it
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;     // Unspecified IPv4 or IPv6, can use both
-    hints.ai_socktype = SOCK_STREAM; // TCP
-    hints.ai_flags = AI_PASSIVE;     // Fill in the IP address of the server automatically when getaddrinfo(), for listening sockets
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
     reuse_socket_opt = 1;
 
-    std::cout << "Trying to connect on port: " << port << std::endl;
+    DEBUG_MSG("Attempting connection on port", port);
 
     if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0)
     {
-        std::cerr << "getaddrinfo error: " << gai_strerror(addrinfo_status) << std::endl;
+        DEBUG_MSG("getaddrinfo error", gai_strerror(addrinfo_status));
         return -1;
     }
 
     int listener_fd = -1;
     for (p = ai; p != NULL; p = p->ai_next)
     {
-        std::cout << "Creating socket..." << std::endl;
+        DEBUG_MSG("Socket creation", "in progress");
         listener_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         if (listener_fd < 0)
         {
-            std::cerr << "socket() error: " << strerror(errno) << std::endl;
+            DEBUG_MSG("socket() error", strerror(errno));
             continue;
         }
 
-        std::cout << "Setting socket option SO_REUSEADDR..." << std::endl;
+        DEBUG_MSG("Setting SO_REUSEADDR", "in progress");
         if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
         {
-            std::cerr << "setsockopt error: " << strerror(errno) << std::endl;
+            DEBUG_MSG("setsockopt error", strerror(errno));
             close(listener_fd);
             continue;
         }
 
-        std::cout << "Setting socket option SO_REUSEPORT..." << std::endl;
+        DEBUG_MSG("Setting SO_REUSEPORT", "in progress");
         if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
         {
-            std::cerr << "setsockopt error: " << strerror(errno) << std::endl;
+            DEBUG_MSG("setsockopt error", strerror(errno));
             close(listener_fd);
             continue;
         }
 
-        std::cout << "Binding socket..." << std::endl;
+        DEBUG_MSG("Binding socket", "in progress");
         if (bind(listener_fd, p->ai_addr, p->ai_addrlen) < 0)
         {
-            std::cerr << "bind() error: " << strerror(errno) << std::endl;
+            DEBUG_MSG("bind() error", strerror(errno));
             close(listener_fd);
             continue;
         }
         break;
     }
-    // If we got here, it means we didn't get bound. Reached end of ai ll
+
     if (p == NULL)
-    {
         return -1;
-    }
+
     freeaddrinfo(ai);
     ai = NULL;
 
-    // Starts listening for incoming connections on the listener socket, with a maximum backlog of 10 connections waiting to be accepted.
     if (listen(listener_fd, MAX_BACKLOG_UNACCEPTED_CON) == -1)
-    {
         return -1;
-    }
+
     return listener_fd;
 }
 
@@ -145,7 +135,8 @@ void WebService::addToPfdsVector(int new_fd)
     new_pollfd.revents = 0;
 
     pfds_vec.push_back(new_pollfd);
-    std::cout << "Added new fd: " << new_fd << " to pfds_vec at index: " << pfds_vec.size() - 1 << ". pfds_vec size: " << pfds_vec.size() << std::endl;
+    DEBUG_MSG("Added new fd to pfds_vec", new_fd);
+    DEBUG_MSG("Current pfds_vec size", pfds_vec.size());
 }
 
 void WebService::deleteFromPfdsVec(int &fd, size_t &i)
@@ -153,11 +144,12 @@ void WebService::deleteFromPfdsVec(int &fd, size_t &i)
     if (pfds_vec[i].fd == fd)
     {
         pfds_vec.erase(pfds_vec.begin() + i);
-        std::cout << "Erased fd from vector at index: " << i << ". pfds_vec size: " << pfds_vec.size() << std::endl;
+        DEBUG_MSG("Erased fd from vector at index", i);
+        DEBUG_MSG("Current pfds_vec size", pfds_vec.size());
     }
     else
     {
-        std::cout << "Error: fd not found in vector at index: " << i << " Check the logic!" << std::endl;
+        DEBUG_MSG("Error: fd not found in vector at index", i);
     }
 }
 
@@ -168,28 +160,22 @@ void WebService::deleteRequestObject(int &fd, Server &server)
 
 void WebService::closeConnection(int &fd, size_t &i, Server &server)
 {
-    close(fd);
-
-    std::cout << "Closed fd: " << fd << std::endl;
-
-    std::cout << "Closing connection FD: " << fd
-              << " Reason: " << strerror(errno) << std::endl;
+    if (close(fd) == -1)
+        DEBUG_MSG("Closing connection FD failed", strerror(errno));
+    else
+        DEBUG_MSG("Closed fd", fd);
 
     deleteFromPfdsVec(fd, i);
     deleteRequestObject(fd, server);
-
-    std::cout << "Erased request object for fd: " << fd << std::endl;
+    DEBUG_MSG("Erased request object for fd", fd);
 }
 
 // creates a new httpRequest object for the new connection in the server object and maps the fd to the new httpRequest object
 void WebService::createRequestObject(int new_fd, Server &server)
 {
     HttpRequest newRequest;
-
-    // server.client_fd_to_request[new_fd] = &newRequest;
     server.setRequestObject(new_fd, newRequest);
-    std::cout << "New httpRequest object created for connection on fd: " << new_fd << std::endl;
-    std::cout << "Mapped fd: " << new_fd << " to its httpRequest object" << std::endl;
+    DEBUG_MSG("New httpRequest object created for fd", new_fd);
 }
 
 void WebService::mapFdToServer(int new_fd, Server &server)
@@ -199,16 +185,17 @@ void WebService::mapFdToServer(int new_fd, Server &server)
 
 void WebService::newConnection(Server &server)
 {
-    printf("\nNew connection!\n");
+    DEBUG_MSG("New connection", "incoming");
     addrlen = sizeof remoteaddr;
     int new_fd = accept(server.getListenerFd(), (struct sockaddr *)&remoteaddr, &addrlen);
+
     if (new_fd == -1)
     {
-        perror("accept");
+        DEBUG_MSG("Accept error", strerror(errno));
     }
     else
     {
-        std::cout << "New connection accepted for server: " << server.getName() << " on fd: " << new_fd << std::endl;
+        DEBUG_MSG("New connection accepted for server " + server.getName() + " on fd", new_fd);
         addToPfdsVector(new_fd);
         mapFdToServer(new_fd, server);
         createRequestObject(new_fd, server);
@@ -220,68 +207,46 @@ void WebService::setupSockets()
 {
     for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it)
     {
-
         int listener_fd = get_listener_socket((*it).getPort());
         if (listener_fd == -1)
         {
-            // std::cout << "Error getting listening socket for server: " << it.name << std::endl;
-            // exit(1);
-            // maybe return to main and handle cleanup from there?
             throw std::runtime_error("Error getting listening socket for server: " + (*it).getName());
         }
-        // Store the listener_fd in the Server object
         (*it).setListenerFd(listener_fd);
-
-        // Add the listener_fd to pfds_vec and map it to this Server
         addToPfdsVector(listener_fd);
         mapFdToServer(listener_fd, *it);
-        // fd_to_server[listener_fd] = &(*it);
     }
-    std::cout << "Total servers set up: " << servers.size() << std::endl;
-    return;
+    DEBUG_MSG("Total servers set up", servers.size());
 }
 
 int WebService::start()
 {
-    std::cout << "=== Server Starting ===" << std::endl;
-    //
+    DEBUG_MSG("Server Status", "Starting");
     while (true)
     {
-        std::cout << "Waiting for connections..." << std::endl;
-        // poll changes the state of the pfds_vec; POLLOUT is the default state of the sockets (writable) unless theres incoming data detected
+        DEBUG_MSG("Connection Status", "Waiting for connections");
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
-        // int poll_count = poll(pfds_vec.data(), pfds_vec.size(), -1);
-
-        // TODO: if_cgi then put the timeout in a MACRO
-        // int poll_count = poll(pfds_vec.data(), pfds_vec.size(), 3000);
 
         if (poll_count == -1)
         {
-            std::cerr << "Poll error: " << strerror(errno) << std::endl;
+            DEBUG_MSG("Poll error", strerror(errno));
             continue;
         }
-        // Run through all existing fds, sending or receiving data depending on POLL status; or create a new connection if fd 0 (listener)
+
         for (size_t i = 0; i < pfds_vec.size(); i++)
         {
-            // std::cout << "Checking FD: " << pfds_vec[i].fd
-            //           << " Events: " << pfds_vec[i].revents << std::endl;
             pollfd pollfd_obj = pfds_vec[i];
             Server *server_obj = fd_to_server[pollfd_obj.fd];
+
             if (pollfd_obj.revents & POLLIN)
             {
-                // if (pollfd_obj.fd == server_obj->getListenerFd()) simplified:
-                if (i < servers.size()) // it's a listener
-                {
+                if (i < servers.size())
                     newConnection(*server_obj);
-                }
                 else
-                {
                     receiveRequest(pollfd_obj.fd, i, *server_obj);
-                }
             }
             else if (pollfd_obj.revents & POLLOUT)
             {
-                // check if httpRequest is complete!
                 sendResponse(pollfd_obj.fd, i, *server_obj);
             }
         }
@@ -291,17 +256,13 @@ int WebService::start()
 // implement timeout for recv()?
 void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
-    // HttpRequest *request_obj = server.client_fd_to_request[fd];
-    //  HttpRequest request_obj = server.getRequestObject(fd);
-    // std::cout << "Receive function called for request on server: " << server.getName() << " - listener fd: " << server.getListenerFd() << " fd from pollfds vector: " << fd << std::endl;
-
-    std::cout << "\n=== RECEIVE REQUEST ===\n";
-    std::cout << "FD: " << fd << std::endl;
+    DEBUG_MSG("=== RECEIVE REQUEST ===", "");
+    DEBUG_MSG("Processing FD", fd);
 
     if (!server.getRequestObject(fd).complete)
     {
         int nbytes = recv(fd, buf, sizeof buf, 0);
-        std::cout << "Bytes received: " << nbytes << std::endl;
+        DEBUG_MSG("Bytes received", nbytes);
 
         if (nbytes <= 0)
         {
@@ -311,12 +272,13 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         {
             buf[nbytes] = '\0';
             server.getRequestObject(fd).raw_request.append(buf);
-            std::cout << "Received data from fd: " << fd << std::endl;
-            std::cout << "Data received: " << buf << std::endl;
-            std::cout << "Request object raw_request: " << server.getRequestObject(fd).raw_request << std::endl;
+            DEBUG_MSG("Received data from fd", fd);
+            DEBUG_MSG("Data received", buf);
+            DEBUG_MSG("Request object raw_request", server.getRequestObject(fd).raw_request);
+
             if (server.getRequestObject(fd).raw_request.find(END_HEADER) != std::string::npos)
             {
-                std::cout << "Parsing request..." << std::endl;
+                DEBUG_MSG("Request Status", "Parsing request");
                 RequestParser::parseRawRequest(server.getRequestObject(fd));
             }
         }
@@ -325,8 +287,6 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 
 void WebService::sendResponse(int &fd, size_t &i, Server &server)
 {
-    // std::cout << "Send function called for request at index:" << i << std::endl;
-    // std::cout << "Request complete?: " << request.complete << std::endl;
     HttpRequest request_obj = server.getRequestObject(fd);
     if (request_obj.complete)
     {
@@ -338,9 +298,10 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         std::string responseStr = response.generateRawResponseStr();
         if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
         {
-            perror("send");
+            DEBUG_MSG("Send error", strerror(errno));
         }
-        std::cout << "Response sent to fd: " << fd << " at index: " << i << " in pfds_vec" << std::endl;
+        DEBUG_MSG("Response sent to fd", fd);
+
         if (response.close_connection == true)
         {
             closeConnection(fd, i, server);
@@ -356,10 +317,9 @@ void WebService::sigintHandler(int signal)
 {
     if (signal == SIGINT)
     {
-        printf("Ctrl- C Closing connection\n");
-        printf("Exiting\n");
+        DEBUG_MSG("Signal received", "SIGINT");
+        DEBUG_MSG("Server status", "Shutting down");
         WebService::cleanup();
-        // Memory leaks will be present, since we can't run freeaddrinfo(res) unless it is declared as a global?
         exit(0);
     }
 }

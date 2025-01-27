@@ -101,7 +101,7 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
         if (!request.headers["Content-Type"].empty())
         {
             bool header_matches = request.route->content_type.find(request.headers["Content-Type"]) != request.route->content_type.end();
-            DEBUG_MSG("Header content type matches route", header_matches ? "Yes" : "No");
+            DEBUG_MSG("Header content type matches route", header_matches);
             is_valid = header_matches;
         }
         else
@@ -118,8 +118,8 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
         bool header_matches_route = request.route->content_type.find(request.headers["Content-Type"]) != request.route->content_type.end();
         bool header_matches_file = request.headers["Content-Type"] == request.content_type;
 
-        DEBUG_MSG("Header matches route", header_matches_route ? "Yes" : "No");
-        DEBUG_MSG("Header matches file", header_matches_file ? "Yes" : "No");
+        DEBUG_MSG("Header matches route", header_matches_route);
+        DEBUG_MSG("Header matches file", header_matches_file);
 
         is_valid = header_matches_route && header_matches_file;
     }

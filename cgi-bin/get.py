@@ -15,8 +15,8 @@ import subprocess
 # Run ls command and capture output
 try:
     ls_output = subprocess.check_output(['ls', '-la'], text=True)
-    # print("Directory listing:")
-    # print(ls_output)
+    print("Directory listing:")
+    print(ls_output)
     sys.stderr.write(f"ls output captured: {ls_output}\n")
 except subprocess.CalledProcessError as e:
     # print("Error executing ls command:", e)
