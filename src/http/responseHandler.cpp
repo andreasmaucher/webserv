@@ -1,5 +1,7 @@
 #include "../../include/responseHandler.hpp"
 #include "../../include/cgi.hpp"
+#include "../../include/httpRequest.hpp"
+#include "../../include/httpResponse.hpp"
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
@@ -15,6 +17,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   std::cout << "Route found: " << route->uri << std::endl;
   std::cout << "Is CGI route? " << (route->is_cgi ? "yes" : "no") << std::endl;
   // If it's a CGI request, handle it
+  //? CGI RESPONSE request process starts here
   if (route->is_cgi)
   {
     std::cout << "Handling CGI request..." << std::endl;
@@ -67,7 +70,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
       else
       {
         // No headers found in CGI output
-        // MICHAEL: this seems strange - need to check
+        //! MICHAEL: this seems strange - need to check
         response.body = request.body;
         response.setHeader("Content-Type", "text/plain");
       }
