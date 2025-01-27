@@ -222,13 +222,13 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
         char **env_array = setCGIEnvironment(request);
         
         // Execute the CGI script with our environment
-        const char *pythonPath = "/usr/bin/python3";
+        const char *pythonPath = PYTHON_PATH;
         char *const args[] = {
             const_cast<char *>(pythonPath),
             const_cast<char *>(scriptPath.c_str()),
             NULL
         };
-        
+
         execve(pythonPath, args, env_array);  // Use env_array instead of environ
         // Clean up env_array if execve fails
         for (char **env = env_array; *env != NULL; env++) {
