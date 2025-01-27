@@ -122,13 +122,34 @@ char** CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
 {
     // Create environment strings in the format "KEY=VALUE"
     std::vector<std::string> env_strings;
+
+    // Parse URI to separate SCRIPT_NAME and PATH_INFO (added for cgi_tester script)
+    std::string script_name;
+    std::string path_info;
+    
+    size_t cgi_bin_pos = httpRequest.uri.find("/cgi-bin/");
+    if (cgi_bin_pos != std::string::npos) {
+        // Find the end of the script name (next '/' or end of string)
+        size_t script_end = httpRequest.uri.find('/', cgi_bin_pos + 9); // 9 is length of "/cgi-bin/"
+        
+        if (script_end != std::string::npos) {
+            // We have both script name and path info
+            script_name = httpRequest.uri.substr(0, script_end);
+            path_info = httpRequest.uri.substr(script_end);
+        } else {
+            // Only script name, no path info
+            script_name = httpRequest.uri;
+            path_info = "";
+        }
+    }
     
     // Add required CGI environment variables
     env_strings.push_back("REQUEST_METHOD=" + httpRequest.method); // GET, POST, DELETE
     env_strings.push_back("QUERY_STRING=" + httpRequest.queryString); // everything after ? in URL
     env_strings.push_back("CONTENT_LENGTH=" + std::to_string(httpRequest.body.length())); // length of POST data
-    env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri); // path to the CGI script
     env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version); // Usually HTTP/1.1
+    env_strings.push_back("SCRIPT_NAME=" + script_name);   // path to the CGI script e.g., "/cgi-bin/script.py"
+    env_strings.push_back("PATH_INFO=/");  // e.g., "/extra/path"
     
     // Convert strings to char* array
     char **env_array = new char*[env_strings.size() + 1];
