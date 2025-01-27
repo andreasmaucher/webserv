@@ -23,6 +23,7 @@ void MimeTypeMapper::initializeMimeTypes()
     mime_types["py"] = "application/x-python";
     mime_types["php"] = "application/x-php";
     mime_types["cgi"] = "application/x-cgi";
+    mime_types["ico"] = "image/x-icon";
 }
 
 void MimeTypeMapper::initializeCGIExtensions()
@@ -53,15 +54,31 @@ void MimeTypeMapper::extractFileExtension(HttpRequest &request)
 
 void MimeTypeMapper::extractFileName(HttpRequest &request)
 {
+    // Michael : fixed version, hope it doesnt break anything else
     if (request.uri.length() > request.route->uri.length())
     {
-        request.file_name = request.uri.substr(request.route->uri.length() + 1);
+        size_t start_index = request.route->uri.length();
+        if (request.uri[start_index] == '/') // Check if there is a `/`
+        {
+            start_index += 1; // Skip the `/` only if it exists
+        }
+        request.file_name = request.uri.substr(start_index);
     }
     else
     {
         request.file_name = "";
     }
-    DEBUG_MSG("Extracted file name", request.file_name);
+
+    // Old version from Carina, seemed to have a bug- would extrac secret.png and ecret.png
+    // if (request.uri.length() > request.route->uri.length())
+    // {
+    //     request.file_name = request.uri.substr(request.route->uri.length() + 1);
+    // }
+    // else
+    // {
+    //     request.file_name = "";
+    // }
+    DEBUG_MSG("MimeTypeMapper: Extracted file name", request.file_name);
 }
 
 void MimeTypeMapper::findContentType(HttpRequest &request)
@@ -130,6 +147,23 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
         DEBUG_MSG("Content type validation", "No header but file extension matches route (allowed)");
         is_valid = true;
     }
+    // MICHAEL : added this part for files, need to check if logic is correct
+    else if (!request.is_directory)
+    {
+        DEBUG_MSG("URI type", "is a file");
+        if (!request.headers["Content-Type"].empty())
+        {
+            bool header_matches = request.route->content_type.find(request.headers["Content-Type"]) != request.route->content_type.end();
+            DEBUG_MSG("Header content type matches route", header_matches);
+            is_valid = header_matches;
+        }
+        else
+        {
+            DEBUG_MSG("Content type in header", "None (allowed)");
+            is_valid = true;
+        }
+    }
+    // MICHAEL : end of addition
 
     if (!is_valid)
     {

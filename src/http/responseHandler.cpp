@@ -2,6 +2,7 @@
 #include "../../include/cgi.hpp"
 #include "../../include/httpRequest.hpp"
 #include "../../include/httpResponse.hpp"
+#include "../../include/debug.hpp"
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
@@ -412,7 +413,7 @@ void ResponseHandler::extractOrGenerateFilename(HttpRequest &request)
       }
       request.file_name = no_quotes; // Replace original with no_quotes version
       request.file_name = ResponseHandler::sanitizeFileName(request.file_name);
-      std::cout << "Extracted file name: " << request.file_name << std::endl;
+      std::cout << "ResponseHandler: Extracted file name: " << request.file_name << std::endl;
     }
   }
   if (request.file_name.empty())
@@ -471,6 +472,13 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
     if (route_object.is_cgi)
     {
       // For CGI routes, check if the URI starts with the route path
+      is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
+    }
+    else if (!request.is_directory)
+    {
+      DEBUG_MSG("Then request didnt ask for a directory!", "");
+      // For CGI routes, check if the URI starts with the route path
+
       is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
     }
     else

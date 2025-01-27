@@ -53,7 +53,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 }
 
 // Add this helper function
-std::string CGI::constructErrorResponse(int status_code, const std::string& message)
+std::string CGI::constructErrorResponse(int status_code, const std::string &message)
 {
     std::ostringstream response;
     response << "Status: " << status_code << "\r\n";
@@ -84,29 +84,29 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
         // Separate checks for better error messages
         if (access(fullScriptPath.c_str(), F_OK) == -1)
         {
-            request.error_code = 404;  // Not Found
+            request.error_code = 404; // Not Found
             request.body = constructErrorResponse(404, "Script not found: " + fullScriptPath);
             request.complete = true;
             return;
         }
         if (access(fullScriptPath.c_str(), X_OK) == -1)
         {
-            request.error_code = 403;  // Forbidden
+            request.error_code = 403; // Forbidden
             request.body = constructErrorResponse(403, "Script not executable: " + fullScriptPath);
             request.complete = true;
             return;
         }
 
-        //char** env_array = setCGIEnvironment(request);
+        // char** env_array = setCGIEnvironment(request);
         std::string cgiOutput = executeCGI(fd, response, request);
         request.body = cgiOutput;
         request.complete = true;
 
         // Clean up environment variables
-       /*  for (char **env = env_array; *env != NULL; env++) {
-            free(*env);
-        }
-        delete[] env_array; */
+        /*  for (char **env = env_array; *env != NULL; env++) {
+             free(*env);
+         }
+         delete[] env_array; */
     }
     catch (const std::exception &e)
     {
@@ -118,25 +118,31 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
 /*
 Sets up the environment variables for the CGI script; second part converts http headers to env variables
 */
-char** CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
+char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
 {
     // Create environment strings in the format "KEY=VALUE"
     std::vector<std::string> env_strings;
-    
+
     // Add required CGI environment variables
-    env_strings.push_back("REQUEST_METHOD=" + httpRequest.method); // GET, POST, DELETE
+    env_strings.push_back("REQUEST_METHOD=" + httpRequest.method);    // GET, POST, DELETE
     env_strings.push_back("QUERY_STRING=" + httpRequest.queryString); // everything after ? in URL
-    env_strings.push_back("CONTENT_LENGTH=" + std::to_string(httpRequest.body.length())); // length of POST data
-    env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri); // path to the CGI script
+
+    // Convert content length to string using stringstream (C++98 compliant)
+    std::stringstream ss;
+    ss << httpRequest.body.length();
+    env_strings.push_back("CONTENT_LENGTH=" + ss.str()); // length of POST data
+
+    env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri);         // path to the CGI script
     env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version); // Usually HTTP/1.1
-    
+
     // Convert strings to char* array
-    char **env_array = new char*[env_strings.size() + 1];
-    for (size_t i = 0; i < env_strings.size(); i++) {
+    char **env_array = new char *[env_strings.size() + 1];
+    for (size_t i = 0; i < env_strings.size(); i++)
+    {
         env_array[i] = strdup(env_strings[i].c_str());
     }
-    env_array[env_strings.size()] = NULL;  // NULL terminate the array
-    
+    env_array[env_strings.size()] = NULL; // NULL terminate the array
+
     return env_array;
 }
 
@@ -220,18 +226,18 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
 
         // Set up environment variables
         char **env_array = setCGIEnvironment(request);
-        
+
         // Execute the CGI script with our environment
         const char *pythonPath = PYTHON_PATH;
         char *const args[] = {
             const_cast<char *>(pythonPath),
             const_cast<char *>(scriptPath.c_str()),
-            NULL
-        };
+            NULL};
 
-        execve(pythonPath, args, env_array);  // Use env_array instead of environ
+        execve(pythonPath, args, env_array); // Use env_array instead of environ
         // Clean up env_array if execve fails
-        for (char **env = env_array; *env != NULL; env++) {
+        for (char **env = env_array; *env != NULL; env++)
+        {
             free(*env);
         }
         delete[] env_array;

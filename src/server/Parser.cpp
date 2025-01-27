@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/24 17:25:27 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/27 22:50:39 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -86,6 +86,10 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
             {
                 route.methods.insert(value_array.begin(), value_array.end());
             }
+            if (key == "content_type")
+            {
+                route.methods.insert(value_array.begin(), value_array.end());
+            }
         }
         else if (result == KEY_VALUE_PAIR || result == KEY_VALUE_PAIR_WITH_QUOTES)
         {
@@ -127,18 +131,12 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                 }
                 // std::cout << "CGI route detected: " << value << std::endl;
 
-                if (key == "is_cgi"  && value == "true")
+                if (key == "is_cgi" && value == "true")
                 {
                     // std::cout << "CGI route detected: " << key << "| value: |" << value << "|" <<  std::endl;
                     route.is_cgi = true;
                 }
                 // std::cout << "CGI route detected: " << value << std::endl;
-
-                if (key == "is_cgi"  && value == "true")
-                {
-                    // std::cout << "CGI route detected: " << key << "| value: |" << value << "|" <<  std::endl;
-                    route.is_cgi = true;
-                }
             }
         }
         // location_bloc_ok = true;
