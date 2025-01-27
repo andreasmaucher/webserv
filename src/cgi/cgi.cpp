@@ -250,6 +250,7 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response)
     char buffer[4096];
     ssize_t bytes_read;
     size_t total_bytes = 0;
+    (void)total_bytes; //! not really used, take out just for debugging
 
     DEBUG_MSG("Parent: Reading CGI output from output pipe", "");
     while ((bytes_read = read(pipe_out[0], buffer, sizeof(buffer))) > 0)
