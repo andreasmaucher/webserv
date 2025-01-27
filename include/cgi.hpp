@@ -44,6 +44,7 @@ private:
     void sendCGIOutputToClient(int pipefd) const;
     void sendHttpResponseHeaders(const std::string &contentType) const;
     std::string resolveCGIPath(const std::string &uri);
+        std::string constructErrorResponse(int status_code, const std::string& message);
 };
 
 #endif

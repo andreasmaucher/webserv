@@ -132,6 +132,13 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                     // std::cout << "CGI route detected: " << key << "| value: |" << value << "|" <<  std::endl;
                     route.is_cgi = true;
                 }
+                // std::cout << "CGI route detected: " << value << std::endl;
+
+                if (key == "is_cgi"  && value == "true")
+                {
+                    // std::cout << "CGI route detected: " << key << "| value: |" << value << "|" <<  std::endl;
+                    route.is_cgi = true;
+                }
             }
         }
         // location_bloc_ok = true;
