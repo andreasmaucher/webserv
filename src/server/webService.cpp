@@ -224,7 +224,7 @@ int WebService::start()
     DEBUG_MSG("Server Status", "Starting");
     while (true)
     {
-        DEBUG_MSG("Connection Status", "Waiting for connections");
+       // DEBUG_MSG("Connection Status", "Waiting for connections");
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
 
         if (poll_count == -1)
