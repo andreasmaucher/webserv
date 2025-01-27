@@ -39,12 +39,12 @@ private:
     std::string queryString;
     std::string requestBody;
 
-    void setCGIEnvironment(const HttpRequest &httpRequest) const;
-    std::string executeCGI(int &fd, HttpResponse &response);
+    char** setCGIEnvironment(const HttpRequest &httpRequest) const;
+    std::string executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
     void sendCGIOutputToClient(int pipefd) const;
     void sendHttpResponseHeaders(const std::string &contentType) const;
     std::string resolveCGIPath(const std::string &uri);
-        std::string constructErrorResponse(int status_code, const std::string& message);
+    std::string constructErrorResponse(int status_code, const std::string& message);
 };
 
 #endif

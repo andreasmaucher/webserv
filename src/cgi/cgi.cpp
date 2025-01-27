@@ -13,11 +13,6 @@
 #include <iostream>
 #include <map>
 
-/*
-standard way to pass environment variables to the child process
-*/
-extern char **environ;
-
 // Default constructor for the CGI class
 CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requestBody("") {}
 
@@ -102,10 +97,16 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
             return;
         }
 
-        setCGIEnvironment(request);
-        std::string cgiOutput = executeCGI(fd, response);
+        //char** env_array = setCGIEnvironment(request);
+        std::string cgiOutput = executeCGI(fd, response, request);
         request.body = cgiOutput;
         request.complete = true;
+
+        // Clean up environment variables
+       /*  for (char **env = env_array; *env != NULL; env++) {
+            free(*env);
+        }
+        delete[] env_array; */
     }
     catch (const std::exception &e)
     {
@@ -117,30 +118,26 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
 /*
 Sets up the environment variables for the CGI script; second part converts http headers to env variables
 */
-void CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
+char** CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
 {
-    setenv("REQUEST_METHOD", httpRequest.method.c_str(), 1);
-    setenv("QUERY_STRING", httpRequest.queryString.c_str(), 1);
-    std::ostringstream ss;
-    ss << httpRequest.body.length();
-    setenv("CONTENT_LENGTH", ss.str().c_str(), 1);
-    setenv("SCRIPT_NAME", httpRequest.uri.c_str(), 1);
-    setenv("SERVER_PROTOCOL", httpRequest.version.c_str(), 1);
-
-    // Set content type from headers if available
-    std::map<std::string, std::string>::const_iterator contentTypeIt = httpRequest.headers.find("Content-Type");
-    if (contentTypeIt != httpRequest.headers.end())
-    {
-        setenv("CONTENT_TYPE", contentTypeIt->second.c_str(), 1);
+    // Create environment strings in the format "KEY=VALUE"
+    std::vector<std::string> env_strings;
+    
+    // Add required CGI environment variables
+    env_strings.push_back("REQUEST_METHOD=" + httpRequest.method); // GET, POST, DELETE
+    env_strings.push_back("QUERY_STRING=" + httpRequest.queryString); // everything after ? in URL
+    env_strings.push_back("CONTENT_LENGTH=" + std::to_string(httpRequest.body.length())); // length of POST data
+    env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri); // path to the CGI script
+    env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version); // Usually HTTP/1.1
+    
+    // Convert strings to char* array
+    char **env_array = new char*[env_strings.size() + 1];
+    for (size_t i = 0; i < env_strings.size(); i++) {
+        env_array[i] = strdup(env_strings[i].c_str());
     }
-    std::map<std::string, std::string>::const_iterator it;
-    for (it = httpRequest.headers.begin(); it != httpRequest.headers.end(); ++it)
-    {
-        std::string envName = "HTTP_" + it->first;
-        std::replace(envName.begin(), envName.end(), '-', '_');
-        std::transform(envName.begin(), envName.end(), envName.begin(), ::toupper);
-        setenv(envName.c_str(), it->second.c_str(), 1);
-    }
+    env_array[env_strings.size()] = NULL;  // NULL terminate the array
+    
+    return env_array;
 }
 
 /*
@@ -151,7 +148,7 @@ CGI LOGIC:
 4. Parent process reads the script's output
 5. Returns the output as a string
 */
-std::string CGI::executeCGI(int &fd, HttpResponse &response)
+std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
 {
     (void)fd;
     (void)response;
@@ -221,16 +218,23 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response)
         close(pipe_out[0]);
         close(pipe_out[1]);
 
-        // Set environment variables (already done in setCGIEnvironment())
-
-        // Execute the CGI script
-        DEBUG_MSG("Child: Executing CGI script", scriptPath);
+        // Set up environment variables
+        char **env_array = setCGIEnvironment(request);
+        
+        // Execute the CGI script with our environment
         const char *pythonPath = "/usr/bin/python3";
-        char *const args[] = {const_cast<char *>(pythonPath), const_cast<char *>(scriptPath.c_str()), NULL};
-        execve(pythonPath, args, environ);
-
-        // If execve fails
-        DEBUG_MSG("Child: execve failed", strerror(errno));
+        char *const args[] = {
+            const_cast<char *>(pythonPath),
+            const_cast<char *>(scriptPath.c_str()),
+            NULL
+        };
+        
+        execve(pythonPath, args, env_array);  // Use env_array instead of environ
+        // Clean up env_array if execve fails
+        for (char **env = env_array; *env != NULL; env++) {
+            free(*env);
+        }
+        delete[] env_array;
         exit(EXIT_FAILURE);
     }
 
