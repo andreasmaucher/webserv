@@ -484,18 +484,21 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
     DEBUG_MSG("Status", "Comparing request [" + request.uri + "] to route [" + route_uri + "]");
     const Route &route_object = it->second;
 
-    // Modified matching logic to handle CGI paths better
     bool is_match = false;
     if (route_object.is_cgi)
     {
-      // For CGI routes, check if the URI starts with the route path
-      is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
+      // For CGI routes, just check if the URI starts with the route path
+      is_match = (request.uri.find(route_uri) == 0);
     }
     else
     {
-      // For regular routes, use the existing logic
-      is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0 &&
-                  (request.uri.size() == route_uri.size() || request.uri[route_uri.size()] == '/'));
+      // For non-CGI routes, check for exact match or proper path separation
+      is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
+      if (is_match && request.uri.size() > route_uri.size())
+      {
+        char next_char = request.uri[route_uri.size()];
+        is_match = (next_char == '/' || route_uri[route_uri.size() - 1] == '/');
+      }
     }
 
     if (is_match)
