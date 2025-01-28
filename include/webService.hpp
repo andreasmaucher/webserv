@@ -22,7 +22,7 @@
 #include "debug.hpp"
 
 #define DEFAULT_CONFIG "./server/default.conf"
-#define MAX_BACKLOG_UNACCEPTED_CON 260
+#define MAX_BACKLOG_UNACCEPTED_CON 20
 #define BUFFER_SIZE 100
 // #define PORT "8080"
 #define INIT_FD_SIZE 2
@@ -36,10 +36,8 @@ private:
 
     static std::vector<pollfd> pfds_vec; // all pfds (listener and client) for all servers
 
-    std::map<int, Server *> fd_to_server; // fds to respective server objects pointer
-    // std::unordered_map<int, std::pair<Server*, HttpRequest*>> pfd_to_server_request; //client_fds to server and request objects
-
-    struct sockaddr_storage remoteaddr; // Client address (both IPv4 and IPv6)
+    static std::map<int, Server *> fd_to_server; // fds to respective server objects pointer
+    // std::unordered_map<int, std::pair<Server*, HttpRequest*>> pfd_to_server_request; //client_fds to server and request objectient address (both IPv4 and IPv6)
     socklen_t addrlen;
     char buf[BUFFER_SIZE];           // Buff for client data
     char remoteIP[INET6_ADDRSTRLEN]; // To store IP address in string form

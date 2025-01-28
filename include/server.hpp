@@ -7,8 +7,6 @@
 #define ERROR_PATH "/errors/"
 #define POLL_TIMEOUT 3000
 
-
-
 #include <string>
 #include <map>
 #include <set>
@@ -16,8 +14,6 @@
 #include <iostream>
 
 class HttpRequest;
-
-
 
 // Represents a single route. One for each of the location blocks in the config file
 struct Route
@@ -31,9 +27,8 @@ struct Route
     bool directory_listing_enabled;
     bool is_cgi;
 
-    Route() : is_cgi(false) {}
+    Route() : directory_listing_enabled(false), is_cgi(false) {}
 };
-
 
 // Represents the overall server configuration
 class Server

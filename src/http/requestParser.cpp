@@ -8,22 +8,35 @@ void RequestParser::parseRawRequest(HttpRequest &request)
     // Check if we have a complete request (headers end with \r\n\r\n)
     if (request.raw_request.find("\r\n\r\n") == std::string::npos)
     {
-      std::cerr << "[DEBUG] Request status: incomplete - waiting for more data" << std::endl;
+      DEBUG_MSG("Request incomplete, waiting for more data...", "");
       return; // Wait for more data
     }
 
     // parse until headers only in 1st iteration
     if (request.headers_parsed == false)
     {
+      DEBUG_MSG("Complete request received, parsing...", +"");
+      DEBUG_MSG("Raw request:\n[", request.raw_request);
+      DEBUG_MSG("]", "");
+
       RequestParser::tokenizeRequestLine(request);
+      DEBUG_MSG("Request Line parsed: request.method ", request.method);
+
+      DEBUG_MSG("Request.version ", request.version);
+
       RequestParser::tokenizeHeaders(request);
+      DEBUG_MSG("Headers parsed.....................................", "");
     }
+
+    DEBUG_MSG("Parsing body...", "");
+
     return RequestParser::parseBody(request);
   }
   catch (std::exception &e)
   {
-    std::cerr << "Error: " << e.what() << std::endl;
-    std::cerr << "HTTP Error Code: " << request.error_code << std::endl;
+    DEBUG_MSG("Error: ", e.what());
+    DEBUG_MSG("HTTP Error Code: ", request.error_code);
+
     request.complete = true;
     return;
   }
@@ -41,7 +54,7 @@ std::string RequestParser::readLine(const std::string &raw_request, size_t &posi
   }
   else
   {
-    std::cout << "Line incomplete.\nHint: Is buffer size enough? Or chunked transfer encoding used? -> make sure to read until end of headers before starting to parse" << std::endl;
+    DEBUG_MSG("Line incomplete.\nHint: Is buffer size enough? Or chunked transfer encoding used? -> make sure to read until end of headers before starting to parse", "");
   }
   return line;
 }
@@ -59,7 +72,7 @@ bool RequestParser::mandatoryHeadersPresent(HttpRequest &request)
   {
     return false;
   }
-
+  // MICHAEL : Need to add GET and DELETE
   if (request.method == "POST")
   {
     // Check for the Content-Type header
@@ -73,6 +86,18 @@ bool RequestParser::mandatoryHeadersPresent(HttpRequest &request)
       return false;
     }
   }
+  else if (request.method == "GET")
+  {
+  }
+  else if (request.method == "DELETE")
+  {
+  }
+  else
+  {
+    DEBUG_MSG("-------->Weird allow method: ", request.method);
+    request.error_code = 406;
+    return false;
+  }
 
   return true;
 }
@@ -83,7 +108,7 @@ void RequestParser::parseBody(HttpRequest &request)
 
   if (!RequestParser::isBodyExpected(request))
   {
-    //std::cout << "No body expected" << std::endl;
+    DEBUG_MSG("No body expected", "");
     // No body expected but there is extra data in raw_request
     if (request.position < request.raw_request.size())
     {
@@ -118,7 +143,7 @@ void RequestParser::saveChunkedBody(HttpRequest &request)
     if (request.chunk_state.chunk_size == 0)
     {
       request.chunk_state.chunked_done = true;
-      std::cout << "Chunked transfer complete" << std::endl;
+      DEBUG_MSG("Chunked transfer complete", "");
       request.complete = true;
       return; // End of chunked transfer
     }
@@ -190,9 +215,13 @@ void RequestParser::saveContentLengthBody(HttpRequest &request)
     }
     else if (request.body.size() > content_length)
     {
-        request.error_code = 400;
-        throw std::runtime_error("Body size exceeds Content-Length");
+      request.error_code = 400; // 400 BAD_REQUEST
+      throw std::runtime_error("Extra data after body");
     }
+    DEBUG_MSG("Body complete", "");
+    request.complete = true;
+    return; // Full body received
+  }
 }
 
 // Extract headers from request until blank line (\r\n)

@@ -103,7 +103,7 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
     }
     catch (const std::exception &e)
     {
-        DEBUG_MSG("CGI Error", e.what());
+        DEBUG_MSG_1("CGI Error", e.what());
         throw;
     }
 }
