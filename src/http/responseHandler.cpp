@@ -448,22 +448,22 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
 // Store the best match if there are multiple matches (longest prefix match)
 bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, HttpResponse &response)
 {
-    //std::cout << "Finding matching route for [" << request.uri << "]" << std::endl;
+    std::cout << "Finding matching route for [" << request.uri << "]" << std::endl;
     const std::map<std::string, Route> &routes = server.getRoutes();
     const Route *best_match = NULL;
     size_t longest_match_length = 0;
 
   // Debug output for all routes
-  //std::cout << "Available routes:" << std::endl;
+  std::cout << "Available routes:" << std::endl;
   for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
   {
-    //std::cout << "Route: [" << it->first << "] CGI: " << (it->second.is_cgi ? "Yes" : "No") << std::endl;
+    std::cout << "Route: [" << it->first << "] CGI: " << (it->second.is_cgi ? "Yes" : "No") << std::endl;
   }
 
     for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
     {
         const std::string &route_uri = it->first;
-        //std::cout << "Comparing request [" << request.uri << "] to route [" << route_uri << "]" << std::endl;
+        std::cout << "Comparing request [" << request.uri << "] to route [" << route_uri << "]" << std::endl;
         const Route &route_object = it->second;
 
     // Modified matching logic to handle CGI paths better
@@ -487,7 +487,7 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
       {
         best_match = &route_object;
         longest_match_length = match_length;
-        //std::cout << "Found better match: [" << route_uri << "]" << std::endl;
+        std::cout << "Found better match: [" << route_uri << "]" << std::endl;
       }
     }
   }
@@ -499,7 +499,7 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
     return false;
   }
 
-    //std::cout << "Best matching route: [" << best_match->uri << "] CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
+    std::cout << "Best matching route: [" << best_match->uri << "] CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
     request.route = best_match;
     request.is_cgi = best_match->is_cgi;
     return true;
