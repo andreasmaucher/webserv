@@ -259,29 +259,49 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
     DEBUG_MSG("=== RECEIVE REQUEST ===", "");
     DEBUG_MSG("Processing FD", fd);
 
-    if (!server.getRequestObject(fd).complete)
+    char buf[BUFFER_SIZE];
+    int nbytes = recv(fd, buf, sizeof buf, 0);
+    DEBUG_MSG("Bytes received", nbytes);
+
+    if (nbytes <= 0)
     {
-        int nbytes = recv(fd, buf, sizeof buf, 0);
-        DEBUG_MSG("Bytes received", nbytes);
+        closeConnection(fd, i, server);
+        return;
+    }
 
-        if (nbytes <= 0)
-        {
+    buf[nbytes] = '\0';
+    server.getRequestObject(fd).raw_request.append(buf, nbytes);
+    
+    // Try to parse headers if we haven't yet
+    if (!server.getRequestObject(fd).headers_parsed && 
+        server.getRequestObject(fd).raw_request.find("\r\n\r\n") != std::string::npos)
+    {
+        DEBUG_MSG("Request Status", "Parsing headers");
+        try {
+            RequestParser::parseRawRequest(server.getRequestObject(fd));
+        } catch (const std::exception& e) {
+            DEBUG_MSG("Error parsing request", e.what());
             closeConnection(fd, i, server);
+            return;
         }
-        else
-        {
-            buf[nbytes] = '\0';
-            server.getRequestObject(fd).raw_request.append(buf);
-            DEBUG_MSG("Received data from fd", fd);
-            DEBUG_MSG("Data received", buf);
-            DEBUG_MSG("Request object raw_request", server.getRequestObject(fd).raw_request);
+    }
 
-            if (server.getRequestObject(fd).raw_request.find(END_HEADER) != std::string::npos)
-            {
-                DEBUG_MSG("Request Status", "Parsing request");
-                RequestParser::parseRawRequest(server.getRequestObject(fd));
-            }
+    // If headers are parsed, try to parse body
+    if (server.getRequestObject(fd).headers_parsed)
+    {
+        try {
+            RequestParser::parseRawRequest(server.getRequestObject(fd));
+        } catch (const std::exception& e) {
+            DEBUG_MSG("Error parsing body", e.what());
+            closeConnection(fd, i, server);
+            return;
         }
+    }
+
+    DEBUG_MSG("Current body size", server.getRequestObject(fd).body.size());
+    if (server.getRequestObject(fd).complete)
+    {
+        DEBUG_MSG("Request complete", "Ready to process");
     }
 }
 

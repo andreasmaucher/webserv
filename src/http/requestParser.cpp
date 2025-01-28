@@ -3,41 +3,35 @@
 
 void RequestParser::parseRawRequest(HttpRequest &request)
 {
-
   try
   {
     // Check if we have a complete request (headers end with \r\n\r\n)
     if (request.raw_request.find("\r\n\r\n") == std::string::npos)
     {
-      std::cout << "Request incomplete, waiting for more data..." << std::endl;
+      std::cerr << "[DEBUG] Request status: incomplete - waiting for more data" << std::endl;
       return; // Wait for more data
     }
 
     // parse until headers only in 1st iteration
     if (request.headers_parsed == false)
     {
-      std::cout << "Complete request received, parsing..." << std::endl;
-      std::cout << "Raw request:\n[" << request.raw_request << "]" << std::endl;
-
       RequestParser::tokenizeRequestLine(request);
-      std::cout << "Request Line parsed: " << request.method << " " << request.uri << " " << request.version << std::endl;
-
       RequestParser::tokenizeHeaders(request);
-      std::cout << "Headers parsed....................................." << std::endl;
+      
+      // Debug print all headers
+      std::map<std::string, std::string>::const_iterator it;
+      for (it = request.headers.begin(); it != request.headers.end(); ++it) {
+          std::cerr << "[DEBUG] Header: " << it->first << ": " << it->second << std::endl;
+      }
     }
-
-    std::cout << "Parsing body..." << std::endl;
-
     return RequestParser::parseBody(request);
   }
   catch (std::exception &e)
   {
     std::cerr << "Error: " << e.what() << std::endl;
     std::cerr << "HTTP Error Code: " << request.error_code << std::endl;
-
     request.complete = true;
-
-    return; // error. Stop reading. Handle error code in calling func to create appropriate response & clean resources
+    return;
   }
 }
 
@@ -174,35 +168,57 @@ void RequestParser::saveChunkedBody(HttpRequest &request)
 // the body length should match the value of the header
 void RequestParser::saveContentLengthBody(HttpRequest &request)
 {
+    size_t content_length;
+    std::istringstream(request.headers["Content-Length"]) >> content_length;
+    
+    // Debug information
+    std::cerr << "\n=== Processing Body Chunk ===" << std::endl;
+    std::cerr << "[DEBUG] Content-Length: " << content_length << std::endl;
+    std::cerr << "[DEBUG] Current body size: " << request.body.size() << std::endl;
+    std::cerr << "[DEBUG] Current position: " << request.position << std::endl;
+    std::cerr << "[DEBUG] Raw request size: " << request.raw_request.size() << std::endl;
 
-  size_t content_length;
-  std::istringstream(request.headers["Content-Length"]) >> content_length;
-  size_t bytes_needed = content_length - request.body.size();
-
-  // If the content_length is too large or the position is already beyond the total raw request size
-  if (content_length > MAX_BODY_SIZE || request.position >= request.raw_request.size())
-  {
-    request.error_code = 413;
-    throw std::runtime_error("Body too large or incomplete");
-  }
-
-  // Determine how many bytes we can read
-  size_t bytes_to_append = std::min(bytes_needed, request.raw_request.size() - request.position);
-  request.body.append(request.raw_request, request.position, bytes_to_append);
-  request.position += bytes_to_append;
-
-  // If we already have the complete body, check for extra data
-  if (request.body.size() == content_length)
-  {
-    if (request.position < request.raw_request.size())
+    // Check max size
+    if (content_length > MAX_BODY_SIZE)
     {
-      request.error_code = 400; // 400 BAD_REQUEST
-      throw std::runtime_error("Extra data after body");
+        std::cerr << "[DEBUG] Upload failed: Body too large" << std::endl;
+        request.error_code = 413;
+        throw std::runtime_error("Body too large");
     }
-    std::cout << "Body complete" << std::endl;
-    request.complete = true;
-    return; // Full body received
-  }
+
+    // Calculate how much data we can read
+    size_t remaining_bytes = content_length - request.body.size();
+    size_t available_bytes = request.raw_request.size() - request.position;
+    size_t bytes_to_append = std::min(remaining_bytes, available_bytes);
+
+    std::cerr << "[DEBUG] Remaining bytes needed: " << remaining_bytes << std::endl;
+    std::cerr << "[DEBUG] Available bytes: " << available_bytes << std::endl;
+    std::cerr << "[DEBUG] Will append bytes: " << bytes_to_append << std::endl;
+
+    if (bytes_to_append > 0)
+    {
+        request.body.append(request.raw_request, request.position, bytes_to_append);
+        request.position += bytes_to_append;
+        
+        std::cerr << "[DEBUG] New body size: " << request.body.size() << "/" << content_length << std::endl;
+    }
+
+    // Check if we have the complete body
+    if (request.body.size() == content_length)
+    {
+        std::cerr << "[DEBUG] Body complete: success" << std::endl;
+        request.complete = true;
+        return;
+    }
+    else if (request.body.size() > content_length)
+    {
+        std::cerr << "[DEBUG] Upload failed: Body size exceeds Content-Length" << std::endl;
+        request.error_code = 400;
+        throw std::runtime_error("Body size exceeds Content-Length");
+    }
+    
+    std::cerr << "[DEBUG] Body incomplete: " << request.body.size() << "/" << content_length << " bytes" << std::endl;
+    std::cerr << "[DEBUG] Waiting for more data..." << std::endl;
 }
 
 // Extract headers from request until blank line (\r\n)
@@ -277,12 +293,12 @@ void RequestParser::tokenizeRequestLine(HttpRequest &request)
   if (!request.uri.empty() && request.uri[request.uri.length() - 1] == '/')
   {
     request.is_directory = true;
-    DEBUG_MSG("RequestParser: URI indicates a directory", request.uri);
+    std::cerr << "[DEBUG] RequestParser: URI indicates a directory: " << request.uri << std::endl;
   }
   else
   {
     request.is_directory = false;
-    DEBUG_MSG("RequestParser: URI indicates a file", request.uri);
+    std::cerr << "[DEBUG] RequestParser: URI indicates a file: " << request.uri << std::endl;
   }
 }
 

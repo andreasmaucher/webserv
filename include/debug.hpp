@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-#define DEBUG ON
+//#define DEBUG ON
 
 #ifdef DEBUG
 #define DEBUG_MSG(msg, var) std::cerr << "[DEBUG] " << msg << ": " << var << std::endl
