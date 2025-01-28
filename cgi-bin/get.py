@@ -17,7 +17,8 @@ try:
     ls_output = subprocess.check_output(['ls', '-la'], text=True)
     print("Directory listing:")
     print(ls_output)
-    sys.stderr.write(f"ls output captured: {ls_output}\n")
+    # TODO: remove this line this is only for debugging, in the end only printout on stdout which is e.g postman
+    #sys.stderr.write(f"ls output captured: {ls_output}\n")
 except subprocess.CalledProcessError as e:
     # print("Error executing ls command:", e)
     sys.stderr.write(f"Error in ls command: {e}\n")

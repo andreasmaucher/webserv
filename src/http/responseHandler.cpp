@@ -2,7 +2,6 @@
 #include "../../include/cgi.hpp"
 #include "../../include/httpRequest.hpp"
 #include "../../include/httpResponse.hpp"
-#include "../../include/debug.hpp"
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
@@ -15,13 +14,13 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     return;
   }
   const Route *route = request.route; // Route is already stored in request
-  std::cout << "Route found: " << route->uri << std::endl;
-  std::cout << "Is CGI route? " << (route->is_cgi ? "yes" : "no") << std::endl;
+  //std::cout << "Route found: " << route->uri << std::endl;
+  //std::cout << "Is CGI route? " << (route->is_cgi ? "yes" : "no") << std::endl;
   // If it's a CGI request, handle it
   //? CGI RESPONSE request process starts here
   if (route->is_cgi)
   {
-    std::cout << "Handling CGI request..." << std::endl;
+    //std::cout << "Handling CGI request..." << std::endl;
     try
     {
       CGI cgi;
@@ -413,7 +412,7 @@ void ResponseHandler::extractOrGenerateFilename(HttpRequest &request)
       }
       request.file_name = no_quotes; // Replace original with no_quotes version
       request.file_name = ResponseHandler::sanitizeFileName(request.file_name);
-      std::cout << "ResponseHandler: Extracted file name: " << request.file_name << std::endl;
+      std::cout << "Extracted file name: " << request.file_name << std::endl;
     }
   }
   if (request.file_name.empty())
@@ -449,36 +448,29 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
 // Store the best match if there are multiple matches (longest prefix match)
 bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Finding matching route for [" << request.uri << "]" << std::endl;
-  const std::map<std::string, Route> &routes = server.getRoutes();
-  const Route *best_match = NULL;
-  size_t longest_match_length = 0;
+    //std::cout << "Finding matching route for [" << request.uri << "]" << std::endl;
+    const std::map<std::string, Route> &routes = server.getRoutes();
+    const Route *best_match = NULL;
+    size_t longest_match_length = 0;
 
   // Debug output for all routes
-  std::cout << "Available routes:" << std::endl;
+  //std::cout << "Available routes:" << std::endl;
   for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
   {
-    std::cout << "Route: [" << it->first << "] CGI: " << (it->second.is_cgi ? "Yes" : "No") << std::endl;
+    //std::cout << "Route: [" << it->first << "] CGI: " << (it->second.is_cgi ? "Yes" : "No") << std::endl;
   }
 
-  for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
-  {
-    const std::string &route_uri = it->first;
-    std::cout << "Comparing request [" << request.uri << "] to route [" << route_uri << "]" << std::endl;
-    const Route &route_object = it->second;
+    for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
+    {
+        const std::string &route_uri = it->first;
+        //std::cout << "Comparing request [" << request.uri << "] to route [" << route_uri << "]" << std::endl;
+        const Route &route_object = it->second;
 
     // Modified matching logic to handle CGI paths better
     bool is_match = false;
     if (route_object.is_cgi)
     {
       // For CGI routes, check if the URI starts with the route path
-      is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
-    }
-    else if (!request.is_directory)
-    {
-      DEBUG_MSG("Then request didnt ask for a directory!", "");
-      // For CGI routes, check if the URI starts with the route path
-
       is_match = (request.uri.compare(0, route_uri.size(), route_uri) == 0);
     }
     else
@@ -495,7 +487,7 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
       {
         best_match = &route_object;
         longest_match_length = match_length;
-        std::cout << "Found better match: [" << route_uri << "]" << std::endl;
+        //std::cout << "Found better match: [" << route_uri << "]" << std::endl;
       }
     }
   }
@@ -507,10 +499,10 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
     return false;
   }
 
-  std::cout << "Best matching route: [" << best_match->uri << "] CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
-  request.route = best_match;
-  request.is_cgi = best_match->is_cgi;
-  return true;
+    //std::cout << "Best matching route: [" << best_match->uri << "] CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
+    request.route = best_match;
+    request.is_cgi = best_match->is_cgi;
+    return true;
 }
 
 bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &response)

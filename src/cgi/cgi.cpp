@@ -52,7 +52,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     return fullPath;
 }
 
-// Add this helper function
+// helper function to construct error response for non-existent or non-executable scripts
 std::string CGI::constructErrorResponse(int status_code, const std::string &message)
 {
     std::ostringstream response;
@@ -81,7 +81,7 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
         method = request.method;
         requestBody = request.body;
 
-        // Separate checks for better error messages
+        // When the script file doesn't exist
         if (access(fullScriptPath.c_str(), F_OK) == -1)
         {
             request.error_code = 404; // Not Found
@@ -89,6 +89,7 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
             request.complete = true;
             return;
         }
+        // When the script file isn't executable
         if (access(fullScriptPath.c_str(), X_OK) == -1)
         {
             request.error_code = 403; // Forbidden
@@ -96,17 +97,9 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
             request.complete = true;
             return;
         }
-
-        // char** env_array = setCGIEnvironment(request);
         std::string cgiOutput = executeCGI(fd, response, request);
         request.body = cgiOutput;
         request.complete = true;
-
-        // Clean up environment variables
-        /*  for (char **env = env_array; *env != NULL; env++) {
-             free(*env);
-         }
-         delete[] env_array; */
     }
     catch (const std::exception &e)
     {
@@ -120,36 +113,28 @@ Sets up the environment variables for the CGI script; second part converts http 
 */
 char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
 {
-    // Create environment strings in the format "KEY=VALUE"
     std::vector<std::string> env_strings;
-
-    // Add required CGI environment variables
     env_strings.push_back("REQUEST_METHOD=" + httpRequest.method);    // GET, POST, DELETE
     env_strings.push_back("QUERY_STRING=" + httpRequest.queryString); // everything after ? in URL
-
+    env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri);         // path to the CGI script
+    env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version); // Usually HTTP/1.1
     // Convert content length to string using stringstream (C++98 compliant)
     std::stringstream ss;
     ss << httpRequest.body.length();
     env_strings.push_back("CONTENT_LENGTH=" + ss.str()); // length of POST data
-
-    // Add Content-Type if present (crucial for multipart form data)
+    // Add Content-Type if present (crucial for multipart form data like file uploads)
     std::map<std::string, std::string>::const_iterator it = httpRequest.headers.find("Content-Type");
     if (it != httpRequest.headers.end()) {
         env_strings.push_back("CONTENT_TYPE=" + it->second);
         DEBUG_MSG("CGI Content-Type", it->second);
     }
-
-    env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri);         // path to the CGI script
-    env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version); // Usually HTTP/1.1
-
     // Convert strings to char* array
     char **env_array = new char *[env_strings.size() + 1];
     for (size_t i = 0; i < env_strings.size(); i++)
     {
         env_array[i] = strdup(env_strings[i].c_str());
     }
-    env_array[env_strings.size()] = NULL; // NULL terminate the array
-
+    env_array[env_strings.size()] = NULL;
     return env_array;
 }
 
@@ -233,15 +218,13 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
 
         // Set up environment variables
         char **env_array = setCGIEnvironment(request);
-
-        // Execute the CGI script with our environment
+        // Execute the CGI script
         const char *pythonPath = PYTHON_PATH;
         char *const args[] = {
             const_cast<char *>(pythonPath),
             const_cast<char *>(scriptPath.c_str()),
             NULL};
-
-        execve(pythonPath, args, env_array); // Use env_array instead of environ
+        execve(pythonPath, args, env_array);
         // Clean up env_array if execve fails
         for (char **env = env_array; *env != NULL; env++)
         {
@@ -267,7 +250,7 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
             if (bytes_written == -1)
             {
                 DEBUG_MSG("Parent: Failed to write POST data", strerror(errno));
-                // Close file descriptors and throw
+                // Close file descriptors and throw error
                 close(pipe_in[1]);
                 close(pipe_out[0]);
                 throw std::runtime_error("Failed to write POST data to CGI stdin");
@@ -289,14 +272,11 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     std::string cgi_output;
     char buffer[4096];
     ssize_t bytes_read;
-    size_t total_bytes = 0;
-    (void)total_bytes; //! not really used, take out just for debugging
 
     DEBUG_MSG("Parent: Reading CGI output from output pipe", "");
     while ((bytes_read = read(pipe_out[0], buffer, sizeof(buffer))) > 0)
     {
         cgi_output.append(buffer, bytes_read);
-        total_bytes += bytes_read;
         DEBUG_MSG("Parent: Read bytes from CGI", bytes_read);
     }
 
@@ -307,8 +287,6 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
         close(pipe_out[0]);
         throw std::runtime_error("Error reading CGI output");
     }
-
-    DEBUG_MSG("Parent: Total bytes read", total_bytes);
     close(pipe_out[0]); // Close read end after reading
 
     // Wait for child process to finish
@@ -332,7 +310,7 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
         DEBUG_MSG("Parent: Child exit status", "abnormal");
     }
 
-    // Assign CGI output to request.body
+    // Assign CGI output to response.body
     response.body = cgi_output;
     DEBUG_MSG("Parent: Response body size", response.body.length());
     DEBUG_MSG("=== CGI EXECUTION END ===", "");
