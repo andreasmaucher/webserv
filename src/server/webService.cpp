@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/27 00:06:53 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/28 15:40:18 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,6 +15,7 @@
 
 std::vector<pollfd> WebService::pfds_vec;
 std::vector<Server> WebService::servers;
+std::map<int, Server *> WebService::fd_to_server;
 
 WebService::WebService(const std::string &config_file)
 {
@@ -47,6 +48,7 @@ void WebService::cleanup()
             close((*it).getListenerFd());
         }
     }
+    fd_to_server.clear(); // Clear the map
 }
 
 WebService::~WebService()
@@ -224,7 +226,7 @@ int WebService::start()
     DEBUG_MSG("Server Status", "Starting");
     while (true)
     {
-       // DEBUG_MSG("Connection Status", "Waiting for connections");
+        // DEBUG_MSG("Connection Status", "Waiting for connections");
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
 
         if (poll_count == -1)
