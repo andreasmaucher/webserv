@@ -132,6 +132,13 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     ss << httpRequest.body.length();
     env_strings.push_back("CONTENT_LENGTH=" + ss.str()); // length of POST data
 
+    // Add Content-Type if present (crucial for multipart form data)
+    std::map<std::string, std::string>::const_iterator it = httpRequest.headers.find("Content-Type");
+    if (it != httpRequest.headers.end()) {
+        env_strings.push_back("CONTENT_TYPE=" + it->second);
+        DEBUG_MSG("CGI Content-Type", it->second);
+    }
+
     env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri);         // path to the CGI script
     env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version); // Usually HTTP/1.1
 
