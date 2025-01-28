@@ -10,18 +10,18 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   // Find matching route
   if (!findMatchingRoute(config, request, response))
   {
-    std::cout << "No matching route found" << std::endl;
+    DEBUG_MSG("Route status", "No matching route found");
     response.status_code = 404;
     return;
   }
   const Route *route = request.route; // Route is already stored in request
-  std::cout << "Route found: " << route->uri << std::endl;
-  std::cout << "Is CGI route? " << (route->is_cgi ? "yes" : "no") << std::endl;
+  DEBUG_MSG("Route found", route->uri);
+  DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
   // If it's a CGI request, handle it
   //? CGI RESPONSE request process starts here
   if (route->is_cgi)
   {
-    std::cout << "Handling CGI request..." << std::endl;
+    DEBUG_MSG_1("Request status", "Handling CGI request");
     try
     {
       CGI cgi;
@@ -82,7 +82,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     }
     catch (const std::exception &e)
     {
-      std::cerr << "CGI execution failed: " << e.what() << std::endl;
+      DEBUG_MSG("CGI execution failed", e.what());
       response.status_code = 500;
       response.body = "CGI execution failed";
       response.close_connection = true;
@@ -92,7 +92,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   }
 
   /* -- Carinas part starts here -- */
-  std::cout << "Processing request" << std::endl;
+  DEBUG_MSG("Status", "Processing request");
   // from here on, we will populate & use the response object status code only
   // response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
   // find connection header and set close_connection in response object
@@ -117,21 +117,21 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
 
 void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Routing request" << std::endl;
+  DEBUG_MSG("Status", "Routing request");
   MimeTypeMapper mapper;
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
   if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response))
   {
     if (request.is_cgi)
     { // at this point its been routed already and checked if (CGI)extension is allowed
-      std::cout << "calling CGI handler" << std::endl;
+      DEBUG_MSG("Status", "Calling CGI handler");
       //! CGI PROCESS STARTS
       CGI cgiHandler;
       cgiHandler.handleCGIRequest(fd, request, response);
     }
     else
     {
-      std::cout << "calling static content handler" << std::endl;
+      DEBUG_MSG("Status", "Calling static content handler");
       staticContentHandler(request, response);
     }
   }
@@ -160,7 +160,7 @@ void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &r
 // at this point the path is set in the request!
 void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Serve static file" << std::endl;
+  DEBUG_MSG("Status", "Serving static file");
   // handle directory listing first, since the next block sets response error codes
   //  Default Index File: If directory listing is off, the server typically looks for a default index file, like index.html or index.php, in the requested directory. If found, it serves that file. If not found, it may return a 403 Forbidden or 404 Not Found response, depending on server configuration.
   //  Directory Listing Enabled: If directory listing is enabled, and no default index file exists, the server will dynamically generate a page showing the contents of the directory, so the user can browse the files.
@@ -169,7 +169,7 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
     request.file_name = DEFAULT_FILE; // index of all server directories
     request.is_directory = false;     // to avoid the fileExists directory check
     // if (config.routes[request.uri].directory_listing) {
-    //   std::cout << "Implement directory listing" << std::endl;
+    //   DEBUG_MSG("Implement directory listing" << std::endl;
     //   //search for & serve default index file or generate dynamically
     //   // Generate directory listing
     // }
@@ -187,16 +187,33 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
 bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response)
 {
   std::ifstream file;
+  errno = 0;
   file.open(request.path.c_str(), std::ios::in | std::ios::binary);
 
   if (!file.is_open())
   {
+    DEBUG_MSG_1("Cant open file", strerror(errno));
     response.status_code = 500;
     return false;
   }
+  if (file.fail() || file.bad())
+  {
+    DEBUG_MSG_1("Error", "Failed to read file: " + request.path);
+    DEBUG_MSG_1("Error details", strerror(errno));
+    file.close();
+    return false;
+  }
+  errno = 0;
 
   std::ostringstream buffer;
   buffer << file.rdbuf();
+  if (file.fail() || file.bad())
+  {
+    DEBUG_MSG_1("Error", "Failed while reading file: " + request.path);
+    DEBUG_MSG_1("Error details", strerror(errno));
+    file.close();
+    return false;
+  }
   response.body = buffer.str();
   file.close();
   response.status_code = 200;
@@ -207,7 +224,7 @@ bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response)
 
 void ResponseHandler::processFileUpload(HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Processing file upload" << std::endl;
+  DEBUG_MSG("Status", "Processing file upload");
 
   if (request.body.empty())
   {
@@ -234,24 +251,24 @@ void ResponseHandler::writeToFile(HttpRequest &request, HttpResponse &response)
     response.status_code = 201;
     response.body = "File uploaded successfully";
     response.setHeader("Content-Type", "text/plain");
-    std::cout << "File uploaded successfully" << std::endl;
+    DEBUG_MSG("Upload status", "File uploaded successfully");
   }
   else
   {
-    std::cout << "Error writing to file" << std::endl;
+    DEBUG_MSG("Error", "Failed writing to file");
     response.status_code = 500;
   }
 }
 
 void ResponseHandler::processFileDeletion(HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Processing file deletion" << std::endl;
+  DEBUG_MSG("Status", "Processing file deletion");
   constructFullPath(request, response);
 
   // Check if the file exists at the location. Permission check??
   if (fileExists(request, response))
   {
-    std::cout << "Deleting file" << std::endl;
+    DEBUG_MSG("Status", "Deleting file");
     removeFile(request, response);
   }
 }
@@ -286,25 +303,25 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
   // if (access(request.path.c_str(), F_OK) == 0) {
   if (stat(request.path.c_str(), &path_stat) == 0 && (!request.is_directory && S_ISREG(path_stat.st_mode)))
   {
-    std::cout << "File exists and accessible" << std::endl;
+    DEBUG_MSG("File status", "File exists and accessible");
     if (request.method == "POST")
     {
-      std::cout << "File already exists" << std::endl;
+      DEBUG_MSG("File status", "File already exists");
       response.status_code = 409;
     }
     return true;
   }
   if (request.method == "GET" || (request.method == "DELETE" && !request.is_directory))
   {
-    std::cout << "File does not exist" << std::endl;
+    DEBUG_MSG("File status", "File does not exist");
     response.status_code = 404;
   }
   else if (request.method == "DELETE" && request.is_directory)
   {
-    std::cout << "Directory deletion not implemented" << std::endl;
+    DEBUG_MSG("Status", "Directory deletion not implemented");
     response.status_code = 501;
   }
-  std::cout << "File does not exist or not accessible" << std::endl;
+  DEBUG_MSG("File status", "File does not exist or not accessible");
   return false;
 }
 
@@ -334,7 +351,7 @@ void ResponseHandler::finalizeFullPath(HttpRequest &request, size_t &last_slash_
   if (last_slash_pos != std::string::npos)
   {
     request.file_name = request.file_name.substr(last_slash_pos + 1);
-    std::cout << "File name: " << request.file_name << std::endl;
+    DEBUG_MSG("File name", request.file_name);
   }
   // If no filename, extract or generate filename. Only for POST
   else if (request.method == "POST")
@@ -344,7 +361,7 @@ void ResponseHandler::finalizeFullPath(HttpRequest &request, size_t &last_slash_
 
   request.path += "/" + request.file_name;
 
-  std::cout << "Full path to the conent: " << request.path << std::endl;
+  DEBUG_MSG("Full path to content", request.path);
 
   return;
 }
@@ -356,14 +373,14 @@ bool ResponseHandler::handleSubdirectory(HttpRequest &request, HttpResponse &res
   {
     // Extract subdirectory path (e.g., "subdir") and update full_path
     std::string sub_dir = request.file_name.substr(0, last_slash_pos);
-    std::cout << "Subdirectory found: " << sub_dir << std::endl;
+    DEBUG_MSG("Subdirectory found", sub_dir);
     request.path += "/" + sub_dir;
 
     // Check if the directory path exists up to this point
     struct stat path_stat;
     if (stat(request.path.c_str(), &path_stat) != 0 || !S_ISDIR(path_stat.st_mode))
     {
-      std::cout << "Subdirectory/path does not exist" << std::endl;
+      DEBUG_MSG("Path status", "Subdirectory/path does not exist");
       response.status_code = 404;
       return false;
     }
@@ -413,13 +430,13 @@ void ResponseHandler::extractOrGenerateFilename(HttpRequest &request)
       }
       request.file_name = no_quotes; // Replace original with no_quotes version
       request.file_name = ResponseHandler::sanitizeFileName(request.file_name);
-      std::cout << "ResponseHandler: Extracted file name: " << request.file_name << std::endl;
+      DEBUG_MSG("Extracted file name", request.file_name);
     }
   }
   if (request.file_name.empty())
   {
     request.file_name = generateTimestampName();
-    std::cout << "Generated file name with timestamp: " << request.file_name << std::endl;
+    DEBUG_MSG("Generated file name", request.file_name);
   }
 }
 
@@ -449,22 +466,22 @@ bool ResponseHandler::hasReadPermission(const std::string &file_path, HttpRespon
 // Store the best match if there are multiple matches (longest prefix match)
 bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Finding matching route for [" << request.uri << "]" << std::endl;
+  DEBUG_MSG("Status", "Finding matching route for [" + request.uri + "]");
   const std::map<std::string, Route> &routes = server.getRoutes();
   const Route *best_match = NULL;
   size_t longest_match_length = 0;
 
   // Debug output for all routes
-  std::cout << "Available routes:" << std::endl;
+  DEBUG_MSG("Status", "Available routes:");
   for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
   {
-    std::cout << "Route: [" << it->first << "] CGI: " << (it->second.is_cgi ? "Yes" : "No") << std::endl;
+    DEBUG_MSG("Status", "Route: [" + it->first + "] CGI: " + (it->second.is_cgi ? "Yes" : "No"));
   }
 
   for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
   {
     const std::string &route_uri = it->first;
-    std::cout << "Comparing request [" << request.uri << "] to route [" << route_uri << "]" << std::endl;
+    DEBUG_MSG("Status", "Comparing request [" + request.uri + "] to route [" + route_uri + "]");
     const Route &route_object = it->second;
 
     // Modified matching logic to handle CGI paths better
@@ -495,19 +512,19 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
       {
         best_match = &route_object;
         longest_match_length = match_length;
-        std::cout << "Found better match: [" << route_uri << "]" << std::endl;
+        DEBUG_MSG("Status", "Found better match: [" + route_uri + "]");
       }
     }
   }
 
   if (best_match == NULL)
   {
-    std::cout << "No matching route found" << std::endl;
+    DEBUG_MSG("Status", "No matching route found");
     response.status_code = 404;
     return false;
   }
 
-  std::cout << "Best matching route: [" << best_match->uri << "] CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
+  DEBUG_MSG("Status", "Best matching route: [" + best_match->uri + "] CGI: " + (best_match->is_cgi ? "Yes" : "No"));
   request.route = best_match;
   request.is_cgi = best_match->is_cgi;
   return true;
@@ -515,18 +532,18 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
 
 bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Checking if method " << request.method << " is allowed" << std::endl;
+  DEBUG_MSG("Status", "Checking if method " + request.method + " is allowed");
   // Verify the requested method is allowed in that route searching in the set
   if (request.route->methods.find(request.method) == request.route->methods.end())
   {
-    std::cout << "Method not allowed in route" << std::endl;
+    DEBUG_MSG("Status", "Method not allowed in route");
     response.status_code = 405;
     std::string header_key = "Allow";
     std::string header_value = ResponseHandler::createAllowedMethodsStr(request.route->methods);
     response.setHeader(header_key, header_value);
     return false;
   }
-  std::cout << "Method allowed in route" << std::endl;
+  DEBUG_MSG("Status", "Method allowed in route");
   return true;
 }
 
@@ -550,7 +567,7 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
     allowed += *it;
     allowed += ", ";
   }
-  std::cout << "crashing here?" << std::endl;
+  DEBUG_MSG("Status", "crashing here?");
   if (!allowed.empty())
   {
     allowed.erase(allowed.size() - 2, 2); // Remove trailing comma and space
@@ -562,9 +579,10 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 // Populates the response object. The formatted response function is in the response class
 void ResponseHandler::responseBuilder(HttpResponse &response)
 {
-  std::cout << "Building response" << std::endl;
-
-  std::cout << "Status code: " << response.status_code << std::endl;
+  DEBUG_MSG("Status", "Building response");
+  std::ostringstream oss;
+  oss << response.status_code;
+  DEBUG_MSG("Status", "Status code: " + oss.str());
 
   response.version = "HTTP/1.1";
   // 4xx or 5xx -> has a body with error message
@@ -587,8 +605,7 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
   if (response.close_connection == true && response.headers.find("Connection") == response.headers.end())
     response.headers["Connection"] = "close";
 
-  std::cout << "\n..............Response complete..............\n"
-            << std::endl;
+  DEBUG_MSG("\n..............Response complete..............\n", "");
 }
 
 std::string ResponseHandler::generateDateHeader()
@@ -635,14 +652,14 @@ std::string ResponseHandler::buildFullPath(int status_code)
 
 std::string ResponseHandler::read_error_file(std::string &file_path)
 {
-  std::cout << "Trying to read error file path: " << file_path << std::endl;
+  DEBUG_MSG("Trying to read error file path: ", file_path);
   std::ifstream file;
 
   file.open(file_path.c_str(), std::ios::in | std::ios::binary);
 
   if (!file.is_open())
   {
-    std::cout << "Error reading ERROR file" << std::endl;
+    DEBUG_MSG_1("Error reading ERROR file", "");
     return "";
   }
 

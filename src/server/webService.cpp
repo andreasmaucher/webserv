@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/28 15:40:18 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/28 19:16:00 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -48,6 +48,7 @@ void WebService::cleanup()
             close((*it).getListenerFd());
         }
     }
+
     fd_to_server.clear(); // Clear the map
 }
 
@@ -76,7 +77,7 @@ int WebService::get_listener_socket(const std::string &port)
 
     if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0)
     {
-        DEBUG_MSG("getaddrinfo error", gai_strerror(addrinfo_status));
+        DEBUG_MSG_1("getaddrinfo error", gai_strerror(addrinfo_status));
         return -1;
     }
 
@@ -87,14 +88,14 @@ int WebService::get_listener_socket(const std::string &port)
         listener_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         if (listener_fd < 0)
         {
-            DEBUG_MSG("socket() error", strerror(errno));
+            DEBUG_MSG_1("socket() error", strerror(errno));
             continue;
         }
 
         DEBUG_MSG("Setting SO_REUSEADDR", "in progress");
         if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
         {
-            DEBUG_MSG("setsockopt error", strerror(errno));
+            DEBUG_MSG_1("setsockopt error", strerror(errno));
             close(listener_fd);
             continue;
         }
@@ -102,7 +103,7 @@ int WebService::get_listener_socket(const std::string &port)
         DEBUG_MSG("Setting SO_REUSEPORT", "in progress");
         if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEPORT, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
         {
-            DEBUG_MSG("setsockopt error", strerror(errno));
+            DEBUG_MSG_1("setsockopt error", strerror(errno));
             close(listener_fd);
             continue;
         }
@@ -110,7 +111,7 @@ int WebService::get_listener_socket(const std::string &port)
         DEBUG_MSG("Binding socket", "in progress");
         if (bind(listener_fd, p->ai_addr, p->ai_addrlen) < 0)
         {
-            DEBUG_MSG("bind() error", strerror(errno));
+            DEBUG_MSG_1("bind() error", strerror(errno));
             close(listener_fd);
             continue;
         }
@@ -122,9 +123,12 @@ int WebService::get_listener_socket(const std::string &port)
 
     freeaddrinfo(ai);
     ai = NULL;
-
+    errno = 0;
     if (listen(listener_fd, MAX_BACKLOG_UNACCEPTED_CON) == -1)
+    {
+        DEBUG_MSG_1("Listend failed, error", strerror(errno));
         return -1;
+    }
 
     return listener_fd;
 }
@@ -151,7 +155,7 @@ void WebService::deleteFromPfdsVec(int &fd, size_t &i)
     }
     else
     {
-        DEBUG_MSG("Error: fd not found in vector at index", i);
+        DEBUG_MSG_1("Error: fd not found in vector at index", i);
     }
 }
 
@@ -163,9 +167,7 @@ void WebService::deleteRequestObject(int &fd, Server &server)
 void WebService::closeConnection(int &fd, size_t &i, Server &server)
 {
     if (close(fd) == -1)
-        DEBUG_MSG("Closing connection FD failed", strerror(errno));
-    else
-        DEBUG_MSG("Closed fd", fd);
+        DEBUG_MSG_1("Closing connection FD failed", strerror(errno));
 
     deleteFromPfdsVec(fd, i);
     deleteRequestObject(fd, server);
@@ -188,16 +190,20 @@ void WebService::mapFdToServer(int new_fd, Server &server)
 void WebService::newConnection(Server &server)
 {
     DEBUG_MSG("New connection", "incoming");
+    struct sockaddr_storage remoteaddr;
     addrlen = sizeof remoteaddr;
     int new_fd = accept(server.getListenerFd(), (struct sockaddr *)&remoteaddr, &addrlen);
 
+    errno = 0;
     if (new_fd == -1)
     {
-        DEBUG_MSG("Accept error", strerror(errno));
+        DEBUG_MSG_1("Accept error", strerror(errno));
     }
     else
     {
-        DEBUG_MSG("New connection accepted for server " + server.getName() + " on fd", new_fd);
+        DEBUG_MSG("New connection accepted for server ", server.getName());
+        DEBUG_MSG("On fd", new_fd);
+
         addToPfdsVector(new_fd);
         mapFdToServer(new_fd, server);
         createRequestObject(new_fd, server);
@@ -209,9 +215,12 @@ void WebService::setupSockets()
 {
     for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it)
     {
+        errno = 0;
         int listener_fd = get_listener_socket((*it).getPort());
         if (listener_fd == -1)
         {
+            DEBUG_MSG_1("get_listener_socket failed", strerror(errno));
+
             throw std::runtime_error("Error getting listening socket for server: " + (*it).getName());
         }
         (*it).setListenerFd(listener_fd);
@@ -227,11 +236,12 @@ int WebService::start()
     while (true)
     {
         // DEBUG_MSG("Connection Status", "Waiting for connections");
+        errno = 0;
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
 
         if (poll_count == -1)
         {
-            DEBUG_MSG("Poll error", strerror(errno));
+            DEBUG_MSG_1("Poll error", strerror(errno));
             continue;
         }
 
@@ -251,6 +261,26 @@ int WebService::start()
             {
                 sendResponse(pollfd_obj.fd, i, *server_obj);
             }
+            // else if (pollfd_obj.revents & POLLPRI)
+            // {
+            //     DEBUG_MSG_1("------------>POLL says POLLPRI", "");
+            // }
+            // else if (pollfd_obj.revents & POLLERR)
+            // {
+            //     DEBUG_MSG_1("------------>POLL says POLLERR", "");
+            // }
+            // else if (pollfd_obj.revents & POLLHUP)
+            // {
+            //     DEBUG_MSG_1("------------>POLL says POLLHUP", "");
+            // }
+            // else if (pollfd_obj.revents & POLLNVAL)
+            // {
+            //     DEBUG_MSG_1("------------>POLL says POLLNVAL", "");
+            // }
+            // else
+            // {
+            //     DEBUG_MSG_1("------------>POLL says SOME OTHER ERROR", strerror(errno));
+            // }
         }
     }
 }
@@ -263,11 +293,18 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 
     if (!server.getRequestObject(fd).complete)
     {
+        errno = 0;
         int nbytes = recv(fd, buf, sizeof buf, 0);
         DEBUG_MSG("Bytes received", nbytes);
 
-        if (nbytes <= 0)
+        if (nbytes == 0)
         {
+            DEBUG_MSG("Receive closed succesfully", nbytes);
+            closeConnection(fd, i, server);
+        }
+        else if (nbytes < 0)
+        {
+            DEBUG_MSG_1("Receive failed, error", strerror(errno));
             closeConnection(fd, i, server);
         }
         else
@@ -300,7 +337,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         std::string responseStr = response.generateRawResponseStr();
         if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
         {
-            DEBUG_MSG("Send error", strerror(errno));
+            DEBUG_MSG_1("Send error ", strerror(errno));
         }
         DEBUG_MSG("Response sent to fd", fd);
 
@@ -462,7 +499,7 @@ void WebService::sigintHandler(int signal)
 //         configs.push_back(new_config);
 //     }
 
-//     std::cout << "Parsed " << configs.size() << " server configurations" << std::endl;
+//     DEBUG_MSG("Parsed " << configs.size() << " server configurations" << std::endl;
 
 //     // Use first config as main config
 //     if (!configs.empty())
@@ -478,6 +515,6 @@ void WebService::sigintHandler(int signal)
 //         configs.erase(configs.begin());
 //     }
 
-//     std::cout << "First server port: " << port << std::endl;
+//     DEBUG_MSG("First server port: " << port << std::endl;
 //     return found_server;
 // }

@@ -6,12 +6,14 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/27 22:50:39 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/01/28 17:48:44 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../../include/Parser.hpp"
 #include "../../include/server.hpp"
+#include "../../include/debug.hpp"
+
 
 Parser::Parser()
 {
@@ -102,44 +104,20 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                     route.uri = value;
                     route.path = server.getRootDirectory() + route.uri;
                 }
-                //     route.path = value;
-                //     //staticRoute.uri = "/static";
-                //     //     staticRoute.path = config.getRootDirectory() + staticRoute.uri;
-                //     //! ANDY Set CGI flag if this is a cgi-bin path
-                //     // route.is_cgi = (value.find("/cgi-bin/") != std::string::npos);
-                //     // if (route.is_cgi)
-                //     // {
-                //     //     std::cout << "CGI route detected: " << value << std::endl;
-                //     // }
-                // }
-                // if (key == "path")
-                // {
-                //     route.uri = value;
-                //     route.path = value;
-                //     //staticRoute.uri = "/static";
-                //     //     staticRoute.path = config.getRootDirectory() + staticRoute.uri;
-                //     //! ANDY Set CGI flag if this is a cgi-bin path
-                //     // route.is_cgi = (value.find("/cgi-bin/") != std::string::npos);
-                //     // if (route.is_cgi)
-                //     // {
-                //     //     std::cout << "CGI route detected: " << value << std::endl;
-                //     // }
-                // }
                 else if (key == "index")
                 {
                     route.index_file = value;
                 }
-                // std::cout << "CGI route detected: " << value << std::endl;
-
                 if (key == "is_cgi" && value == "true")
                 {
-                    // std::cout << "CGI route detected: " << key << "| value: |" << value << "|" <<  std::endl;
                     route.is_cgi = true;
                 }
-                // std::cout << "CGI route detected: " << value << std::endl;
+                if (key == "directory_listing_enabled" && value == "true")
+                {
+                    route.directory_listing_enabled = true;
+                }
             }
         }
-        // location_bloc_ok = true;
     }
 
     if (!route.path.empty() && !route.methods.empty())
@@ -148,8 +126,6 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
         server.setRoute(route.uri, route);
         return true;
     }
-    // server.setRoute(route.uri, route);
-    // server.debugPrintRoutes();
     return true;
 }
 
@@ -157,13 +133,11 @@ bool Parser::checkMaxBodySize(const std::string &value)
 {
     char *end;
     long value_long = strtol(value.c_str(), &end, 10);
-    // if (is)
     if (end == value.c_str() || *end != '\0')
         return false;
 
     if (value_long <= 0 || value_long > MAX_BODY_SIZE)
         return false;
-    // (atoi(value) >)
     return true;
 }
 
@@ -332,20 +306,17 @@ bool Parser::parseKeyArray(const std::string &line, std::string &key, std::set<s
             i++;
             j++;
         }
-
         if (i < value.length() && value[i] == '"')
         {
             inside_quotes = true;
             i++;
             j++;
         }
-
         // Find closing quote
         while (j < value.length() && value[j] != '"')
         {
             j++;
         }
-
         if (j < value.length()) // Found closing quote
         {
             inside_quotes = false;
@@ -432,14 +403,14 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
             if (atoi(value.c_str()) > 0 && atoi(value.c_str()) < 65535)
                 server.port = value;
             else
-                std::cerr << "Incorrect port: " << value << std::endl;
+                DEBUG_MSG("Incorrect port: ", value);
         }
         if (key == "host")
         {
             if (ipValidityChecker(value))
                 server.host = value;
             else
-                std::cerr << "Incorrect ip address: " << value << std::endl;
+                DEBUG_MSG("Incorrect ip address: ", value);
         }
         if (key == "root")
             server.setRootDirectory(value);
@@ -451,7 +422,7 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
                 server.client_max_body_size = value;
             else
             {
-                std::cerr << "Invalid client max body size : " << value << std::endl;
+                DEBUG_MSG("Invalid client max body size : ", value);
                 server.clear();
                 return false;
             }
@@ -467,7 +438,7 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
     std::ifstream file(config_file.c_str());
     if (!file.is_open())
     {
-        std::cerr << "Error: can't open config file" << std::endl;
+        DEBUG_MSG("Error: can't open config file", "");
         return servers_vector;
     }
     server_block_ok = false;
@@ -492,15 +463,8 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
         {
             parseLocationBlock(file, new_server);
         }
-        // std::cout << "---------->> server_block_ok: " << server_block_ok << std::endl;
-        // std::cout << "---------->> error_block_ok: " << error_block_ok << std::endl;
-        // std::cout << "---------->> location_bloc_ok: " << location_bloc_ok << std::endl;
-        // std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
-
         if (server_block_ok && error_block_ok && location_bloc_ok && new_server_found)
         {
-            // std::cout << "Added server, host: " << new_server.host <<" port: " << new_server.port << std::endl;
-
             servers_vector.push_back(new_server);
             new_server.clear();
             server_block_ok = false;
@@ -509,10 +473,6 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
             new_server_found = false;
         }
     }
-    // std::cout << "---------->> server_block_ok: " << server_block_ok << std::endl;
-    // std::cout << "---------->> error_block_ok: " << error_block_ok << std::endl;
-    // std::cout << "---------->> location_bloc_ok: " << location_bloc_ok << std::endl;
-    // std::cout << "---------->> new_server_found: " << new_server_found << std::endl;
     if (server_block_ok && error_block_ok && location_bloc_ok && new_server_found)
     {
         servers_vector.push_back(new_server);
