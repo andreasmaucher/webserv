@@ -221,7 +221,6 @@ void RequestParser::saveContentLengthBody(HttpRequest &request)
     DEBUG_MSG("Body complete", "");
     request.complete = true;
     return; // Full body received
-  }
 }
 
 // Extract headers from request until blank line (\r\n)

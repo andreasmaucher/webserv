@@ -345,7 +345,8 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
     if (server.getRequestObject(fd).complete)
     {
         DEBUG_MSG("Request complete", "Ready to process");
-    }
+            }
+        }
     }
 }
 
