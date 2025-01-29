@@ -5,6 +5,7 @@ import json
 
 # Debug information to stderr
 sys.stderr.write("Python POST CGI script starting...\n")
+sys.stderr.write(f"Script PID: {os.getpid()}\n")
 
 try:
     # Print headers first (always needed)
@@ -14,13 +15,13 @@ try:
     # Get the content length from environment variable
     content_length = int(os.environ.get('CONTENT_LENGTH', 0))
     
-    # Debug info
     sys.stderr.write(f"Content-Length: {content_length}\n")
+    sys.stderr.write("Starting to read POST data...\n")
     
     # Read POST data from stdin
     post_data = sys.stdin.read(content_length) if content_length > 0 else ""
     
-    # Debug info
+    sys.stderr.write(f"Finished reading POST data. Length: {len(post_data)}\n")
     sys.stderr.write(f"Received data: {post_data}\n")
     
     # Create response object
@@ -36,11 +37,12 @@ try:
         }
     }
     
+    sys.stderr.write("Preparing to send response...\n")
     # Output JSON response
     print(json.dumps(response, indent=2))
+    sys.stderr.write("Response sent.\n")
 
 except Exception as e:
-    # If something goes wrong, send error response with headers
     sys.stderr.write(f"Error in script: {str(e)}\n")
     print("Content-Type: application/json")
     print()

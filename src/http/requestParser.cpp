@@ -105,31 +105,47 @@ bool RequestParser::mandatoryHeadersPresent(HttpRequest &request)
 // define MAX_BODY_SIZE in requestParser.hpp or in config file? 1MB in NGINX
 void RequestParser::parseBody(HttpRequest &request)
 {
-
-  if (!RequestParser::isBodyExpected(request))
-  {
-    DEBUG_MSG("No body expected", "");
-    // No body expected but there is extra data in raw_request
-    if (request.position < request.raw_request.size())
+    DEBUG_MSG("Parsing body...", "");
+    
+    // If we expect a body (based on headers)
+    if (isBodyExpected(request))
     {
-      request.error_code = 400;
-      throw std::runtime_error("Body present but not expected");
+        size_t content_length = 0;
+        std::istringstream(request.headers["Content-Length"]) >> content_length;
+        
+        DEBUG_MSG("Expected Content-Length", content_length);
+        DEBUG_MSG("Current body size", request.body.size());
+        
+        // Calculate remaining data after headers
+        size_t headers_end = request.raw_request.find("\r\n\r\n");
+        if (headers_end != std::string::npos)
+        {
+            headers_end += 4; // Move past \r\n\r\n
+            std::string body_data = request.raw_request.substr(headers_end);
+            request.body = body_data;
+            
+            // Check if we have received all the data
+            if (request.body.length() == content_length)
+            {
+                request.complete = true;
+                DEBUG_MSG("Body complete", "");
+            }
+            else
+            {
+                DEBUG_MSG("Body incomplete", "Waiting for more data");
+                request.complete = false;
+            }
+        }
     }
-    request.complete = true;
-    return;
-  }
-
-  if (request.headers.find("Transfer-Encoding") != request.headers.end() && request.headers["Transfer-Encoding"] == "chunked")
-  {
-    return saveChunkedBody(request);
-  }
-
-  return saveContentLengthBody(request);
+    else
+    {
+        request.complete = true;
+        DEBUG_MSG("No body expected", "");
+    }
 }
 
 void RequestParser::saveChunkedBody(HttpRequest &request)
 {
-
   // If we're not in the middle of a chunk, read the chunk size
   if (!request.chunk_state.in_chunk)
   {

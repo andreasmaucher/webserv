@@ -246,26 +246,40 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     {
         if (!requestBody.empty())
         {
-            ssize_t bytes_written = write(pipe_in[1], requestBody.c_str(), requestBody.length());
-            if (bytes_written == -1)
+            std::cerr << "CGI POST: Starting to write POST data" << std::endl;
+            std::cerr << "POST data length: " << requestBody.length() << std::endl;
+            
+            const size_t CHUNK_SIZE = 4096;
+            size_t total_written = 0;
+            const char* data = requestBody.c_str();
+            size_t remaining = requestBody.length();
+            
+            while (remaining > 0)
             {
-                DEBUG_MSG("Parent: Failed to write POST data", strerror(errno));
-                // Close file descriptors and throw error
-                close(pipe_in[1]);
-                close(pipe_out[0]);
-                throw std::runtime_error("Failed to write POST data to CGI stdin");
+                size_t to_write = std::min(CHUNK_SIZE, remaining);
+                ssize_t written = write(pipe_in[1], data + total_written, to_write);
+                
+                if (written == -1) 
+                {
+                    std::cerr << "Write error: " << strerror(errno) << std::endl;
+                    close(pipe_in[1]);
+                    throw std::runtime_error("Failed to write to CGI input pipe");
+                }
+                
+                total_written += written;
+                remaining -= written;
+                
+                std::cerr << "Written " << written << " bytes, total " << total_written 
+                          << " of " << requestBody.length() << std::endl;
             }
-            DEBUG_MSG("Parent: Wrote bytes to CGI stdin", bytes_written);
+            
+            std::cerr << "CGI POST: Finished writing POST data" << std::endl;
         }
-        // After writing, close the write end to send EOF to CGI's stdin
-        close(pipe_in[1]);
-        DEBUG_MSG("Parent: Closed write end of input pipe after writing POST data", "");
+        close(pipe_in[1]); // Close write end after writing
     }
     else
     {
-        // For GET requests, close the write end as there's no data to send
-        close(pipe_in[1]);
-        DEBUG_MSG("Parent: Closed write end of input pipe (no POST data)", "");
+        close(pipe_in[1]); // Close write end immediately for non-POST requests
     }
 
     // Read CGI output from pipe_out[0]
@@ -273,11 +287,11 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     char buffer[4096];
     ssize_t bytes_read;
 
-    DEBUG_MSG("Parent: Reading CGI output from output pipe", "");
+    std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
     while ((bytes_read = read(pipe_out[0], buffer, sizeof(buffer))) > 0)
     {
+        std::cerr << "Parent: Read bytes from CGI: " << bytes_read << std::endl;
         cgi_output.append(buffer, bytes_read);
-        DEBUG_MSG("Parent: Read bytes from CGI", bytes_read);
     }
 
     if (bytes_read == -1)

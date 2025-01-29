@@ -288,8 +288,8 @@ int WebService::start()
 // implement timeout for recv()?
 void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
-    DEBUG_MSG("=== RECEIVE REQUEST ===", "");
-    DEBUG_MSG("Processing FD", fd);
+    //DEBUG_MSG("=== RECEIVE REQUEST ===", "");
+    //DEBUG_MSG("Processing FD", fd);
 
     if (!server.getRequestObject(fd).complete)
     {
