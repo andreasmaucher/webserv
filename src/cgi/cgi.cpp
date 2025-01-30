@@ -180,6 +180,19 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     DEBUG_MSG("Output pipe - Read FD", pipe_out[0]);
     DEBUG_MSG("Output pipe - Write FD", pipe_out[1]);
 
+    // Make output pipe non-blocking
+    int flags = fcntl(pipe_out[0], F_GETFL, 0);
+    if (flags == -1)
+    {
+        DEBUG_MSG("Error getting flags", strerror(errno));
+        throw std::runtime_error("fcntl F_GETFL failed");
+    }
+    if (fcntl(pipe_out[0], F_SETFL, flags | O_NONBLOCK) == -1)
+    {
+        DEBUG_MSG("Error setting non-blocking", strerror(errno));
+        throw std::runtime_error("fcntl F_SETFL failed");
+    }
+
     pid_t pid = fork();
     if (pid == -1)
     {
@@ -285,23 +298,39 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     // Read CGI output from pipe_out[0]
     std::string cgi_output;
     char buffer[4096];
-    ssize_t bytes_read;
+    const int MAX_RETRIES = 1000;  // Adjust as needed
+    int retry_count = 0;
 
     std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
-    while ((bytes_read = read(pipe_out[0], buffer, sizeof(buffer))) > 0)
-    {
-        std::cerr << "Parent: Read bytes from CGI: " << bytes_read << std::endl;
-        cgi_output.append(buffer, bytes_read);
+    while (retry_count < MAX_RETRIES) {
+        ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
+        
+        if (bytes_read > 0) {
+            cgi_output.append(buffer, bytes_read);
+            retry_count = 0;  // Reset counter on successful read
+        }
+        else if (bytes_read == 0) {
+            break;  // EOF reached
+        }
+        else if (bytes_read == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep(10000);  // Wait 1ms before retry
+                retry_count++;
+                continue;
+            }
+            else {
+                throw std::runtime_error("Error reading CGI output");
+            }
+        }
     }
 
-    if (bytes_read == -1)
-    {
-        DEBUG_MSG("Parent: Error reading CGI output", strerror(errno));
-        // Close output pipe before throwing
-        close(pipe_out[0]);
-        throw std::runtime_error("Error reading CGI output");
+    if (retry_count >= MAX_RETRIES) {
+        DEBUG_MSG("CGI read timeout", "Script exceeded maximum execution time");
+        //throw std::runtime_error("CGI read timeout");
+        kill(pid, SIGTERM);  // Try graceful termination
+            usleep(10000);      // Wait 100ms
+            kill(pid, SIGKILL);
     }
-    close(pipe_out[0]); // Close read end after reading
 
     // Wait for child process to finish
     int status;
