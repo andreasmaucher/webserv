@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <fcntl.h>
 #include <algorithm>
 #include <cstring>
 #include <iostream>
@@ -179,19 +178,6 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     }
     DEBUG_MSG("Output pipe - Read FD", pipe_out[0]);
     DEBUG_MSG("Output pipe - Write FD", pipe_out[1]);
-
-    // Make output pipe non-blocking
-    int flags = fcntl(pipe_out[0], F_GETFL, 0);
-    if (flags == -1)
-    {
-        DEBUG_MSG("Error getting flags", strerror(errno));
-        throw std::runtime_error("fcntl F_GETFL failed");
-    }
-    if (fcntl(pipe_out[0], F_SETFL, flags | O_NONBLOCK) == -1)
-    {
-        DEBUG_MSG("Error setting non-blocking", strerror(errno));
-        throw std::runtime_error("fcntl F_SETFL failed");
-    }
 
     pid_t pid = fork();
     if (pid == -1)
