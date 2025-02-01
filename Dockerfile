@@ -19,4 +19,6 @@ RUN sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/inst
 
 # Executes zsh as main process of the container
 CMD ["zsh"]
+#CMD ["make re && ./webserv tomldb.config"]
+
 
