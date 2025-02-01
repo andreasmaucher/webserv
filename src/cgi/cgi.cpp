@@ -12,6 +12,7 @@
 #include <iostream>
 #include <map>
 
+
 // Default constructor for the CGI class
 CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requestBody("") {}
 
