@@ -128,6 +128,11 @@ int WebService::get_listener_socket(const std::string &port)
 
 void WebService::addToPfdsVector(int new_fd)
 {
+    // Reserve space before adding to prevent reallocation during iteration
+    if (pfds_vec.size() == pfds_vec.capacity()) {
+        pfds_vec.reserve(pfds_vec.capacity() * 2 + 1);
+    }
+
     struct pollfd new_pollfd;
     new_pollfd.fd = new_fd;
     new_pollfd.events = POLLIN | POLLOUT;
@@ -230,7 +235,9 @@ int WebService::start()
         // Store current size to prevent invalid access during iteration, to fix valgrind error
         size_t current_size = pfds_vec.size();
         
-        int poll_count = poll(pfds_vec.data(), current_size, POLL_TIMEOUT);
+        // Use a reference to avoid copying
+        std::vector<pollfd>& poll_fds = pfds_vec;
+        int poll_count = poll(poll_fds.data(), current_size, POLL_TIMEOUT);
 
         if (poll_count == -1)
         {
@@ -244,9 +251,9 @@ int WebService::start()
         // Iterate backwards to handle removals safely
         for (size_t i = current_size; i-- > 0;)
         {
-            if (i >= pfds_vec.size()) continue; // Safety check
+            if (i >= poll_fds.size()) continue; // Safety check
             
-            pollfd &pollfd_obj = pfds_vec[i];
+            pollfd &pollfd_obj = poll_fds[i];
             if (pollfd_obj.revents == 0)
                 continue;
                 
