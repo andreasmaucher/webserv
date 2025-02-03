@@ -42,6 +42,43 @@ std::string CGI::resolveCGIPath(const std::string &uri)
         throw std::runtime_error("Failed to get current working directory");
     }
     std::string projectRoot = std::string(buffer);
+    
+    // Find where the script name ends (at .py)
+    size_t scriptEnd = uri.find(".py");
+    if (scriptEnd == std::string::npos) {
+        throw std::runtime_error("No .py script found in URI");
+    }
+    scriptEnd += 3; // include the ".py"
+    
+    // Extract just the script part (without PATH_INFO)
+    std::string scriptUri = uri.substr(0, scriptEnd);
+    
+    // Remove "/cgi-bin" from the script path
+    std::string relativePath = scriptUri.substr(8);
+    
+    std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
+    
+    DEBUG_MSG("Project root", projectRoot);
+    DEBUG_MSG("URI", uri);
+    DEBUG_MSG("Script URI", scriptUri);
+    DEBUG_MSG("Full resolved path", fullPath);
+    
+    // Check if script exists
+    if (access(fullPath.c_str(), F_OK) == -1)
+    {
+        throw std::runtime_error("Script not found: " + fullPath);
+    }
+    
+    return fullPath;
+}
+/* std::string CGI::resolveCGIPath(const std::string &uri)
+{
+    char buffer[PATH_MAX];
+    if (getcwd(buffer, PATH_MAX) == NULL)
+    {
+        throw std::runtime_error("Failed to get current working directory");
+    }
+    std::string projectRoot = std::string(buffer);
     DEBUG_MSG("Project root", projectRoot);
     DEBUG_MSG("URI", uri);
 
@@ -50,16 +87,68 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
     DEBUG_MSG("Full resolved path", fullPath);
     return fullPath;
-}
+} */
 
 // helper function to construct error response for non-existent or non-executable scripts
-std::string CGI::constructErrorResponse(int status_code, const std::string &message)
+std::string CGI::constructErrorResponse(int status_code, const std::string& message)
 {
     std::ostringstream response;
-    response << "Status: " << status_code << "\r\n";
-    response << "Content-Type: text/plain\r\n\r\n";
+    response << "HTTP/1.1 " << status_code << " " << getStatusMessage(status_code) << "\r\n";
+    response << "Content-Type: text/plain\r\n";
+    response << "Connection: close\r\n";
+    response << "\r\n";
     response << message;
     return response.str();
+}
+
+// Helper function to get status message
+std::string CGI::getStatusMessage(int status_code)
+{
+    switch (status_code) {
+        case 200: return "OK";
+        case 400: return "Bad Request";
+        case 404: return "Not Found";
+        case 500: return "Internal Server Error";
+        default: return "Unknown";
+    }
+}
+
+// Helper function to extract path info
+std::string CGI::extractPathInfo(const std::string &uri)
+{
+    size_t scriptEnd = uri.find(".py");
+    if (scriptEnd == std::string::npos) {
+        return "";
+    }
+    scriptEnd += 3; // move past ".py"
+    
+    if (scriptEnd >= uri.length()) {
+        return "";
+    }
+    
+    std::string pathInfo = uri.substr(scriptEnd + 1); // +1 to skip the leading '/'
+    
+    // Additional security checks
+    if (pathInfo.find(".py") != std::string::npos) {
+        throw std::runtime_error("Invalid PATH_INFO: Cannot contain .py files");
+    }
+    
+    // Optional: Add more restrictions on allowed file types
+    const std::string allowed_extensions[] = {".jpg", ".jpeg", ".png", ".gif"};
+    bool is_allowed = false;
+    for (size_t i = 0; i < sizeof(allowed_extensions) / sizeof(allowed_extensions[0]); ++i) {
+        if (pathInfo.length() >= allowed_extensions[i].length() &&
+            pathInfo.substr(pathInfo.length() - allowed_extensions[i].length()) == allowed_extensions[i]) {
+            is_allowed = true;
+            break;
+        }
+    }
+    
+    if (!is_allowed) {
+        throw std::runtime_error("Invalid file type in PATH_INFO");
+    }
+    
+    return pathInfo;
 }
 
 /*
@@ -76,6 +165,7 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
     (void)response;
     try
     {
+        // First check if the script exists
         std::string fullScriptPath = resolveCGIPath(request.uri);
         scriptPath = fullScriptPath;
         method = request.method;
@@ -89,14 +179,31 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
             request.complete = true;
             return;
         }
-        // When the script file isn't executable
-        if (access(fullScriptPath.c_str(), X_OK) == -1)
-        {
-            request.error_code = 403; // Forbidden
-            request.body = constructErrorResponse(403, "Script not executable: " + fullScriptPath);
+
+        try {
+            // Check if there's a path parameter (file reference)
+            std::string pathInfo = extractPathInfo(request.uri);
+            if (!pathInfo.empty())
+            {
+                // Check if the referenced file exists in uploads directory
+                std::string filePath = "www/uploads/" + pathInfo;
+                if (access(filePath.c_str(), F_OK) == -1)
+                {
+                    request.error_code = 404;
+                    request.body = constructErrorResponse(404, "Referenced file not found: " + pathInfo);
+                    request.complete = true;
+                    return;
+                }
+            }
+        } catch (const std::runtime_error& e) {
+            // Handle validation errors from extractPathInfo
+            request.error_code = 400; // Bad Request
+            request.body = constructErrorResponse(400, e.what());
             request.complete = true;
             return;
         }
+
+        // If we get here, both script and target file (if specified) exist
         std::string cgiOutput = executeCGI(fd, response, request);
         request.body = cgiOutput;
         request.complete = true;
@@ -104,7 +211,9 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
     catch (const std::exception &e)
     {
         DEBUG_MSG_1("CGI Error", e.what());
-        throw;
+        request.error_code = 500;
+        request.body = constructErrorResponse(500, "Internal Server Error: " + std::string(e.what()));
+        request.complete = true;
     }
 }
 
@@ -383,8 +492,8 @@ void CGI::cleanupProcess(pid_t pid) {
 void CGI::checkRunningProcesses() {
     time_t current_time = time(NULL);
     
-    std::cout << "Checking CGI processes at timestamp" << current_time << std::endl;
-    std::cout << "Number of running processes" << running_processes.size() << std::endl;
+    //std::cout << "Checking CGI processes at timestamp" << current_time << std::endl;
+    //std::cout << "Number of running processes" << running_processes.size() << std::endl;
     
     std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
     while (it != running_processes.end()) {

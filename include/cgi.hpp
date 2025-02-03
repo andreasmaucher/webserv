@@ -66,6 +66,8 @@ private:
     
     static void addProcess(pid_t pid, int output_pipe, HttpRequest* req);
     static void cleanupProcess(pid_t pid);
+    std::string extractPathInfo(const std::string &uri);
+    std::string getStatusMessage(int status_code);
 };
 
 #endif
