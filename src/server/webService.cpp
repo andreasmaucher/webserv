@@ -227,8 +227,10 @@ int WebService::start()
     DEBUG_MSG("Server Status", "Starting");
     while (true)
     {
-        // DEBUG_MSG("Connection Status", "Waiting for connections");
-        int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
+        // Store current size to prevent invalid access during iteration, to fix valgrind error
+        size_t current_size = pfds_vec.size();
+        
+        int poll_count = poll(pfds_vec.data(), current_size, POLL_TIMEOUT);
 
         if (poll_count == -1)
         {
@@ -239,11 +241,19 @@ int WebService::start()
         // Check CGI processes for timeouts
         CGI::checkRunningProcesses();
 
-        for (size_t i = pfds_vec.size(); i-- > 0;)
+        // Iterate backwards to handle removals safely
+        for (size_t i = current_size; i-- > 0;)
         {
+            if (i >= pfds_vec.size()) continue; // Safety check
+            
             pollfd &pollfd_obj = pfds_vec[i];
             if (pollfd_obj.revents == 0)
                 continue;
+                
+            // Check if fd exists in map before accessing
+            if (fd_to_server.find(pollfd_obj.fd) == fd_to_server.end()) {
+                continue;
+            }
             Server *server_obj = fd_to_server[pollfd_obj.fd];
 
             if (pollfd_obj.revents & POLLIN)
