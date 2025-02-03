@@ -11,6 +11,7 @@
 #include <cstring>
 #include <iostream>
 #include <map>
+#include <ctime>
 
 // Default constructor for the CGI class
 CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requestBody("") {}
@@ -236,6 +237,11 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     // Parent process
     DEBUG_MSG("Parent: Child PID", pid);
 
+    // Add process to tracking map right after fork
+    addProcess(pid, pipe_out[0], &request);
+    DEBUG_MSG("Added CGI process to tracking map", pid);
+    DEBUG_MSG("Current timestamp", time(NULL));
+
     // Close unused file descriptors in parent
     close(pipe_in[0]);  // Close read end of input pipe
     close(pipe_out[1]); // Close write end of output pipe
@@ -289,6 +295,9 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
 
     std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
     while (retry_count < MAX_RETRIES) {
+        // Check for timeout during read
+        checkRunningProcesses();
+        //! the parent process is blockes waiting for output fro the child process in the loop
         ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
         
         if (bytes_read > 0) {
@@ -343,5 +352,70 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     response.body = cgi_output;
     DEBUG_MSG("Parent: Response body size", response.body.length());
     DEBUG_MSG("=== CGI EXECUTION END ===", "");
+
+    // Clean up process from tracking map for endless scripts
+    cleanupProcess(pid);
+    DEBUG_MSG("Removed CGI process from tracking map", pid);
+
     return cgi_output;
+}
+
+std::map<pid_t, CGI::CGIProcess> CGI::running_processes;
+
+void CGI::addProcess(pid_t pid, int output_pipe, HttpRequest* req) {
+    CGIProcess proc;
+    proc.start_time = time(NULL);
+    proc.output_pipe = output_pipe;
+    proc.request = req;
+    
+    DEBUG_MSG("Adding new CGI process PID", pid);
+    running_processes[pid] = proc;
+}
+
+void CGI::cleanupProcess(pid_t pid) {
+    if (running_processes.find(pid) != running_processes.end()) {
+        close(running_processes[pid].output_pipe);
+        running_processes.erase(pid);
+        DEBUG_MSG("Cleaned up CGI process", pid);
+    }
+}
+
+void CGI::checkRunningProcesses() {
+    time_t current_time = time(NULL);
+    
+    std::cout << "Checking CGI processes at timestamp" << current_time << std::endl;
+    std::cout << "Number of running processes" << running_processes.size() << std::endl;
+    
+    std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
+    while (it != running_processes.end()) {
+        pid_t pid = it->first;
+        CGIProcess& proc = it->second;
+        
+        // Check for timeout
+        if (current_time - proc.start_time > CGI_TIMEOUT) {
+            DEBUG_MSG("CGI process timed out, killing PID", pid);
+            
+            kill(pid, SIGTERM);  // Try graceful termination
+            usleep(100000);      // Wait 100ms
+            
+            if (waitpid(pid, NULL, WNOHANG) == 0) {
+                DEBUG_MSG("Process still running after SIGTERM, sending SIGKILL", pid);
+                kill(pid, SIGKILL);  // Force kill if still running
+            }
+            
+            if (proc.request) {
+                // Create a temporary CGI object to use constructErrorResponse
+                CGI cgi;
+                proc.request->body = cgi.constructErrorResponse(504, "CGI timeout");
+                proc.request->complete = true;
+            }
+            
+            cleanupProcess(pid);
+            std::map<pid_t, CGIProcess>::iterator temp = it;
+            ++it;
+            running_processes.erase(temp);
+        } else {
+            ++it;
+        }
+    }
 }

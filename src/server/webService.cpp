@@ -12,6 +12,7 @@
 
 #include "../../include/webService.hpp"
 #include "../../include/Parser.hpp"
+#include "../../include/cgi.hpp"
 
 std::vector<pollfd> WebService::pfds_vec;
 std::vector<Server> WebService::servers;
@@ -234,6 +235,9 @@ int WebService::start()
             DEBUG_MSG_1("Poll error", strerror(errno));
             continue;
         }
+
+        // Check CGI processes for timeouts
+        CGI::checkRunningProcesses();
 
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {

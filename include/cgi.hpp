@@ -15,9 +15,13 @@
 #include "../include/httpRequest.hpp"
 #include "../include/requestParser.hpp"
 #include "../include/httpResponse.hpp"
+#include <map>
+#include <ctime>
 
 // this is the path to the python interpreter, needs to be adjusted depening on the users system
 #define PYTHON_PATH "/usr/bin/python3";
+
+#define CGI_TIMEOUT 5
 
 class HttpResponse;
 
@@ -34,6 +38,8 @@ public:
 
     void sendResponse(const std::string &response) const;
 
+    static void checkRunningProcesses();
+
 private:
     int clientSocket;
     std::string scriptPath;
@@ -47,6 +53,19 @@ private:
     void sendHttpResponseHeaders(const std::string &contentType) const;
     std::string resolveCGIPath(const std::string &uri);
     std::string constructErrorResponse(int status_code, const std::string& message);
+
+    struct CGIProcess {
+        time_t start_time;          // When the process started
+        int output_pipe;            // Only need output pipe to read data
+        HttpRequest* request;       // To update request status if timeout occurs
+        
+        CGIProcess() : start_time(0), output_pipe(-1), request(NULL) {}
+    };
+
+    static std::map<pid_t, CGIProcess> running_processes;
+    
+    static void addProcess(pid_t pid, int output_pipe, HttpRequest* req);
+    static void cleanupProcess(pid_t pid);
 };
 
 #endif
