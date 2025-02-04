@@ -399,42 +399,41 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     // Read CGI output from pipe_out[0]
     std::string cgi_output;
     char buffer[4096];
-    const int MAX_RETRIES = 1000;  // Adjust as needed
-    int retry_count = 0;
+
 
     std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
-    while (retry_count < MAX_RETRIES) {
+    
         // Check for timeout during read
-        checkRunningProcesses();
+    checkRunningProcesses();
         //! the parent process is blockes waiting for output fro the child process in the loop
-        ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
+    ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
         
-        if (bytes_read > 0) {
-            cgi_output.append(buffer, bytes_read);
-            retry_count = 0;  // Reset counter on successful read
+    if (bytes_read > 0) {
+        cgi_output.append(buffer, bytes_read);
+    }
+    else if (bytes_read == 0) {
+        // break;  // EOF reached
+    }
+    else if (bytes_read == -1) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) 
+        {
+            usleep(10000);  // Wait 1ms before retry
+            // continue;
         }
-        else if (bytes_read == 0) {
-            break;  // EOF reached
-        }
-        else if (bytes_read == -1) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                usleep(10000);  // Wait 1ms before retry
-                retry_count++;
-                continue;
-            }
-            else {
-                throw std::runtime_error("Error reading CGI output");
-            }
+        else
+        {
+            throw std::runtime_error("Error reading CGI output");
         }
     }
+    
 
-    if (retry_count >= MAX_RETRIES) {
-        DEBUG_MSG("CGI read timeout", "Script exceeded maximum execution time");
-        //throw std::runtime_error("CGI read timeout");
-        kill(pid, SIGTERM);  // Try graceful termination
-            usleep(10000);      // Wait 100ms
-            kill(pid, SIGKILL);
-    }
+    // if (retry_count >= MAX_RETRIES) {
+    //     DEBUG_MSG("CGI read timeout", "Script exceeded maximum execution time");
+    //     //throw std::runtime_error("CGI read timeout");
+    //     kill(pid, SIGTERM);  // Try graceful termination
+    //         usleep(10000);      // Wait 100ms
+    //         kill(pid, SIGKILL);
+    // }
 
     // Wait for child process to finish
     int status;
