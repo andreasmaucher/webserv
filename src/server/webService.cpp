@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/05 01:55:43 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/05 02:03:41 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,6 +17,7 @@
 std::vector<pollfd> WebService::pfds_vec;
 std::vector<Server> WebService::servers;
 std::map<int, Server *> WebService::fd_to_server;
+std::map<int, HttpResponse *> WebService::cgi_fd_to_http_response; // fds to respective server objects pointer
 
 WebService::WebService(const std::string &config_file)
 {
@@ -129,7 +130,8 @@ int WebService::get_listener_socket(const std::string &port)
 void WebService::addToPfdsVector(int new_fd)
 {
     // Reserve space before adding to prevent reallocation during iteration
-    if (pfds_vec.size() == pfds_vec.capacity()) {
+    if (pfds_vec.size() == pfds_vec.capacity())
+    {
         pfds_vec.reserve(pfds_vec.capacity() * 2 + 1);
     }
 
@@ -233,9 +235,9 @@ int WebService::start()
     while (true)
     {
         // Store current size to prevent invalid access during iteration, to fix valgrind error
-        
+
         // Use a reference to avoid copying
-        std::vector<pollfd>& poll_fds = pfds_vec;
+        std::vector<pollfd> &poll_fds = pfds_vec;
         int poll_count = poll(poll_fds.data(), pfds_vec.size(), POLL_TIMEOUT);
 
         if (poll_count == -1)
@@ -250,20 +252,23 @@ int WebService::start()
         // Iterate backwards to handle removals safely
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
-            if (i >= poll_fds.size()) continue; // Safety check
-            
+            if (i >= poll_fds.size())
+                continue; // Safety check
+
             pollfd &pollfd_obj = poll_fds[i];
             if (pollfd_obj.revents == 0)
                 continue;
-                
+
             // Check if fd exists in map of regular request or cgi requests before accessing
-            if (fd_to_server.find(pollfd_obj.fd) == fd_to_server.end()) {
+            if (fd_to_server.find(pollfd_obj.fd) == fd_to_server.end())
+            {
                 continue;
             }
-            // if (cgi_fd_to_http_response.find(pollfd_obj) == cgi_fd_to_http_response.end()) {
-            //     continue;
-            // }
-            
+            if (WebService::cgi_fd_to_http_response.find(pollfd_obj.fd) == WebService::cgi_fd_to_http_response.end())
+            {
+                continue;
+            }
+
             Server *server_obj = fd_to_server[pollfd_obj.fd];
 
             if (pollfd_obj.revents & POLLIN)

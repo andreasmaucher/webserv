@@ -421,12 +421,12 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     // Map cgi fd to http responses
     // if (!response.complete)
     // {
-    //     pollfd pollfd_obj;
-    //     pollfd_obj.fd = WebService::pfds_vec.size() + 1;
-    //     pollfd_obj.revents = POLLIN;
+    // pollfd pollfd_obj;
+    // pollfd_obj.fd = WebService::pfds_vec.size() + 1;
+    // pollfd_obj.revents = POLLIN;
 
-    //     WebService::cgi_fd_to_http_response[pollfd_obj] = &response;
-    //     WebService::pfds_vec.push_back(pollfd_obj);
+    // WebService::cgi_fd_to_http_response[pollfd_obj] = &response;
+    // WebService::pfds_vec.push_back(pollfd_obj);
     // }
 
     // Read CGI output from pipe_out[0]
