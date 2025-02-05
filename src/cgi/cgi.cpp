@@ -432,42 +432,73 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     // Read CGI output from pipe_out[0]
     std::string cgi_output;
     char buffer[4096];
+    int status = 0;
+    time_t start_time = time(NULL);
+    pid_t pid_return;
+    DEBUG_MSG_1("Waitpid will start, pid : ", pid);
 
-    std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
+    // std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
+    while ((pid_return = waitpid(pid, &status, WNOHANG)) == 0)
+    {
+        DEBUG_MSG_1("Waitpid returned pid, process done, pid : ", pid_return);
 
-    // Check for timeout during read
-    checkRunningProcesses();
-    //! the parent process is blockes waiting for output fro the child process in the loop
-    ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
+        if (time(NULL) - start_time >= 3)
+        { // 3 second timeout
+            // Send SIGTERM, wait a bit, then force kill with SIGKILL if still running.
+            kill(pid, SIGTERM);
+            DEBUG_MSG_1("Sigterm, pid : ", pid_return);
 
-    if (bytes_read > 0)
-    {
-        cgi_output.append(buffer, bytes_read);
-    }
-    else if (bytes_read == 0)
-    {
-        // break;  // EOF reached
-    }
-    else if (bytes_read == -1)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-        {
-            usleep(10000); // Wait 1ms before retry
-            // continue;
+            sleep(1); // Allow for graceful termination
+            if (waitpid(pid, &status, WNOHANG) == 0)
+            {
+                DEBUG_MSG_1("Sigkill, pid : ", pid_return);
+
+                kill(pid, SIGKILL);
+            }
+            break;
         }
-        else
+        usleep(3000); // Sleep 100ms before checking again
+    }
+    // Check for timeout during read
+    // checkRunningProcesses();
+    //! the parent process is blockes waiting for output fro the child process in the loop
+    if (pid_return == pid)
+    {
+        DEBUG_MSG_1("Waitpid returned pid, process done, pid : ", pid_return);
+        DEBUG_MSG_1("Starting to read, pid : ", pid_return);
+
+        ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
+        DEBUG_MSG_1("Read something, pid : ", pid_return);
+
+        if (bytes_read > 0)
         {
-            throw std::runtime_error("Error reading CGI output");
+            cgi_output.append(buffer, bytes_read);
+        }
+        else if (bytes_read == 0)
+        {
+            // break;  // EOF reached
+        }
+        else if (bytes_read == -1)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                usleep(10000); // Wait 1ms before retry
+                // continue;
+            }
+            else
+            {
+                throw std::runtime_error("Error reading CGI output");
+            }
         }
     }
 
     // Wait for child process to finish
-    int status;
-    if (waitpid(pid, &status, WNOHANG) == -1)
-    {
-        DEBUG_MSG("Parent: waitpid failed", strerror(errno));
-        throw std::runtime_error("waitpid failed");
-    }
+    // int status;
+    // if (waitpid(pid, &status, WNOHANG) == -1)
+    // {
+    //     DEBUG_MSG("Parent: waitpid failed", strerror(errno));
+    //     throw std::runtime_error("waitpid failed");
+    // }
 
     if (WIFEXITED(status))
     {

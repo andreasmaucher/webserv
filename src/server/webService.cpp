@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/05 02:03:41 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/05 22:35:40 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -264,10 +264,10 @@ int WebService::start()
             {
                 continue;
             }
-            if (WebService::cgi_fd_to_http_response.find(pollfd_obj.fd) == WebService::cgi_fd_to_http_response.end())
-            {
-                continue;
-            }
+            // if (WebService::cgi_fd_to_http_response.find(pollfd_obj.fd) == WebService::cgi_fd_to_http_response.end())
+            // {
+            //     continue;
+            // }
 
             Server *server_obj = fd_to_server[pollfd_obj.fd];
 
