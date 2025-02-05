@@ -42,33 +42,34 @@ std::string CGI::resolveCGIPath(const std::string &uri)
         throw std::runtime_error("Failed to get current working directory");
     }
     std::string projectRoot = std::string(buffer);
-    
+
     // Find where the script name ends (at .py)
     size_t scriptEnd = uri.find(".py");
-    if (scriptEnd == std::string::npos) {
+    if (scriptEnd == std::string::npos)
+    {
         throw std::runtime_error("No .py script found in URI");
     }
     scriptEnd += 3; // include the ".py"
-    
+
     // Extract just the script part (without PATH_INFO)
     std::string scriptUri = uri.substr(0, scriptEnd);
-    
+
     // Remove "/cgi-bin" from the script path
     std::string relativePath = scriptUri.substr(8);
-    
+
     std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
-    
+
     DEBUG_MSG("Project root", projectRoot);
     DEBUG_MSG("URI", uri);
     DEBUG_MSG("Script URI", scriptUri);
     DEBUG_MSG("Full resolved path", fullPath);
-    
+
     // Check if script exists
     if (access(fullPath.c_str(), F_OK) == -1)
     {
         throw std::runtime_error("Script not found: " + fullPath);
     }
-    
+
     return fullPath;
 }
 /* std::string CGI::resolveCGIPath(const std::string &uri)
@@ -90,7 +91,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 } */
 
 // helper function to construct error response for non-existent or non-executable scripts
-std::string CGI::constructErrorResponse(int status_code, const std::string& message)
+std::string CGI::constructErrorResponse(int status_code, const std::string &message)
 {
     std::ostringstream response;
     response << "HTTP/1.1 " << status_code << " " << getStatusMessage(status_code) << "\r\n";
@@ -104,12 +105,18 @@ std::string CGI::constructErrorResponse(int status_code, const std::string& mess
 // Helper function to get status message
 std::string CGI::getStatusMessage(int status_code)
 {
-    switch (status_code) {
-        case 200: return "OK";
-        case 400: return "Bad Request";
-        case 404: return "Not Found";
-        case 500: return "Internal Server Error";
-        default: return "Unknown";
+    switch (status_code)
+    {
+    case 200:
+        return "OK";
+    case 400:
+        return "Bad Request";
+    case 404:
+        return "Not Found";
+    case 500:
+        return "Internal Server Error";
+    default:
+        return "Unknown";
     }
 }
 
@@ -117,37 +124,43 @@ std::string CGI::getStatusMessage(int status_code)
 std::string CGI::extractPathInfo(const std::string &uri)
 {
     size_t scriptEnd = uri.find(".py");
-    if (scriptEnd == std::string::npos) {
+    if (scriptEnd == std::string::npos)
+    {
         return "";
     }
     scriptEnd += 3; // move past ".py"
-    
-    if (scriptEnd >= uri.length()) {
+
+    if (scriptEnd >= uri.length())
+    {
         return "";
     }
-    
+
     std::string pathInfo = uri.substr(scriptEnd + 1); // +1 to skip the leading '/'
-    
+
     // Additional security checks
-    if (pathInfo.find(".py") != std::string::npos) {
+    if (pathInfo.find(".py") != std::string::npos)
+    {
         throw std::runtime_error("Invalid PATH_INFO: Cannot contain .py files");
     }
-    
+
     // Optional: Add more restrictions on allowed file types
     const std::string allowed_extensions[] = {".jpg", ".jpeg", ".png", ".gif"};
     bool is_allowed = false;
-    for (size_t i = 0; i < sizeof(allowed_extensions) / sizeof(allowed_extensions[0]); ++i) {
+    for (size_t i = 0; i < sizeof(allowed_extensions) / sizeof(allowed_extensions[0]); ++i)
+    {
         if (pathInfo.length() >= allowed_extensions[i].length() &&
-            pathInfo.substr(pathInfo.length() - allowed_extensions[i].length()) == allowed_extensions[i]) {
+            pathInfo.substr(pathInfo.length() - allowed_extensions[i].length()) == allowed_extensions[i])
+        {
             is_allowed = true;
             break;
         }
     }
-    
-    if (!is_allowed) {
+
+    if (!is_allowed)
+    {
         throw std::runtime_error("Invalid file type in PATH_INFO");
     }
-    
+
     return pathInfo;
 }
 
@@ -180,7 +193,8 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
             return;
         }
 
-        try {
+        try
+        {
             // Check if there's a path parameter (file reference)
             std::string pathInfo = extractPathInfo(request.uri);
             if (!pathInfo.empty())
@@ -195,7 +209,9 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
                     return;
                 }
             }
-        } catch (const std::runtime_error& e) {
+        }
+        catch (const std::runtime_error &e)
+        {
             // Handle validation errors from extractPathInfo
             request.error_code = 400; // Bad Request
             request.body = constructErrorResponse(400, e.what());
@@ -225,15 +241,16 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     std::vector<std::string> env_strings;
     env_strings.push_back("REQUEST_METHOD=" + httpRequest.method);    // GET, POST, DELETE
     env_strings.push_back("QUERY_STRING=" + httpRequest.queryString); // everything after ? in URL
-    env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri);         // path to the CGI script
-    env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version); // Usually HTTP/1.1
+    env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri);          // path to the CGI script
+    env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version);  // Usually HTTP/1.1
     // Convert content length to string using stringstream (C++98 compliant)
     std::stringstream ss;
     ss << httpRequest.body.length();
     env_strings.push_back("CONTENT_LENGTH=" + ss.str()); // length of POST data
     // Add Content-Type if present (crucial for multipart form data like file uploads)
     std::map<std::string, std::string>::const_iterator it = httpRequest.headers.find("Content-Type");
-    if (it != httpRequest.headers.end()) {
+    if (it != httpRequest.headers.end())
+    {
         env_strings.push_back("CONTENT_TYPE=" + it->second);
         DEBUG_MSG("CGI Content-Type", it->second);
     }
@@ -247,28 +264,51 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     return env_array;
 }
 
-/*
-CGI LOGIC:
-1. Creates communication channels (pipes) between server and CGI script
-2. Forks into two processes (parent and child)
-3. Child process executes the CGI script
-4. Parent process reads the script's output
-5. Returns the output as a string
-*/
-std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
+void CGI::postRequest(int pipe_in[2])
 {
-    (void)fd;
-    (void)response;
-    DEBUG_MSG("=== CGI EXECUTION START ===", "");
-    DEBUG_MSG("Server FD", fd);
-    DEBUG_MSG("Script Path", scriptPath);
-    DEBUG_MSG("Method", method);
+    if (method == "POST")
+    {
+        if (!requestBody.empty())
+        {
+            std::cerr << "CGI POST: Starting to write POST data" << std::endl;
+            std::cerr << "POST data length: " << requestBody.length() << std::endl;
 
-    // Define pipes for stdin and stdout
-    int pipe_in[2];  // Parent writes to pipe_in[1], child reads from pipe_in[0]
-    int pipe_out[2]; // Child writes to pipe_out[1], parent reads from pipe_out[0]
+            const size_t CHUNK_SIZE = 4096;
+            size_t total_written = 0;
+            const char *data = requestBody.c_str();
+            size_t remaining = requestBody.length();
 
-    // Create input pipe
+            while (remaining > 0)
+            {
+                size_t to_write = std::min(CHUNK_SIZE, remaining);
+                ssize_t written = write(pipe_in[1], data + total_written, to_write);
+
+                if (written == -1)
+                {
+                    std::cerr << "Write error: " << strerror(errno) << std::endl;
+                    close(pipe_in[1]);
+                    throw std::runtime_error("Failed to write to CGI input pipe");
+                }
+
+                total_written += written;
+                remaining -= written;
+
+                std::cerr << "Written " << written << " bytes, total " << total_written
+                          << " of " << requestBody.length() << std::endl;
+            }
+
+            std::cerr << "CGI POST: Finished writing POST data" << std::endl;
+        }
+        close(pipe_in[1]); // Close write end after writing
+    }
+    else
+    {
+        close(pipe_in[1]); // Close write end immediately for non-POST requests
+    }
+}
+
+pid_t CGI::runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request)
+{
     if (pipe(pipe_in) == -1)
     {
         DEBUG_MSG("Pipe creation for stdin failed", strerror(errno));
@@ -286,9 +326,6 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
         close(pipe_in[1]);
         throw std::runtime_error("Pipe creation for stdout failed");
     }
-    DEBUG_MSG("Output pipe - Read FD", pipe_out[0]);
-    DEBUG_MSG("Output pipe - Write FD", pipe_out[1]);
-
     pid_t pid = fork();
     if (pid == -1)
     {
@@ -342,10 +379,33 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
         delete[] env_array;
         exit(EXIT_FAILURE);
     }
+    return pid;
+}
+
+/*
+CGI LOGIC:
+1. Creates communication channels (pipes) between server and CGI script
+2. Forks into two processes (parent and child)
+3. Child process executes the CGI script
+4. Parent process reads the script's output
+5. Returns the output as a string
+*/
+std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
+{
+    (void)fd;
+    DEBUG_MSG("=== CGI EXECUTION START ===", "");
+    DEBUG_MSG("Server FD", fd);
+    DEBUG_MSG("Script Path", scriptPath);
+    DEBUG_MSG("Method", method);
+    // Define pipes for stdin and stdout
+    int pipe_in[2];  // Parent writes to pipe_in[1], child reads from pipe_in[0]
+    int pipe_out[2]; // Child writes to pipe_out[1], parent reads from pipe_out[0]
+    DEBUG_MSG("Output pipe - Read FD", pipe_out[0]);
+    DEBUG_MSG("Output pipe - Write FD", pipe_out[1]);
+    pid_t pid = runChildCGI(pipe_in, pipe_out, request);
 
     // Parent process
     DEBUG_MSG("Parent: Child PID", pid);
-
     // Add process to tracking map right after fork
     addProcess(pid, pipe_out[0], &request);
     DEBUG_MSG("Added CGI process to tracking map", pid);
@@ -356,68 +416,43 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     close(pipe_out[1]); // Close write end of output pipe
 
     // If POST request, write the request body to the CGI's stdin
-    if (method == "POST")
-    {
-        if (!requestBody.empty())
-        {
-            std::cerr << "CGI POST: Starting to write POST data" << std::endl;
-            std::cerr << "POST data length: " << requestBody.length() << std::endl;
-            
-            const size_t CHUNK_SIZE = 4096;
-            size_t total_written = 0;
-            const char* data = requestBody.c_str();
-            size_t remaining = requestBody.length();
-            
-            while (remaining > 0)
-            {
-                size_t to_write = std::min(CHUNK_SIZE, remaining);
-                ssize_t written = write(pipe_in[1], data + total_written, to_write);
-                
-                if (written == -1) 
-                {
-                    std::cerr << "Write error: " << strerror(errno) << std::endl;
-                    close(pipe_in[1]);
-                    throw std::runtime_error("Failed to write to CGI input pipe");
-                }
-                
-                total_written += written;
-                remaining -= written;
-                
-                std::cerr << "Written " << written << " bytes, total " << total_written 
-                          << " of " << requestBody.length() << std::endl;
-            }
-            
-            std::cerr << "CGI POST: Finished writing POST data" << std::endl;
-        }
-        close(pipe_in[1]); // Close write end after writing
-    }
-    else
-    {
-        close(pipe_in[1]); // Close write end immediately for non-POST requests
-    }
+    postRequest(pipe_in);
+
+    // Map cgi fd to http responses
+    // if (!response.complete)
+    // {
+    //     pollfd pollfd_obj;
+    //     pollfd_obj.fd = WebService::pfds_vec.size() + 1;
+    //     pollfd_obj.revents = POLLIN;
+
+    //     WebService::cgi_fd_to_http_response[pollfd_obj] = &response;
+    //     WebService::pfds_vec.push_back(pollfd_obj);
+    // }
 
     // Read CGI output from pipe_out[0]
     std::string cgi_output;
     char buffer[4096];
 
-
     std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
-    
-        // Check for timeout during read
+
+    // Check for timeout during read
     checkRunningProcesses();
-        //! the parent process is blockes waiting for output fro the child process in the loop
+    //! the parent process is blockes waiting for output fro the child process in the loop
     ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
-        
-    if (bytes_read > 0) {
+
+    if (bytes_read > 0)
+    {
         cgi_output.append(buffer, bytes_read);
     }
-    else if (bytes_read == 0) {
+    else if (bytes_read == 0)
+    {
         // break;  // EOF reached
     }
-    else if (bytes_read == -1) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) 
+    else if (bytes_read == -1)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
         {
-            usleep(10000);  // Wait 1ms before retry
+            usleep(10000); // Wait 1ms before retry
             // continue;
         }
         else
@@ -425,19 +460,10 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
             throw std::runtime_error("Error reading CGI output");
         }
     }
-    
-
-    // if (retry_count >= MAX_RETRIES) {
-    //     DEBUG_MSG("CGI read timeout", "Script exceeded maximum execution time");
-    //     //throw std::runtime_error("CGI read timeout");
-    //     kill(pid, SIGTERM);  // Try graceful termination
-    //         usleep(10000);      // Wait 100ms
-    //         kill(pid, SIGKILL);
-    // }
 
     // Wait for child process to finish
     int status;
-    if (waitpid(pid, &status, 0) == -1)
+    if (waitpid(pid, &status, WNOHANG) == -1)
     {
         DEBUG_MSG("Parent: waitpid failed", strerror(errno));
         throw std::runtime_error("waitpid failed");
@@ -470,59 +496,69 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
 
 std::map<pid_t, CGI::CGIProcess> CGI::running_processes;
 
-void CGI::addProcess(pid_t pid, int output_pipe, HttpRequest* req) {
+void CGI::addProcess(pid_t pid, int output_pipe, HttpRequest *req)
+{
     CGIProcess proc;
     proc.start_time = time(NULL);
     proc.output_pipe = output_pipe;
     proc.request = req;
-    
+
     DEBUG_MSG("Adding new CGI process PID", pid);
     running_processes[pid] = proc;
 }
 
-void CGI::cleanupProcess(pid_t pid) {
-    if (running_processes.find(pid) != running_processes.end()) {
+void CGI::cleanupProcess(pid_t pid)
+{
+    if (running_processes.find(pid) != running_processes.end())
+    {
         close(running_processes[pid].output_pipe);
         running_processes.erase(pid);
         DEBUG_MSG("Cleaned up CGI process", pid);
     }
 }
 
-void CGI::checkRunningProcesses() {
+void CGI::checkRunningProcesses()
+{
     time_t current_time = time(NULL);
-    
-    //std::cout << "Checking CGI processes at timestamp" << current_time << std::endl;
-    //std::cout << "Number of running processes" << running_processes.size() << std::endl;
-    
+
+    // std::cout << "Checking CGI processes at timestamp" << current_time << std::endl;
+    // std::cout << "Number of running processes" << running_processes.size() << std::endl;
+
     std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
-    while (it != running_processes.end()) {
+    while (it != running_processes.end())
+    {
         pid_t pid = it->first;
-        CGIProcess& proc = it->second;
-        
+        CGIProcess &proc = it->second;
+
         // Check for timeout
-        if (current_time - proc.start_time > CGI_TIMEOUT) {
+        if (current_time - proc.start_time > CGI_TIMEOUT)
+        {
             DEBUG_MSG("CGI process timed out, killing PID", pid);
-            
-            kill(pid, SIGTERM);  // Try graceful termination
-            usleep(100000);      // Wait 100ms
-            
-            if (waitpid(pid, NULL, WNOHANG) == 0) {
+
+            kill(pid, SIGTERM); // Try graceful termination
+            usleep(100000);     // Wait 100ms
+
+            if (waitpid(pid, NULL, WNOHANG) == 0)
+            {
                 DEBUG_MSG("Process still running after SIGTERM, sending SIGKILL", pid);
-                kill(pid, SIGKILL);  // Force kill if still running
+                kill(pid, SIGKILL); // Force kill if still running
             }
-            
-            if (proc.request) {
+
+            if (proc.request)
+            {
                 // Create a temporary CGI object to use constructErrorResponse
                 CGI cgi;
                 proc.request->body = cgi.constructErrorResponse(504, "CGI timeout");
                 proc.request->complete = true;
             }
-            
+
             cleanupProcess(pid);
             std::map<pid_t, CGIProcess>::iterator temp = it;
             ++it;
             running_processes.erase(temp);
-        } else {
+        }
+        else
+        {
             ++it;
         }
     }

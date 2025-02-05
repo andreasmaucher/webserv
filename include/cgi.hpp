@@ -47,27 +47,31 @@ private:
     std::string queryString;
     std::string requestBody;
 
-    char** setCGIEnvironment(const HttpRequest &httpRequest) const;
+    char **setCGIEnvironment(const HttpRequest &httpRequest) const;
     std::string executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
     void sendCGIOutputToClient(int pipefd) const;
     void sendHttpResponseHeaders(const std::string &contentType) const;
     std::string resolveCGIPath(const std::string &uri);
-    std::string constructErrorResponse(int status_code, const std::string& message);
+    std::string constructErrorResponse(int status_code, const std::string &message);
 
-    struct CGIProcess {
-        time_t start_time;          // When the process started
-        int output_pipe;            // Only need output pipe to read data
-        HttpRequest* request;       // To update request status if timeout occurs
-        
+    struct CGIProcess
+    {
+        time_t start_time;    // When the process started
+        int output_pipe;      // Only need output pipe to read data
+        HttpRequest *request; // To update request status if timeout occurs
+
         CGIProcess() : start_time(0), output_pipe(-1), request(NULL) {}
     };
 
     static std::map<pid_t, CGIProcess> running_processes;
-    
-    static void addProcess(pid_t pid, int output_pipe, HttpRequest* req);
+
+    static void addProcess(pid_t pid, int output_pipe, HttpRequest *req);
     static void cleanupProcess(pid_t pid);
     std::string extractPathInfo(const std::string &uri);
     std::string getStatusMessage(int status_code);
+    pid_t runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request);
+
+    void postRequest(int pipe_in[2]);
 };
 
 #endif

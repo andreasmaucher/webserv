@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/30 23:56:49 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/05 01:55:43 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -233,11 +233,10 @@ int WebService::start()
     while (true)
     {
         // Store current size to prevent invalid access during iteration, to fix valgrind error
-        size_t current_size = pfds_vec.size();
         
         // Use a reference to avoid copying
         std::vector<pollfd>& poll_fds = pfds_vec;
-        int poll_count = poll(poll_fds.data(), current_size, POLL_TIMEOUT);
+        int poll_count = poll(poll_fds.data(), pfds_vec.size(), POLL_TIMEOUT);
 
         if (poll_count == -1)
         {
@@ -249,7 +248,7 @@ int WebService::start()
         CGI::checkRunningProcesses();
 
         // Iterate backwards to handle removals safely
-        for (size_t i = current_size; i-- > 0;)
+        for (size_t i = pfds_vec.size(); i-- > 0;)
         {
             if (i >= poll_fds.size()) continue; // Safety check
             
@@ -257,10 +256,14 @@ int WebService::start()
             if (pollfd_obj.revents == 0)
                 continue;
                 
-            // Check if fd exists in map before accessing
+            // Check if fd exists in map of regular request or cgi requests before accessing
             if (fd_to_server.find(pollfd_obj.fd) == fd_to_server.end()) {
                 continue;
             }
+            // if (cgi_fd_to_http_response.find(pollfd_obj) == cgi_fd_to_http_response.end()) {
+            //     continue;
+            // }
+            
             Server *server_obj = fd_to_server[pollfd_obj.fd];
 
             if (pollfd_obj.revents & POLLIN)

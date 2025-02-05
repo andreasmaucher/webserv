@@ -32,13 +32,15 @@ class HttpResponse {
         // void setFileContentType(const std::string &type) { file_content_type = type; }
 
     //private:
+        int fd;                                     // FD to send the response
         std::string version;                        // e.g., HTTP/1.1
         int status_code;                            // e.g., 200, 404
         std::string reason_phrase;                  // e.g., OK, Not Found
         std::map<std::string, std::string> headers; // e.g., Content-Type: text/html
         std::string body;                           // The body of the response 
         std::string file_content_type;              // e.g., text/html
-        bool close_connection;                      // true if Connection: close header is set
+        bool close_connection; 
+        bool complete;                     // true if Connection: close header is set
 
 };
 

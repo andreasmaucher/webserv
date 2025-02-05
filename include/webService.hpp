@@ -34,7 +34,6 @@ class WebService
 private:
     static std::vector<Server> servers; // constructor calls config parser and instantiates server(s)
 
-    static std::vector<pollfd> pfds_vec; // all pfds (listener and client) for all servers
 
     static std::map<int, Server *> fd_to_server; // fds to respective server objects pointer
     // std::unordered_map<int, std::pair<Server*, HttpRequest*>> pfd_to_server_request; //client_fds to server and request objectient address (both IPv4 and IPv6)
@@ -73,4 +72,8 @@ public:
     void closeConnection(int &fd, size_t &i, Server &server);
     void handleSigint(int signal);
     static void sigintHandler(int signal);
+
+    static std::map<pollfd, HttpResponse*> cgi_fd_to_http_response; // fds to respective server objects pointer
+    static std::vector<pollfd> pfds_vec; // all pfds (listener and client) for all servers
+
 };
