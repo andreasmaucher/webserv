@@ -421,11 +421,15 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     // Map cgi fd to http responses
     // if (!response.complete)
     // {
-    // pollfd pollfd_obj;
+    pollfd pollfd_obj;
+    pollfd_obj.fd = pipe_out[0];
     // pollfd_obj.fd = WebService::pfds_vec.size() + 1;
-    // pollfd_obj.revents = POLLIN;
+    // setting here to POLLIN isnt doing anything, should do it manuallt
+    pollfd_obj.revents = POLLIN;
+    WebService::addToPfdsVector(pollfd_obj.fd);
+    DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", pollfd_obj.fd);
 
-    // WebService::cgi_fd_to_http_response[pollfd_obj] = &response;
+    WebService::cgi_fd_to_http_response[pollfd_obj.fd] = &response;
     // WebService::pfds_vec.push_back(pollfd_obj);
     // }
 
@@ -440,7 +444,7 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     // std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
     while ((pid_return = waitpid(pid, &status, WNOHANG)) == 0)
     {
-        DEBUG_MSG_1("Waitpid returned pid, process done, pid : ", pid_return);
+        DEBUG_MSG_2("Waitpid returned pid, process NOT done, pid : ", pid_return);
 
         if (time(NULL) - start_time >= 3)
         { // 3 second timeout
@@ -464,19 +468,28 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     //! the parent process is blockes waiting for output fro the child process in the loop
     if (pid_return == pid)
     {
-        DEBUG_MSG_1("Waitpid returned pid, process done, pid : ", pid_return);
-        DEBUG_MSG_1("Starting to read, pid : ", pid_return);
-
+        DEBUG_MSG_2("Waitpid returned pid, process done, pid : ", pid_return);
+        DEBUG_MSG_2("Starting to read, pid : ", pid_return);
         ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
-        DEBUG_MSG_1("Read something, pid : ", pid_return);
+        DEBUG_MSG_2("Read something, pid : ", pid_return);
 
         if (bytes_read > 0)
         {
             cgi_output.append(buffer, bytes_read);
+            DEBUG_MSG_2("Read after waitpid: more to read, but will stop half_way, pid : ", pid_return);
+
+            close(pipe_out[0]);
+            response.body = cgi_output;
+
+            WebService::deleteFromPfdsVecForCGI(fd);
         }
         else if (bytes_read == 0)
         {
-            // break;  // EOF reached
+            // break;  // EOF reach
+            DEBUG_MSG_2("Finished reading, pid : ", pid_return);
+
+            close(pipe_out[0]);
+            WebService::deleteFromPfdsVecForCGI(fd);
         }
         else if (bytes_read == -1)
         {
@@ -534,7 +547,7 @@ void CGI::addProcess(pid_t pid, int output_pipe, HttpRequest *req)
     proc.output_pipe = output_pipe;
     proc.request = req;
 
-    DEBUG_MSG("Adding new CGI process PID", pid);
+    DEBUG_MSG_1("Adding new CGI process PID", pid);
     running_processes[pid] = proc;
 }
 
@@ -564,14 +577,14 @@ void CGI::checkRunningProcesses()
         // Check for timeout
         if (current_time - proc.start_time > CGI_TIMEOUT)
         {
-            DEBUG_MSG("CGI process timed out, killing PID", pid);
+            DEBUG_MSG_1("CGI process timed out, killing PID", pid);
 
             kill(pid, SIGTERM); // Try graceful termination
             usleep(100000);     // Wait 100ms
 
             if (waitpid(pid, NULL, WNOHANG) == 0)
             {
-                DEBUG_MSG("Process still running after SIGTERM, sending SIGKILL", pid);
+                DEBUG_MSG_1("Process still running after SIGTERM, sending SIGKILL", pid);
                 kill(pid, SIGKILL); // Force kill if still running
             }
 

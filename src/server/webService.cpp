@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/05 22:35:40 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/06 22:48:25 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -141,8 +141,8 @@ void WebService::addToPfdsVector(int new_fd)
     new_pollfd.revents = 0;
 
     pfds_vec.push_back(new_pollfd);
-    DEBUG_MSG("Added new fd to pfds_vec", new_fd);
-    DEBUG_MSG("Current pfds_vec size", pfds_vec.size());
+    DEBUG_MSG_1("Added new fd to pfds_vec", new_fd);
+    DEBUG_MSG_1("Current pfds_vec size", pfds_vec.size());
 }
 
 void WebService::deleteFromPfdsVec(int &fd, size_t &i)
@@ -150,12 +150,27 @@ void WebService::deleteFromPfdsVec(int &fd, size_t &i)
     if (pfds_vec[i].fd == fd)
     {
         pfds_vec.erase(pfds_vec.begin() + i);
-        DEBUG_MSG("Erased fd from vector at index", i);
-        DEBUG_MSG("Current pfds_vec size", pfds_vec.size());
+        DEBUG_MSG_2("WebService::deleteFromPfdsVec: Erased fd from vector at index", i);
+        DEBUG_MSG_2("WebService::deleteFromPfdsVec: Current pfds_vec size", pfds_vec.size());
     }
     else
     {
-        DEBUG_MSG_1("Error: fd not found in vector at index", i);
+        DEBUG_MSG_2("WebService::deleteFromPfdsVec: Error: fd not found in vector at index", i);
+    }
+}
+
+void WebService::deleteFromPfdsVecForCGI(int &fd)
+{
+    std::vector<pollfd>::iterator it;
+    for (it = pfds_vec.begin(); it != pfds_vec.end(); ++it)
+    {
+        if (it->fd == fd)
+        {
+            pfds_vec.erase(it);
+            DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the fd, ", fd);
+
+            break; // Exit after finding and removing
+        }
     }
 }
 
@@ -166,12 +181,17 @@ void WebService::deleteRequestObject(int &fd, Server &server)
 
 void WebService::closeConnection(int &fd, size_t &i, Server &server)
 {
+    (void)i;
     if (close(fd) == -1)
-        DEBUG_MSG_1("Closing connection FD failed", strerror(errno));
+        DEBUG_MSG_2("Closing connection FD failed", strerror(errno));
 
-    deleteFromPfdsVec(fd, i);
+    // deleteFromPfdsVec(fd, i);
+    deleteFromPfdsVecForCGI(fd);
+
+    DEBUG_MSG_2("Deleted from PFDS fd", fd);
+
     deleteRequestObject(fd, server);
-    DEBUG_MSG("Erased request object for fd", fd);
+    DEBUG_MSG_2("Erased request object for fd", fd);
 }
 
 // creates a new httpRequest object for the new connection in the server object and maps the fd to the new httpRequest object
@@ -234,11 +254,7 @@ int WebService::start()
     DEBUG_MSG("Server Status", "Starting");
     while (true)
     {
-        // Store current size to prevent invalid access during iteration, to fix valgrind error
-
-        // Use a reference to avoid copying
-        std::vector<pollfd> &poll_fds = pfds_vec;
-        int poll_count = poll(poll_fds.data(), pfds_vec.size(), POLL_TIMEOUT);
+        int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
 
         if (poll_count == -1)
         {
@@ -247,45 +263,53 @@ int WebService::start()
         }
 
         // Check CGI processes for timeouts
-        CGI::checkRunningProcesses();
+        // CGI::checkRunningProcesses();
 
         // Iterate backwards to handle removals safely
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
-            if (i >= poll_fds.size())
-                continue; // Safety check
+            if (i >= pfds_vec.size())
+                continue;
 
-            pollfd &pollfd_obj = poll_fds[i];
-            if (pollfd_obj.revents == 0)
+            if (pfds_vec[i].revents == 0)
                 continue;
 
             // Check if fd exists in map of regular request or cgi requests before accessing
-            if (fd_to_server.find(pollfd_obj.fd) == fd_to_server.end())
+            if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end() || !(cgi_fd_to_http_response.find(pfds_vec[i].fd) == cgi_fd_to_http_response.end()))
             {
+                DEBUG_MSG_2("FD not in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);
+
                 continue;
             }
-            // if (WebService::cgi_fd_to_http_response.find(pollfd_obj.fd) == WebService::cgi_fd_to_http_response.end())
-            // {
-            //     continue;
-            // }
+            DEBUG_MSG_2("Passed FD check --->  FD is either in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);
 
-            Server *server_obj = fd_to_server[pollfd_obj.fd];
+            Server *server_obj = fd_to_server[pfds_vec[i].fd];
+            DEBUG_MSG_2("Passed Server assignment check --->, fd ", pfds_vec[i].fd);
 
-            if (pollfd_obj.revents & POLLIN)
+            if (pfds_vec[i].revents & POLLIN)
             {
                 if (i < servers.size())
+                {
+                    DEBUG_MSG_2("New connection ", pfds_vec[i].fd);
                     newConnection(*server_obj);
+                }
                 else
-                    receiveRequest(pollfd_obj.fd, i, *server_obj);
+                {
+                    DEBUG_MSG_2("Receive request  ", pfds_vec[i].fd);
+                    receiveRequest(pfds_vec[i].fd, i, *server_obj);
+                }
             }
-            if (pollfd_obj.revents & POLLOUT)
+            if (pfds_vec[i].revents & POLLOUT)
             {
-                sendResponse(pollfd_obj.fd, i, *server_obj);
+                DEBUG_MSG_2("------->Send response  ", pfds_vec[i].fd);
+
+                sendResponse(pfds_vec[i].fd, i, *server_obj);
             }
-            if (pollfd_obj.revents & (POLLERR | POLLHUP | POLLNVAL))
+            if (pfds_vec[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
-                DEBUG_MSG("Closing connection due to error or hangup", pollfd_obj.fd);
-                closeConnection(pollfd_obj.fd, i, *server_obj);
+                DEBUG_MSG_2("-------->Close connection  ", pfds_vec[i].fd);
+
+                closeConnection(pfds_vec[i].fd, i, *server_obj);
             }
         }
 

@@ -49,12 +49,12 @@ private:
     // std::vector <Server>  parseConfig(const std::string &config_file);
     void setupSockets();
     void mapFdToServer(int new_fd, Server &server);
-    void addToPfdsVector(int new_fd);
+    // void addToPfdsVector(int new_fd);
     void createRequestObject(int new_fd, Server &server);
     static void cleanup();
     int get_listener_socket(const std::string &port);
     void *get_in_addr(struct sockaddr *sa);
-    void deleteFromPfdsVec(int &fd, size_t &i);
+    static void deleteFromPfdsVec(int &fd, size_t &i);
     void deleteRequestObject(int &fd, Server &server);
 
     // Parser
@@ -71,6 +71,9 @@ public:
     void closeConnection(int &fd, size_t &i, Server &server);
     void handleSigint(int signal);
     static void sigintHandler(int signal);
+    static void addToPfdsVector(int new_fd);
+    // static void deleteFromPfdsVec(int &fd, size_t &i);
+    static void deleteFromPfdsVecForCGI(int &fd);
 
     static std::map<int, HttpResponse *> cgi_fd_to_http_response; // fds to respective server objects pointer
     static std::vector<pollfd> pfds_vec;                          // all pfds (listener and client) for all servers
