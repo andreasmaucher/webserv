@@ -9,8 +9,8 @@ import subprocess
 # sys.stderr.write(f"Environment variables: {dict(os.environ)}\n")
 
 # Print headers
-# print("Content-Type: text/plain")
-# print()  # Empty line to separate headers from body
+print("Content-Type: text/plain")
+print()  # Empty line to separate headers from body
 
 # Run ls command and capture output
 try:

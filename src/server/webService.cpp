@@ -246,7 +246,7 @@ int WebService::start()
         }
 
         // Check CGI processes for timeouts
-        CGI::checkRunningProcesses();
+        //CGI::checkRunningProcesses();
 
         // Iterate backwards to handle removals safely
         for (size_t i = current_size; i-- > 0;)
@@ -268,11 +268,11 @@ int WebService::start()
                 if (i < servers.size())
                     newConnection(*server_obj);
                 else
-                    receiveRequest(pollfd_obj.fd, i, *server_obj);
+                    receiveRequest(pollfd_obj.fd, i, *server_obj); //? no cgi interaction here, only reading data from client and building request object
             }
             if (pollfd_obj.revents & POLLOUT)
             {
-                sendResponse(pollfd_obj.fd, i, *server_obj);
+                sendResponse(pollfd_obj.fd, i, *server_obj); //? this is where cgi comes into play, starts with process request
             }
             if (pollfd_obj.revents & (POLLERR | POLLHUP | POLLNVAL))
             {
@@ -368,7 +368,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         HttpRequest request = server.getRequestObject(fd);
         HttpResponse response;
         ResponseHandler handler;
-        handler.processRequest(fd, server, request, response);
+        handler.processRequest(fd, server, request, response); //? cgi starts here with process request, no later interaction
         if (response.status_code != 0)
         {
             // Modify the pollfd to monitor POLLOUT for this FD

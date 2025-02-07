@@ -20,12 +20,13 @@ CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requ
 // Returns true if the path contains "/cgi-bin/", ".py", or ".cgi"
 bool CGI::isCGIRequest(const std::string &path)
 {
-    // First check if it's in the cgi-bin directory
-    /* if (path.find("/cgi-bin/") == std::string::npos) {
-        return false;
-    } */
-    size_t len = path.length();
-    return (len > 3 && path.substr(len - 3) == ".py");
+    size_t start = path.find("/cgi-bin/") + 9;  // +9 to skip "/cgi-bin/"
+    size_t end = path.find('/', start);         // Find next '/' or end of string
+    if (end == std::string::npos) {
+        end = path.length();
+    }
+    std::string scriptName = path.substr(start, end - start);
+    return (scriptName.length() > 3 && scriptName.substr(scriptName.length() - 3) == ".py");
 }
 
 /*
@@ -63,14 +64,9 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     DEBUG_MSG("Script URI", scriptUri);
     DEBUG_MSG("Full resolved path", fullPath);
     
-    // Check if script exists
-    if (access(fullPath.c_str(), F_OK) == -1)
-    {
-        throw std::runtime_error("Script not found: " + fullPath);
-    }
-    
     return fullPath;
 }
+
 /* std::string CGI::resolveCGIPath(const std::string &uri)
 {
     char buffer[PATH_MAX];
@@ -89,32 +85,8 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     return fullPath;
 } */
 
-// helper function to construct error response for non-existent or non-executable scripts
-std::string CGI::constructErrorResponse(int status_code, const std::string& message)
-{
-    std::ostringstream response;
-    response << "HTTP/1.1 " << status_code << " " << getStatusMessage(status_code) << "\r\n";
-    response << "Content-Type: text/plain\r\n";
-    response << "Connection: close\r\n";
-    response << "\r\n";
-    response << message;
-    return response.str();
-}
-
-// Helper function to get status message
-std::string CGI::getStatusMessage(int status_code)
-{
-    switch (status_code) {
-        case 200: return "OK";
-        case 400: return "Bad Request";
-        case 404: return "Not Found";
-        case 500: return "Internal Server Error";
-        default: return "Unknown";
-    }
-}
-
 // Helper function to extract path info
-std::string CGI::extractPathInfo(const std::string &uri)
+std::string CGI::extractPathInfo(const std::string &uri) const
 {
     size_t scriptEnd = uri.find(".py");
     if (scriptEnd == std::string::npos) {
@@ -160,10 +132,46 @@ std::string CGI::extractPathInfo(const std::string &uri)
 */
 void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response)
 {
-    DEBUG_MSG("Starting CGI Request", request.uri);
-    (void)fd;
-    (void)response;
     try
+    {
+    // Validate method before proceeding with CGI
+    if (request.method != "GET" && request.method != "POST" && request.method != "DELETE")
+    {
+        response.status_code = 405;
+        response.reason_phrase = "Method Not Allowed";
+        response.body = "Method Not Allowed for CGI requests";
+        response.setHeader("Content-Type", "text/plain");
+        response.setHeader("Content-Length", std::to_string(response.body.length()));
+        response.setHeader("Allow", "GET, POST, DELETE");
+        response.setHeader("Connection", "close");
+        response.close_connection = true;
+        return;
+    }
+    /* // Check for PATH_INFO - reject if present
+    size_t scriptEnd = request.uri.find(".py");
+    if (scriptEnd != std::string::npos && scriptEnd + 3 < request.uri.length()) {
+        response.status_code = 400;
+        response.reason_phrase = "Bad Request";
+        response.body = "Bad Request: PATH_INFO is not supported for CGI scripts. Use direct file access instead.";
+        response.setHeader("Content-Type", "text/plain");
+        response.setHeader("Content-Length", std::to_string(response.body.length()));
+        response.setHeader("Connection", "close");
+        response.close_connection = true;
+        return;
+    } */
+    // Check for valid CGI file extension first (sends error whenever the file is not a .py)
+    if (!isCGIRequest(request.uri)) {
+        response.status_code = 400;  // Bad Request
+        response.reason_phrase = "Bad Request";
+        response.body = "Bad Request: Invalid CGI file type. Only .py files are allowed.";
+        response.setHeader("Content-Type", "text/plain");
+        response.setHeader("Content-Length", std::to_string(response.body.length()));
+        response.setHeader("Connection", "close");
+        response.close_connection = true;
+        return;
+    }
+    
+    (void)fd;
     {
         // First check if the script exists
         std::string fullScriptPath = resolveCGIPath(request.uri);
@@ -171,54 +179,115 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
         method = request.method;
         requestBody = request.body;
 
-        // When the script file doesn't exist
+        // When the script file doesn't exist e.g. cgi-bin/nonexistent.py
         if (access(fullScriptPath.c_str(), F_OK) == -1)
         {
-            request.error_code = 404; // Not Found
-            request.body = constructErrorResponse(404, "Script not found: " + fullScriptPath);
-            request.complete = true;
+            response.status_code = 404;
+            response.reason_phrase = "Not Found";
+            response.body = "Script not found: " + fullScriptPath;
+            response.setHeader("Content-Type", "text/plain");
+            response.setHeader("Content-Length", std::to_string(response.body.length()));
+            response.setHeader("Connection", "close");
+            response.close_connection = true;
             return;
         }
 
+        // Check if there's a path parameter (file reference)
+        std::string pathInfo;
         try {
-            // Check if there's a path parameter (file reference)
-            std::string pathInfo = extractPathInfo(request.uri);
-            if (!pathInfo.empty())
-            {
-                // Check if the referenced file exists in uploads directory
-                std::string filePath = "www/uploads/" + pathInfo;
-                if (access(filePath.c_str(), F_OK) == -1)
-                {
-                    request.error_code = 404;
-                    request.body = constructErrorResponse(404, "Referenced file not found: " + pathInfo);
-                    request.complete = true;
-                    return;
-                }
-            }
+            pathInfo = extractPathInfo(request.uri);
         } catch (const std::runtime_error& e) {
-            // Handle validation errors from extractPathInfo
-            request.error_code = 400; // Bad Request
-            request.body = constructErrorResponse(400, e.what());
-            request.complete = true;
+            // Invalid file extension or other PATH_INFO error
+            response.status_code = 400;
+            response.reason_phrase = "Bad Request";
+            response.body = e.what();  // Use the error message from the exception
+            response.setHeader("Content-Type", "text/plain");
+            response.setHeader("Content-Length", std::to_string(response.body.length()));
+            response.setHeader("Connection", "close");
+            response.close_connection = true;
             return;
+        }
+        std::cout << "Path info: " << pathInfo << std::endl;
+        if (!pathInfo.empty())  // Added condition
+        {
+            // Check if the referenced file exists in uploads directory
+            std::string filePath = "www/uploads/" + pathInfo;
+            if (access(filePath.c_str(), F_OK) == -1)
+            {
+                response.status_code = 404;
+                response.reason_phrase = "Not Found";
+                response.body = "Referenced file not found: " + pathInfo;
+                response.setHeader("Content-Type", "text/plain");
+                response.setHeader("Content-Length", std::to_string(response.body.length()));
+                response.setHeader("Connection", "close");
+                response.close_connection = true;
+                return;
+            }
         }
 
         // If we get here, both script and target file (if specified) exist
         std::string cgiOutput = executeCGI(fd, response, request);
-        request.body = cgiOutput;
-        request.complete = true;
+        response.status_code = 200; //! maybe bit too generic, try to be more specific
+        //response.body = cgiOutput;
+
+        // parsing of body to avoid double inclusion of headers in body, if they are specified in the script
+        // Parse CGI headers if present
+        size_t header_end = cgiOutput.find("\r\n\r\n");  // Look for proper HTTP header ending
+        if (header_end != std::string::npos) {
+            // Extract headers and body
+            std::string headers = cgiOutput.substr(0, header_end);
+            std::string body = cgiOutput.substr(header_end + 4);  // Skip all 4 characters (\r\n\r\n)
+            
+            // Parse CGI headers
+            std::istringstream header_stream(headers);
+            std::string line;
+            while (std::getline(header_stream, line)) {
+                // Remove trailing \r if present
+                if (!line.empty() && line.back() == '\r') {
+                    line.pop_back();
+                }
+                
+                size_t colon = line.find(':');
+                if (colon != std::string::npos) {
+                    std::string name = line.substr(0, colon);
+                    std::string value = line.substr(colon + 1);
+                    value.erase(0, value.find_first_not_of(" "));
+                    response.setHeader(name, value);
+                }
+            }
+            response.body = body;
+            std::cout << "Response body new logic: " << response.body << std::endl;
+        } else {
+            response.body = cgiOutput;
+            std::cout << "Response body: " << response.body << std::endl;
+        }
+       
+        response.setHeader("Content-Length", std::to_string(response.body.length()));
+        response.setHeader("Connection", "close");
+        response.close_connection = true; //! does this flag make sense here or rather request.complete = true?
+        //request.complete = true;
+    }
     }
     catch (const std::exception &e)
     {
+        std::cout << "CGI Error triggggggger" << std::endl;
         DEBUG_MSG_1("CGI Error", e.what());
-        request.error_code = 500;
-        request.body = constructErrorResponse(500, "Internal Server Error: " + std::string(e.what()));
-        request.complete = true;
+        response.status_code = 500;
+        response.body = "Internal Server Error: " + std::string(e.what());
+        response.close_connection = true;
     }
 }
 
 /*
 Sets up the environment variables for the CGI script; second part converts http headers to env variables
+No relation to the response, this is only used for the request in execve:
+# REQUEST
+POST /cgi-bin/upload.py HTTP/1.1
+Content-Type: multipart/form-data    # Client sending file upload
+
+# RESPONSE
+HTTP/1.1 200 OK
+Content-Type: text/html              # Server sending HTML page back
 */
 char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
 {
@@ -227,6 +296,11 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     env_strings.push_back("QUERY_STRING=" + httpRequest.queryString); // everything after ? in URL
     env_strings.push_back("SCRIPT_NAME=" + httpRequest.uri);         // path to the CGI script
     env_strings.push_back("SERVER_PROTOCOL=" + httpRequest.version); // Usually HTTP/1.1
+    // Add PATH_INFO if present
+    std::string pathInfo = extractPathInfo(httpRequest.uri);
+    if (!pathInfo.empty()) {
+        env_strings.push_back("PATH_INFO=/" + pathInfo);  // Note: PATH_INFO should start with /
+    }
     // Convert content length to string using stringstream (C++98 compliant)
     std::stringstream ss;
     ss << httpRequest.body.length();
@@ -405,7 +479,7 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
     while (retry_count < MAX_RETRIES) {
         // Check for timeout during read
-        checkRunningProcesses();
+        //checkRunningProcesses();
         //! the parent process is blockes waiting for output fro the child process in the loop
         ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
         
@@ -457,13 +531,17 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
         DEBUG_MSG("Parent: Child exit status", "abnormal");
     }
 
-    // Assign CGI output to response.body
-    response.body = cgi_output;
-    DEBUG_MSG("Parent: Response body size", response.body.length());
+    // Check if headers are present (lenient approach in case script passed by user has no headers defined; Apache throws an
+    // error if no headers are present, this is more forgiving)
+    if (cgi_output.find("Content-Type:") == std::string::npos) {
+        // No headers found, add default headers
+        cgi_output = "Content-Type: text/plain\r\n\r\n" + cgi_output;
+    }
+
     DEBUG_MSG("=== CGI EXECUTION END ===", "");
 
-    // Clean up process from tracking map for endless scripts
-    cleanupProcess(pid);
+    /* // Clean up process from tracking map for endless scripts
+    cleanupProcess(pid); */
     DEBUG_MSG("Removed CGI process from tracking map", pid);
 
     return cgi_output;
@@ -489,6 +567,7 @@ void CGI::cleanupProcess(pid_t pid) {
     }
 }
 
+//! this function needs to be revamped with Michaels non blocking approach
 void CGI::checkRunningProcesses() {
     time_t current_time = time(NULL);
     
@@ -513,9 +592,9 @@ void CGI::checkRunningProcesses() {
             }
             
             if (proc.request) {
-                // Create a temporary CGI object to use constructErrorResponse
-                CGI cgi;
-                proc.request->body = cgi.constructErrorResponse(504, "CGI timeout");
+                std::cout << "Setting error code to 504" << std::endl;
+                proc.request->error_code = 504;  //! not working anymore but this part should be deleted anyways
+                proc.request->body = "CGI timeout: Script execution exceeded time limit";
                 proc.request->complete = true;
             }
             

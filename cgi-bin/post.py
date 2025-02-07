@@ -9,8 +9,8 @@ sys.stderr.write(f"Script PID: {os.getpid()}\n")
 
 try:
     # Print headers first (always needed)
-    print("Content-Type: application/json")
-    print()  # Empty line to separate headers from body
+    sys.stdout.write("Content-Type: application/json\r\n")
+    sys.stdout.write("\r\n")  # Empty line to separate headers from body
 
     # Get the content length from environment variable
     content_length = int(os.environ.get('CONTENT_LENGTH', 0))
@@ -39,17 +39,19 @@ try:
     
     sys.stderr.write("Preparing to send response...\n")
     # Output JSON response
-    print(json.dumps(response, indent=2))
+    sys.stdout.write(json.dumps(response, indent=2))
+    sys.stdout.flush()
     sys.stderr.write("Response sent.\n")
 
 except Exception as e:
     sys.stderr.write(f"Error in script: {str(e)}\n")
-    print("Content-Type: application/json")
-    print()
+    sys.stdout.write("Content-Type: application/json\r\n")
+    sys.stdout.write("\r\n")
     error_response = {
         "status": "error",
         "message": str(e)
     }
-    print(json.dumps(error_response, indent=2))
+    sys.stdout.write(json.dumps(error_response, indent=2))
+    sys.stdout.flush()
 
 sys.stderr.write("Python POST CGI script ending...\n")

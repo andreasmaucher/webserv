@@ -52,7 +52,6 @@ private:
     void sendCGIOutputToClient(int pipefd) const;
     void sendHttpResponseHeaders(const std::string &contentType) const;
     std::string resolveCGIPath(const std::string &uri);
-    std::string constructErrorResponse(int status_code, const std::string& message);
 
     struct CGIProcess {
         time_t start_time;          // When the process started
@@ -66,8 +65,7 @@ private:
     
     static void addProcess(pid_t pid, int output_pipe, HttpRequest* req);
     static void cleanupProcess(pid_t pid);
-    std::string extractPathInfo(const std::string &uri);
-    std::string getStatusMessage(int status_code);
+    std::string extractPathInfo(const std::string &uri) const;
 };
 
 #endif

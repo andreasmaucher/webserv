@@ -1,43 +1,30 @@
-#!/usr/bin/python3
-
-import os
+#!/usr/bin/env python3
 import sys
+import os
 import time
-from datetime import datetime
-import cgi
 
-def main():
-    # Get parameters from both methods
-    path_info = os.environ.get('PATH_INFO', '').lstrip('/')  # Remove leading slash
-    query_params = cgi.FieldStorage()
-    
-    # Get filename from either PATH_INFO or query parameter
-    filename = path_info if path_info else query_params.getvalue('filename', '')
-    
-    # If the file is in uploads directory, prepend the path
-    if filename and not os.path.isabs(filename):
-        filename = os.path.join('www/uploads', filename)
-    
-    # Get current timestamp
-    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    
-    print("Content-Type: text/plain\r\n")
-    
-    if not filename:
-        print(f"Current timestamp: {current_time}")
-        return
-        
-    if not os.path.exists(filename):
-        print(f"Error: File not found: {filename}")
-        return
-        
-    # Get just the filename without the path for display
-    display_name = os.path.basename(filename)
-    name, ext = os.path.splitext(display_name)
-    new_filename = f"{name}_{current_time}{ext}"
-    
-    print(f"Original filename: {display_name}")
-    print(f"Timestamped filename: {new_filename}")
+# Write headers first
+sys.stdout.write("Content-Type: text/plain\r\n")
+sys.stdout.write("\r\n")
 
-if __name__ == "__main__":
-    main()
+# Get PATH_INFO
+path_info = os.environ.get('PATH_INFO', '')
+
+if path_info:
+    # Remove leading slash if present
+    if path_info.startswith('/'):
+        path_info = path_info[1:]
+    
+    file_path = os.path.join('www/uploads', path_info)
+    
+    if os.path.exists(file_path):
+        # Get file's modification time
+        timestamp = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(os.path.getmtime(file_path)))
+        sys.stdout.write(f"File: {path_info}\n")
+        sys.stdout.write(f"Last modified: {timestamp}\n")
+    else:
+        sys.stdout.write(f"Error: File not found: {path_info}\n")
+else:
+    # No file specified, show current time
+    timestamp = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime())
+    sys.stdout.write(f"Current timestamp: {timestamp}\n")

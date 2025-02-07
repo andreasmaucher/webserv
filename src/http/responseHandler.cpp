@@ -26,20 +26,18 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     {
       CGI cgi;
       cgi.handleCGIRequest(fd, request, response);
-
       // Always start with HTTP status line for valid HTTP/1.1 response
-      response.status_code = 200;
-      response.version = "HTTP/1.1";
-      response.reason_phrase = "OK";
+      //response.status_code = 200;
+      response.version = "HTTP/1.1"; //!
+      //response.reason_phrase = "OK"; ////!
 
-      // Parse CGI headers into response object
+      // Parse CGI headers into response object ///! for which case is this needed?
       size_t headerEnd = request.body.find("\r\n\r\n");
       if (headerEnd != std::string::npos)
       {
         std::string headers = request.body.substr(0, headerEnd);
         // Set body to everything AFTER the headers and the blank line
         response.body = request.body.substr(headerEnd + 4);
-
         // Parse headers
         size_t pos = 0;
         std::string headerSection = headers;
@@ -71,17 +69,19 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
       else
       {
         // No headers found in CGI output
-        //! MICHAEL: this seems strange - need to check
-        response.body = request.body;
-        response.setHeader("Content-Type", "text/plain");
+        //! fix this!!!
+        //response.body = request.body; //! wrong!
+        //response.setHeader("Content-Type", "text/plain"); //! without this is won't work, but in which cases not applicable?
       }
 
       response.close_connection = true;
       request.complete = true;
       return;
     }
+    //! is this actually triggered in any case??????
     catch (const std::exception &e)
     {
+      std::cout << "response body in processRequest: " << response.body << std::endl; //! testing
       DEBUG_MSG("CGI execution failed", e.what());
       response.status_code = 500;
       response.body = "CGI execution failed";
@@ -119,15 +119,16 @@ void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request
 {
   DEBUG_MSG("Status", "Routing request");
   MimeTypeMapper mapper;
+  (void)fd;
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
   if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response))
   {
     if (request.is_cgi)
     { // at this point its been routed already and checked if (CGI)extension is allowed
       DEBUG_MSG("Status", "Calling CGI handler");
-      //! CGI PROCESS STARTS
-      CGI cgiHandler;
-      cgiHandler.handleCGIRequest(fd, request, response);
+      //! not necessary anymore
+      //CGI cgiHandler;
+      //cgiHandler.handleCGIRequest(fd, request, response);
     }
     else
     {
@@ -617,6 +618,12 @@ std::string ResponseHandler::generateDateHeader()
 
 void ResponseHandler::serveErrorPage(HttpResponse &response)
 {
+  /* std::cout << "response body: " << response.body << std::endl;
+  // Don't overwrite if we already have an error message from the CGI
+  if (!response.body.empty()) {
+      return;
+  } */
+
   std::string file_path = buildFullPath(response.status_code);
 
   response.body = read_error_file(file_path);
