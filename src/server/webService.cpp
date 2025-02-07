@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/06 22:48:25 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/07 03:00:33 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -255,37 +255,30 @@ int WebService::start()
     while (true)
     {
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
-
         if (poll_count == -1)
         {
             DEBUG_MSG_1("Poll error", strerror(errno));
             continue;
         }
-
         // Check CGI processes for timeouts
-        // CGI::checkRunningProcesses();
-
+        CGI::checkRunningProcesses();
         // Iterate backwards to handle removals safely
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
             if (i >= pfds_vec.size())
                 continue;
-
             if (pfds_vec[i].revents == 0)
                 continue;
-
-            // Check if fd exists in map of regular request or cgi requests before accessing
             if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end() || !(cgi_fd_to_http_response.find(pfds_vec[i].fd) == cgi_fd_to_http_response.end()))
             {
-                DEBUG_MSG_2("FD not in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);
-
+                DEBUG_MSG_2("Detected CGI process or non-server fd, skipping loop, fd ", pfds_vec[i].fd);
+                usleep(100000);
                 continue;
             }
             DEBUG_MSG_2("Passed FD check --->  FD is either in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);
-
+            // get server object from a particular connection fd
             Server *server_obj = fd_to_server[pfds_vec[i].fd];
             DEBUG_MSG_2("Passed Server assignment check --->, fd ", pfds_vec[i].fd);
-
             if (pfds_vec[i].revents & POLLIN)
             {
                 if (i < servers.size())
@@ -312,7 +305,6 @@ int WebService::start()
                 closeConnection(pfds_vec[i].fd, i, *server_obj);
             }
         }
-
         // Check CGI processes
         // for (std::vector<Server>::iterator it = servers.begin(); it != servers.end(); ++it)
         // {
@@ -335,12 +327,12 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 
         if (nbytes == 0)
         {
-            DEBUG_MSG("Receive closed succesfully", nbytes);
+            DEBUG_MSG_2("WebService::receiveRequest Receive closed succesfully", nbytes);
             closeConnection(fd, i, server);
         }
         else if (nbytes < 0)
         {
-            DEBUG_MSG_1("Receive failed, error", strerror(errno));
+            DEBUG_MSG_2(" WebService::receiveRequest Receive failed, error", strerror(errno));
             closeConnection(fd, i, server);
         }
         else
@@ -362,7 +354,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
                 }
                 catch (const std::exception &e)
                 {
-                    DEBUG_MSG("Error parsing request", e.what());
+                    DEBUG_MSG_2("WebService::receiveRequest Error parsing request", e.what());
                     closeConnection(fd, i, server);
                     return;
                 }
@@ -377,7 +369,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
                 }
                 catch (const std::exception &e)
                 {
-                    DEBUG_MSG("Error parsing body", e.what());
+                    DEBUG_MSG_2("WebService::receiveRequest Error parsing body", e.what());
                     closeConnection(fd, i, server);
                     return;
                 }
@@ -401,26 +393,33 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         HttpResponse response;
         ResponseHandler handler;
         handler.processRequest(fd, server, request, response);
-        if (response.status_code != 0)
+        // If request is a CGI, skip this part
+        const Route *route = request.route; // Route is already stored in request
+        if (!route->is_cgi)
         {
-            // Modify the pollfd to monitor POLLOUT for this FD
-            pfds_vec[i].events = POLLOUT;
-        }
+            if (response.status_code != 0)
+            {
+                // Modify the pollfd to monitor POLLOUT for this FD
+                pfds_vec[i].events = POLLOUT;
+            }
 
-        std::string responseStr = response.generateRawResponseStr();
-        if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
-        {
-            DEBUG_MSG_1("Send error ", strerror(errno));
-        }
-        DEBUG_MSG("Response sent to fd", fd);
+            std::string responseStr = response.generateRawResponseStr();
+            if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
+            {
+                DEBUG_MSG_1("Send error ", strerror(errno));
+            }
+            DEBUG_MSG("Response sent to fd", fd);
 
-        if (response.close_connection == true)
-        {
-            closeConnection(fd, i, server);
-        }
-        else
-        {
-            server.resetRequestObject(fd);
+            if (response.close_connection == true)
+            {
+                DEBUG_MSG_2("WebService::sendResponse: Response sent to fd, closing connection", fd);
+
+                closeConnection(fd, i, server);
+            }
+            else
+            {
+                server.resetRequestObject(fd);
+            }
         }
     }
 }
@@ -433,6 +432,18 @@ void WebService::sigintHandler(int signal)
         DEBUG_MSG("Server status", "Shutting down");
         WebService::cleanup();
         exit(0);
+    }
+}
+
+void WebService::setPollfdReventsToOut(int fd)
+{
+    for (size_t i = 0; i < pfds_vec.size(); ++i)
+    {
+        if (pfds_vec[i].fd == fd)
+        {
+            pfds_vec[i].revents = POLLOUT;
+            break; // Exit once found
+        }
     }
 }
 

@@ -93,8 +93,9 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 // helper function to construct error response for non-existent or non-executable scripts
 std::string CGI::constructErrorResponse(int status_code, const std::string &message)
 {
+    CGI cgi; // Create temporary object
     std::ostringstream response;
-    response << "HTTP/1.1 " << status_code << " " << getStatusMessage(status_code) << "\r\n";
+    response << "HTTP/1.1 " << status_code << " " << cgi.getStatusMessage(status_code) << "\r\n";
     response << "Content-Type: text/plain\r\n";
     response << "Connection: close\r\n";
     response << "\r\n";
@@ -174,6 +175,8 @@ std::string CGI::extractPathInfo(const std::string &uri)
 void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response)
 {
     DEBUG_MSG("Starting CGI Request", request.uri);
+
+    DEBUG_MSG_2("CGI::handleCGIRequest receiving FD is  ", fd);
     (void)fd;
     (void)response;
     try
@@ -221,6 +224,7 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
 
         // If we get here, both script and target file (if specified) exist
         std::string cgiOutput = executeCGI(fd, response, request);
+        // std::cout << "cgiOutput body strrrrrr" << cgiOutput << std::endl;
         request.body = cgiOutput;
         request.complete = true;
     }
@@ -407,7 +411,7 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     // Parent process
     DEBUG_MSG("Parent: Child PID", pid);
     // Add process to tracking map right after fork
-    addProcess(pid, pipe_out[0], &request);
+    addProcess(pid, pipe_out[0], fd, &request, &response);
     DEBUG_MSG("Added CGI process to tracking map", pid);
     DEBUG_MSG("Current timestamp", time(NULL));
 
@@ -435,75 +439,75 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
 
     // Read CGI output from pipe_out[0]
     std::string cgi_output;
-    char buffer[4096];
-    int status = 0;
-    time_t start_time = time(NULL);
-    pid_t pid_return;
+    // char buffer[4096];
+    // int status = 0;
+    // time_t start_time = time(NULL);
+    // pid_t pid_return;
     DEBUG_MSG_1("Waitpid will start, pid : ", pid);
 
     // std::cerr << "Parent: Reading CGI output from output pipe" << std::endl;
-    while ((pid_return = waitpid(pid, &status, WNOHANG)) == 0)
-    {
-        DEBUG_MSG_2("Waitpid returned pid, process NOT done, pid : ", pid_return);
+    // while ((pid_return = waitpid(pid, &status, WNOHANG)) == 0)
+    // {
+    //     DEBUG_MSG_2("Waitpid returned pid, process NOT done, pid : ", pid_return);
 
-        if (time(NULL) - start_time >= 3)
-        { // 3 second timeout
-            // Send SIGTERM, wait a bit, then force kill with SIGKILL if still running.
-            kill(pid, SIGTERM);
-            DEBUG_MSG_1("Sigterm, pid : ", pid_return);
+    //     if (time(NULL) - start_time >= 3)
+    //     { // 3 second timeout
+    //         // Send SIGTERM, wait a bit, then force kill with SIGKILL if still running.
+    //         kill(pid, SIGTERM);
+    //         DEBUG_MSG_1("Sigterm, pid : ", pid_return);
 
-            sleep(1); // Allow for graceful termination
-            if (waitpid(pid, &status, WNOHANG) == 0)
-            {
-                DEBUG_MSG_1("Sigkill, pid : ", pid_return);
+    //         sleep(1); // Allow for graceful termination
+    //         if (waitpid(pid, &status, WNOHANG) == 0)
+    //         {
+    //             DEBUG_MSG_1("Sigkill, pid : ", pid_return);
 
-                kill(pid, SIGKILL);
-            }
-            break;
-        }
-        usleep(3000); // Sleep 100ms before checking again
-    }
-    // Check for timeout during read
-    // checkRunningProcesses();
-    //! the parent process is blockes waiting for output fro the child process in the loop
-    if (pid_return == pid)
-    {
-        DEBUG_MSG_2("Waitpid returned pid, process done, pid : ", pid_return);
-        DEBUG_MSG_2("Starting to read, pid : ", pid_return);
-        ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
-        DEBUG_MSG_2("Read something, pid : ", pid_return);
+    //             kill(pid, SIGKILL);
+    //         }
+    //         break;
+    //     }
+    //     usleep(3000); // Sleep 100ms before checking again
+    // }
+    // // Check for timeout during read
+    // // checkRunningProcesses();
+    // //! the parent process is blockes waiting for output fro the child process in the loop
+    // if (pid_return == pid)
+    // {
+    //     DEBUG_MSG_2("Waitpid returned pid, process done, pid : ", pid_return);
+    //     DEBUG_MSG_2("Starting to read, pid : ", pid_return);
+    //     ssize_t bytes_read = read(pipe_out[0], buffer, sizeof(buffer));
+    //     DEBUG_MSG_2("Read something, pid : ", pid_return);
 
-        if (bytes_read > 0)
-        {
-            cgi_output.append(buffer, bytes_read);
-            DEBUG_MSG_2("Read after waitpid: more to read, but will stop half_way, pid : ", pid_return);
+    //     if (bytes_read > 0)
+    //     {
+    //         cgi_output.append(buffer, bytes_read);
+    //         DEBUG_MSG_2("Read after waitpid: more to read, but will stop half_way, pid : ", pid_return);
 
-            close(pipe_out[0]);
-            response.body = cgi_output;
+    //         close(pipe_out[0]);
+    //         response.body = cgi_output;
 
-            WebService::deleteFromPfdsVecForCGI(fd);
-        }
-        else if (bytes_read == 0)
-        {
-            // break;  // EOF reach
-            DEBUG_MSG_2("Finished reading, pid : ", pid_return);
+    //         WebService::deleteFromPfdsVecForCGI(fd);
+    //     }
+    //     else if (bytes_read == 0)
+    //     {
+    //         // break;  // EOF reach
+    //         DEBUG_MSG_2("Finished reading, pid : ", pid_return);
 
-            close(pipe_out[0]);
-            WebService::deleteFromPfdsVecForCGI(fd);
-        }
-        else if (bytes_read == -1)
-        {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
-                usleep(10000); // Wait 1ms before retry
-                // continue;
-            }
-            else
-            {
-                throw std::runtime_error("Error reading CGI output");
-            }
-        }
-    }
+    //         close(pipe_out[0]);
+    //         WebService::deleteFromPfdsVecForCGI(fd);
+    //     }
+    //     else if (bytes_read == -1)
+    //     {
+    //         if (errno == EAGAIN || errno == EWOULDBLOCK)
+    //         {
+    //             usleep(10000); // Wait 1ms before retry
+    //             // continue;
+    //         }
+    //         else
+    //         {
+    //             throw std::runtime_error("Error reading CGI output");
+    //         }
+    //     }
+    // }
 
     // Wait for child process to finish
     // int status;
@@ -513,39 +517,41 @@ std::string CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &reques
     //     throw std::runtime_error("waitpid failed");
     // }
 
-    if (WIFEXITED(status))
-    {
-        DEBUG_MSG("Parent: Child exit status", WEXITSTATUS(status));
-    }
-    else if (WIFSIGNALED(status))
-    {
-        DEBUG_MSG("Parent: Child killed by signal", WTERMSIG(status));
-    }
-    else
-    {
-        DEBUG_MSG("Parent: Child exit status", "abnormal");
-    }
+    // if (WIFEXITED(status))
+    // {
+    //     DEBUG_MSG("Parent: Child exit status", WEXITSTATUS(status));
+    // }
+    // else if (WIFSIGNALED(status))
+    // {
+    //     DEBUG_MSG("Parent: Child killed by signal", WTERMSIG(status));
+    // }
+    // else
+    // {
+    //     DEBUG_MSG("Parent: Child exit status", "abnormal");
+    // }
 
-    // Assign CGI output to response.body
-    response.body = cgi_output;
-    DEBUG_MSG("Parent: Response body size", response.body.length());
-    DEBUG_MSG("=== CGI EXECUTION END ===", "");
+    // // Assign CGI output to response.body
+    // response.body = cgi_output;
+    // DEBUG_MSG("Parent: Response body size", response.body.length());
+    // DEBUG_MSG("=== CGI EXECUTION END ===", "");
 
-    // Clean up process from tracking map for endless scripts
-    cleanupProcess(pid);
-    DEBUG_MSG("Removed CGI process from tracking map", pid);
+    // // Clean up process from tracking map for endless scripts
+    // cleanupProcess(pid);
+    // DEBUG_MSG("Removed CGI process from tracking map", pid);
 
     return cgi_output;
 }
 
 std::map<pid_t, CGI::CGIProcess> CGI::running_processes;
 
-void CGI::addProcess(pid_t pid, int output_pipe, HttpRequest *req)
+void CGI::addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest *req, HttpResponse *response)
 {
     CGIProcess proc;
     proc.start_time = time(NULL);
     proc.output_pipe = output_pipe;
     proc.request = req;
+    proc.response_fd = response_fd;
+    proc.response = response;
 
     DEBUG_MSG_1("Adding new CGI process PID", pid);
     running_processes[pid] = proc;
@@ -563,47 +569,222 @@ void CGI::cleanupProcess(pid_t pid)
 
 void CGI::checkRunningProcesses()
 {
-    time_t current_time = time(NULL);
 
     // std::cout << "Checking CGI processes at timestamp" << current_time << std::endl;
     // std::cout << "Number of running processes" << running_processes.size() << std::endl;
-
+    pid_t return_pid;
     std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
+    int status;
+    return_pid = waitpid(-1, &status, WNOHANG);
     while (it != running_processes.end())
     {
         pid_t pid = it->first;
         CGIProcess &proc = it->second;
+        std::string cgi_output;
+        char buffer[4096];
+        // TODO: Michael - check why buffer is not being used, add exit code statuses, add check for max body size
+        (void)buffer;
 
-        // Check for timeout
-        if (current_time - proc.start_time > CGI_TIMEOUT)
+        int status = 0;
+        (void)status;
+        size_t cgi_max_read_size = MAX_CGI_BODY_SIZE;
+        (void)cgi_max_read_size;
+        DEBUG_MSG_2("Waitpid will start, pid : ", return_pid);
+        usleep(5000000);
+
+        if (return_pid == -1)
         {
-            DEBUG_MSG_1("CGI process timed out, killing PID", pid);
-
-            kill(pid, SIGTERM); // Try graceful termination
-            usleep(100000);     // Wait 100ms
-
-            if (waitpid(pid, NULL, WNOHANG) == 0)
-            {
-                DEBUG_MSG_1("Process still running after SIGTERM, sending SIGKILL", pid);
-                kill(pid, SIGKILL); // Force kill if still running
-            }
-
-            if (proc.request)
-            {
-                // Create a temporary CGI object to use constructErrorResponse
-                CGI cgi;
-                proc.request->body = cgi.constructErrorResponse(504, "CGI timeout");
-                proc.request->complete = true;
-            }
-
-            cleanupProcess(pid);
-            std::map<pid_t, CGIProcess>::iterator temp = it;
+            DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child waiting error, pid ", pid);
             ++it;
-            running_processes.erase(temp);
+            continue;
+        }
+        else if (return_pid == pid)
+        {
+            DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, pid ", pid);
+
+            char buffer[4096];
+            ssize_t bytes_read;
+            ssize_t total_bytes = 0;
+            // usleep(2000000);
+
+            while ((bytes_read = read(proc.output_pipe, buffer, sizeof(buffer))) > 0)
+            {
+                cgi_output.append(buffer, bytes_read);
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, reading from pipe, pid ", pid);
+
+                total_bytes += bytes_read;
+            }
+
+            if (bytes_read == -1)
+            {
+                // Handle error
+                DEBUG_MSG_2("Read error", strerror(errno));
+            }
+            if (bytes_read == 0)
+            {
+                // EOF reached
+                // proc.response->body = cgi_output;
+                DEBUG_MSG_2("End of file reached", "");
+                // WebService::setPollfdReventsToOut(proc.response_fd);
+            }
+            proc.response->body = cgi_output;
+            DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() proc.response->body = cgi_output ", cgi_output);
+
+            // Sending temporary canned response to test resonse sending
+            // TODO: Michael - change this to correctly constructed response
+            CGI cgi;
+            proc.response->body = cgi.constructErrorResponse(420, cgi_output);
+            proc.response->complete = true;
+            if (send(proc.response_fd, proc.response->body.c_str(), proc.response->body.size(), 0) == -1)
+            {
+                DEBUG_MSG_2("Send error ", strerror(errno));
+            }
+            // close(proc.output_pipe);
+            // WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+            // cleanupProcess(pid);
+            // std::map<pid_t, CGIProcess>::iterator temp = it;
+            // ++it;
+            // running_processes.erase(temp);
+        }
+        else if (return_pid == 0)
+        {
+            // time_t current_time = time(NULL);
+            char buffer[4096];
+            ssize_t bytes_read;
+            ssize_t total_bytes = 0;
+
+            DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child still working, pid ", pid);
+            // Check for timeout
+            // usleep(6000000);
+
+            // if (current_time - proc.start_time > CGI_TIMEOUT)
+            {
+                DEBUG_MSG_2("CGI process timed out, killing PID", pid);
+
+                kill(pid, SIGTERM); // Try graceful termination
+                usleep(100000);     // Wait 100ms
+
+                if (waitpid(pid, NULL, WNOHANG) == 0)
+                {
+                    DEBUG_MSG_2("Process still running after SIGTERM, sending SIGKILL", pid);
+                    kill(pid, SIGKILL); // Force kill if still running
+                }
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child killed, will send a 504, CGItimeout response here, pid ", pid);
+
+                // Create a temporary CGI object to use constructErrorResponse
+
+                while ((bytes_read = read(proc.output_pipe, buffer, sizeof(buffer)) > 0))
+                {
+                    cgi_output += cgi_output + buffer;
+                    DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, reading from pipe, content : ", buffer);
+
+                    total_bytes += bytes_read;
+                    break;
+                }
+
+                if (bytes_read == -1)
+                {
+                    // Handle error
+                    DEBUG_MSG_2("Read error", strerror(errno));
+                }
+                if (bytes_read == 0)
+                {
+                    // EOF reached
+                    // proc.response->body = cgi_output;
+                    DEBUG_MSG_2("End of file reached", "");
+                    // WebService::setPollfdReventsToOut(proc.response_fd);
+                }
+                proc.response->body = cgi_output;
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child not finished, killed, but read proc.response->body = cgi_output ", cgi_output);
+                CGI cgi;
+                proc.response->body = cgi.constructErrorResponse(504, "CGI timeout");
+                proc.response->complete = true;
+                for (size_t i = 0; i < WebService::pfds_vec.size(); ++i)
+                {
+                    if (WebService::pfds_vec[i].fd == proc.response_fd)
+                    {
+                        WebService::pfds_vec[i].revents = POLLOUT;
+                        break; // Exit once found
+                    }
+                }
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Sending FD is  ", proc.response_fd);
+
+                if (isfdOpen(proc.response_fd))
+                {
+                    // Safe to use the fd
+                    if (send(proc.response_fd, proc.response->body.c_str(), proc.response->body.size(), 0) == -1)
+                        DEBUG_MSG_2("Send error ", strerror(errno));
+                }
+                else
+                {
+                    DEBUG_MSG_2("FD is closed or invalid", proc.response_fd);
+                }
+                // if (send(proc.response_fd, proc.response->body.c_str(), proc.response->body.size(), 0) == -1)
+                // {
+                //     DEBUG_MSG_2("Send error ", strerror(errno));
+                // }
+                // close(proc.output_pipe);
+                // WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+
+                // cleanupProcess(pid);
+                // std::map<pid_t, CGIProcess>::iterator temp = it;
+                // ++it;
+                // running_processes.erase(temp);
+            }
         }
         else
         {
+            DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() strange pid ", return_pid);
+
             ++it;
         }
+        if (close(proc.output_pipe) == -1)
+            DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Closing connection FD failed", strerror(errno));
+
+        WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+        std::vector<pollfd>::iterator it2;
+        for (it2 = WebService::pfds_vec.begin(); it2 != WebService::pfds_vec.end(); ++it2)
+        {
+            if (it2->fd == proc.response_fd)
+            {
+
+                Server *server_obj = WebService::fd_to_server[WebService::pfds_vec[it2->fd].fd];
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Server *server_obj = WebService::fd_to_server[WebService::pfds_vec[it2->fd].fd]", return_pid);
+
+                // WebService::sendResponse(WebService::pfds_vec[it2->fd].fd, (size_t &)it2->fd, *server_obj);
+                // DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() sendResponse", return_pid);
+
+                // WebService::closeConnection(WebService::pfds_vec[it2->fd].fd, (size_t &)it2->fd, *server_obj);
+                // DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() closeConnection", return_pid);
+
+                WebService::deleteRequestObject(WebService::pfds_vec[it2->fd].fd, *server_obj);
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() deleteRequestObject", return_pid);
+
+                WebService::deleteFromPfdsVecForCGI(WebService::pfds_vec[it2->fd].fd);
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() deleteFromPfdsVecForCGI", return_pid);
+
+                WebService::cgi_fd_to_http_response.erase(WebService::pfds_vec[it2->fd].fd);
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() cgi_fd_to_http_response.erase", return_pid);
+
+                delete server_obj;
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() delete server_obj;", return_pid);
+
+                WebService::fd_to_server.erase(WebService::pfds_vec[it2->fd].fd);
+                DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() fd_to_server.erase", return_pid);
+
+                break; // Exit after finding and removing
+            }
+        }
+        cleanupProcess(return_pid);
+        DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() cleanupProcess(pid);", return_pid);
+
+        std::map<pid_t, CGIProcess>::iterator temp = it;
+        ++it;
+        running_processes.erase(temp);
     }
+}
+
+bool CGI::isfdOpen(int fd)
+{
+    return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
 }
