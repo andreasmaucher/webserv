@@ -49,7 +49,7 @@ private:
     std::string requestBody;
 
     char **setCGIEnvironment(const HttpRequest &httpRequest) const;
-    std::string executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
+    void executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
     void sendCGIOutputToClient(int pipefd) const;
     void sendHttpResponseHeaders(const std::string &contentType) const;
     std::string resolveCGIPath(const std::string &uri);

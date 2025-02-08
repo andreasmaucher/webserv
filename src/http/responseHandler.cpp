@@ -68,14 +68,6 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
           }
         }
       }
-      else
-      {
-        // No headers found in CGI output
-        //! MICHAEL: this seems strange - need to check
-        response.body = request.body;
-        response.setHeader("Content-Type", "text/plain");
-      }
-
       response.close_connection = true;
       request.complete = true;
       return;
