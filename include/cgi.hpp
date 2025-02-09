@@ -15,6 +15,8 @@
 #include "../include/httpRequest.hpp"
 #include "../include/requestParser.hpp"
 #include "../include/httpResponse.hpp"
+#include "../include/webService.hpp"
+
 #include <map>
 #include <ctime>
 #include <fcntl.h>
