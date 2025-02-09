@@ -399,6 +399,7 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
     DEBUG_MSG("Output pipe - Read FD", pipe_out[0]);
     DEBUG_MSG("Output pipe - Write FD", pipe_out[1]);
     pid_t pid = runChildCGI(pipe_in, pipe_out, request);
+    DEBUG_MSG_2("---------------->CGI: executeCGI: new CGI process added: PID ", pid);
 
     // Parent process
     // Add process to tracking map right after fork
@@ -476,8 +477,8 @@ void CGI::checkRunningProcesses()
         DEBUG_MSG_2("Waitpid will start, return_pid : ", return_pid);
         DEBUG_MSG_2("Waitpid will start, current process pid : ", pid);
 
-        usleep(5000000);
-        usleep(6000000);
+        // usleep(5000000);
+        // usleep(6000000);
         if (return_pid == -1)
         {
             DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child waiting error, pid ", pid);
@@ -534,7 +535,7 @@ void CGI::checkRunningProcesses()
         {
             time_t current_time = time(NULL);
             DEBUG_MSG_2("-------------->Webservice::CGI::checkRunningProcesses() CHILD STILL RUNNING, pid ", pid);
-            usleep(6000000);
+            // usleep(6000000);
             DEBUG_MSG_2("CGI process timed out, killing PID ", pid);
             DEBUG_MSG_2("Current time ", current_time);
             DEBUG_MSG_2("proc.start_time ", proc.start_time);
@@ -625,61 +626,16 @@ void CGI::checkRunningProcesses()
                         if (close(proc.response_fd) == -1)
                             DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Closing connection FD failed", strerror(errno));
                         DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Closing sending pipe ", proc.response_fd);
-
-                        // if (send(proc.response_fd, responseStr.c_str(), responseStr.size(), 0) == -1)
-                        // {
-                        //     DEBUG_MSG_2("Send error ", strerror(errno));
-                        // }
-                        // else
-                        //     DEBUG_MSG_2("Send success, pid  ", return_pid);
                     }
                     else
                     {
                         DEBUG_MSG_2("FD is closed or invalid", proc.response_fd);
                     }
                 }
-                // for (size_t i = 0; i < WebService::pfds_vec.size(); ++i)
-                // {
-                //     if (WebService::pfds_vec[i].fd == proc.response_fd)
-                //     {
-                //         WebService::pfds_vec[i].revents = POLLOUT;
-                //         break; // Exit once found
-                //     }
-                // }
                 DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Sending FD is  ", proc.response_fd);
-
-                // if (isfdOpen(proc.response_fd))
-                // {
-                //     // Safe to use the fd
-                //     if (send(proc.response_fd, proc.response->body.c_str(), proc.response->body.size(), 0) == -1)
-                //         DEBUG_MSG_2("Send error ", strerror(errno));
-                // }
-                // else
-                // {
-                //     DEBUG_MSG_2("FD is closed or invalid", proc.response_fd);
-                // }
-                // if (send(proc.response_fd, proc.response->body.c_str(), proc.response->body.size(), 0) == -1)
-                // {
-                //     DEBUG_MSG_2("Send error ", strerror(errno));
-                // }
-                // close(proc.output_pipe);
-                // WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
-
-                // cleanupProcess(pid);
-                // std::map<pid_t, CGIProcess>::iterator temp = it;
-                // ++it;
-                // running_processes.erase(temp);
-                // close(proc.output_pipe);
-                // WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
-                // cleanupProcess(pid);
-                // std::map<pid_t, CGIProcess>::iterator temp = it;
-
                 DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() ++it is segfaulting", return_pid);
 
-                // ++it;
                 DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() running_processes.erase(temp) is it segfaulting?", return_pid);
-                // (void)temp;
-                // running_processes.erase(temp);
                 DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() running_processes.erase(temp) ", return_pid);
             }
         }
@@ -689,9 +645,6 @@ void CGI::checkRunningProcesses()
 
             ++it;
         }
-        // if (close(proc.output_pipe) == -1)
-        //     DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Closing connection FD failed", strerror(errno));
-
         WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
         std::vector<pollfd>::iterator it2;
         for (it2 = WebService::pfds_vec.begin(); it2 != WebService::pfds_vec.end(); ++it2)
