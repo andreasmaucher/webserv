@@ -33,8 +33,10 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
 
       // Parse CGI headers into response object ///! for which case is this needed?
       size_t headerEnd = request.body.find("\r\n\r\n");
+      std::cout << "headers ttttxcv: " << request.body.substr(0, headerEnd) << std::endl;
       if (headerEnd != std::string::npos)
       {
+        std::cout << "headers xxxxcxxxcv: " << request.body.substr(0, headerEnd) << std::endl;
         std::string headers = request.body.substr(0, headerEnd);
         // Set body to everything AFTER the headers and the blank line
         response.body = request.body.substr(headerEnd + 4);

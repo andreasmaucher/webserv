@@ -7,4 +7,4 @@ set -x  # Enable debug mode to see what's happening
 
 ## if working from outside of the container use this option for exposing the port:
 #docker run -it --rm -v "$(pwd)":/home/root -p 8080:8080 webserv-img sh -c "make re && ./webserv tomldb.config"
-docker run -it --rm -v "$(pwd)":/home/root -p 8080:8080 webserv-img sh -c "make re && valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./webserv tomldb.config"
+#docker run -it --rm -v "$(pwd)":/home/root -p 8080:8080 webserv-img sh -c "make re && valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./webserv tomldb.config"
