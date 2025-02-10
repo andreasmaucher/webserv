@@ -72,6 +72,7 @@ private:
 
     static void addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest *req, HttpResponse *response);
     static void cleanupProcess(pid_t pid);
+    static void readAndSendCGIResponse(pid_t pid, CGIProcess proc);
     std::string extractPathInfo(const std::string &uri);
     std::string getStatusMessage(int status_code);
     pid_t runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request);

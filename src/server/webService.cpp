@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/07 03:00:33 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/10 20:10:48 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -261,10 +261,15 @@ int WebService::start()
             continue;
         }
         // Check CGI processes for timeouts
+
+        DEBUG_MSG_2("-----------> Webservice::start() entering CGI check ", "");
+
         CGI::checkRunningProcesses();
         // Iterate backwards to handle removals safely
+        DEBUG_MSG_2("-----------> Webservice::start() passed CGI check ", "");
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
+            DEBUG_MSG_2("-----------> Webservice::start() entered pfds loop ", "");
             if (i >= pfds_vec.size())
                 continue;
             if (pfds_vec[i].revents == 0)
