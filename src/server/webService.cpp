@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/10 20:10:48 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/11 02:24:35 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -252,8 +252,11 @@ void WebService::setupSockets()
 int WebService::start()
 {
     DEBUG_MSG("Server Status", "Starting");
+    bool skip_to_next_poll = false;
     while (true)
     {
+        skip_to_next_poll = false; // Flag to control outer loop skip
+
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
         if (poll_count == -1)
         {
@@ -269,16 +272,49 @@ int WebService::start()
         DEBUG_MSG_2("-----------> Webservice::start() passed CGI check ", "");
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
+            DEBUG_MSG_2("-----------> Webservice::start() pfds_vec.size() ", pfds_vec.size());
+            DEBUG_MSG_2("-----------> Webservice::start() pfds_vec[i].fd ", pfds_vec[i].fd);
+            DEBUG_MSG_2("-----------> Webservice::start() i ", i);
+
             DEBUG_MSG_2("-----------> Webservice::start() entered pfds loop ", "");
             if (i >= pfds_vec.size())
-                continue;
-            if (pfds_vec[i].revents == 0)
-                continue;
-            if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end() || !(cgi_fd_to_http_response.find(pfds_vec[i].fd) == cgi_fd_to_http_response.end()))
             {
+                DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec.size() is true ", pfds_vec.size());
+
+                continue;
+            }
+            if (pfds_vec[i].revents == 0)
+            {
+                DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec[i].revents == 0 is true", "");
+                continue;
+            }
+
+            if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end())
+            {
+
+                // if (!(cgi_fd_to_http_response.find(pfds_vec[i].fd) == cgi_fd_to_http_response.end()))
+                //     DEBUG_MSG_2("cgi_fd_to_http_response.find(pfds_vec[i].fd) , fd ", pfds_vec[i].fd);
                 DEBUG_MSG_2("Detected CGI process or non-server fd, skipping loop, fd ", pfds_vec[i].fd);
                 usleep(100000);
-                continue;
+                // continue;
+                skip_to_next_poll = true; // Set flag to skip to next poll
+                break;                    // Exit the for loop
+            }
+            // if (fd_to_server.find(pfds_vec[i].fd) != fd_to_server.end() || (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end()))
+            // {
+            //     if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end())
+            //         DEBUG_MSG_2("fd_to_server.find(pfds_vec[i].fd) found , fd ", pfds_vec[i].fd);
+            //     if (!(cgi_fd_to_http_response.find(pfds_vec[i].fd) == cgi_fd_to_http_response.end()))
+            //         DEBUG_MSG_2("cgi_fd_to_http_response.find(pfds_vec[i].fd) , fd ", pfds_vec[i].fd);
+            //     DEBUG_MSG_2("Detected CGI process or non-server fd, skipping loop, fd ", pfds_vec[i].fd);
+            //     usleep(100000);
+            //     // continue;
+            //     // skip_to_next_poll = true; // Set flag to skip to next poll
+            //     // break;                    // Exit the for loop
+            // }
+            if (skip_to_next_poll)
+            {
+                continue; // Skip to next iteration of while loop
             }
             DEBUG_MSG_2("Passed FD check --->  FD is either in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);
             // get server object from a particular connection fd
@@ -440,13 +476,13 @@ void WebService::sigintHandler(int signal)
     }
 }
 
-void WebService::setPollfdReventsToOut(int fd)
+void WebService::setPollfdEventsToOut(int fd)
 {
     for (size_t i = 0; i < pfds_vec.size(); ++i)
     {
         if (pfds_vec[i].fd == fd)
         {
-            pfds_vec[i].revents = POLLOUT;
+            pfds_vec[i].events = POLLOUT;
             break; // Exit once found
         }
     }

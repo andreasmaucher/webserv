@@ -74,7 +74,7 @@ public:
     // static void deleteFromPfdsVec(int &fd, size_t &i);
     static void deleteFromPfdsVecForCGI(int &fd);
     static void deleteRequestObject(int &fd, Server &server);
-    static void setPollfdReventsToOut(int fd);
+    static void setPollfdEventsToOut(int fd);
 
     static std::map<int, HttpResponse *> cgi_fd_to_http_response; // fds to respective server objects pointer
     static std::vector<pollfd> pfds_vec;
