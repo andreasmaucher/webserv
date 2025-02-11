@@ -67,13 +67,13 @@ public:
     void receiveRequest(int &fd, size_t &i, Server &server);
     static void sendResponse(int &fd, size_t &i, Server &server);
     void newConnection(Server &server);
-    static void closeConnection(int &fd, size_t &i, Server &server);
+    static void closeConnection(const int &fd, size_t &i, Server &server);
     void handleSigint(int signal);
     static void sigintHandler(int signal);
     static void addToPfdsVector(int new_fd);
     // static void deleteFromPfdsVec(int &fd, size_t &i);
-    static void deleteFromPfdsVecForCGI(int &fd);
-    static void deleteRequestObject(int &fd, Server &server);
+    static void deleteFromPfdsVecForCGI(const int &fd);
+    static void deleteRequestObject(const int &fd, Server &server);
     static void setPollfdEventsToOut(int fd);
 
     static std::map<int, HttpResponse *> cgi_fd_to_http_response; // fds to respective server objects pointer

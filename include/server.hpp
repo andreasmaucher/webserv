@@ -54,7 +54,7 @@ public:
     void setErrorPage(const int &code, const std::string &path);
     void setListenerFd(const int &listener_fd);
     void setRequestObject(int &fd, HttpRequest &request);
-    void deleteRequestObject(int &fd);
+    void deleteRequestObject(const int &fd);
     void resetRequestObject(int &fd);
     void debugServer() const;
     void debugPrintRoutes() const;

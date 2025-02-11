@@ -90,9 +90,10 @@ void Server::setRequestObject(int &fd, HttpRequest &request)
     this->client_fd_to_request[fd] = request;
 }
 
-void Server::deleteRequestObject(int &fd)
+void Server::deleteRequestObject(const int &fd)
 {
-    this->client_fd_to_request.erase(fd);
+    int fd_to_delete = fd;
+    this->client_fd_to_request.erase(fd_to_delete);
 }
 
 void Server::resetRequestObject(int &fd)

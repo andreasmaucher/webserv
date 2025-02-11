@@ -453,6 +453,7 @@ void CGI::cleanupProcess(pid_t pid)
 
 void CGI::readAndSendCGIResponse(pid_t pid, CGIProcess proc)
 {
+    (void)pid;
     ssize_t bytes_read;
     char buffer[MAX_CGI_BODY_SIZE];
 

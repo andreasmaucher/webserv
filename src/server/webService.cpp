@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/11 02:24:35 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/11 21:23:56 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -152,45 +152,71 @@ void WebService::deleteFromPfdsVec(int &fd, size_t &i)
         pfds_vec.erase(pfds_vec.begin() + i);
         DEBUG_MSG_2("WebService::deleteFromPfdsVec: Erased fd from vector at index", i);
         DEBUG_MSG_2("WebService::deleteFromPfdsVec: Current pfds_vec size", pfds_vec.size());
+        // exit(1);
     }
     else
     {
         DEBUG_MSG_2("WebService::deleteFromPfdsVec: Error: fd not found in vector at index", i);
+        // exit(1);
     }
 }
 
-void WebService::deleteFromPfdsVecForCGI(int &fd)
+void WebService::deleteFromPfdsVecForCGI(const int &fd)
 {
+    DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI need to delete the fd, ", fd);
+    const int fd_to_delete = fd; // Local copy of the value
+    DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI need to delete the fd, ", fd_to_delete);
     std::vector<pollfd>::iterator it;
     for (it = pfds_vec.begin(); it != pfds_vec.end(); ++it)
     {
-        if (it->fd == fd)
+        DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI looping throught the fds to delete, current fd ", it->fd);
+        if (it->fd == fd_to_delete)
         {
-            pfds_vec.erase(it);
-            DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the fd, ", fd);
+            DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI will delete the fd, ", it->fd);
+
+            WebService::pfds_vec.erase(it);
+            DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the fd, ", fd_to_delete);
+            // DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the it->fd, ", it->fd);
 
             break; // Exit after finding and removing
         }
     }
+
+    for (it = pfds_vec.begin(); it != pfds_vec.end(); it++)
+    {
+        DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI CHECKING AGAIN looping throught the fds to delete, current fd ", it->fd);
+        // if (it->fd == fd)
+        // {
+        //     DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI will delete the fd, ", it->fd);
+
+        //     pfds_vec.erase(it);
+        //     DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the fd, ", fd);
+
+        //     break; // Exit after finding and removing
+        // }
+    }
 }
 
-void WebService::deleteRequestObject(int &fd, Server &server)
+void WebService::deleteRequestObject(const int &fd, Server &server)
 {
     server.deleteRequestObject(fd);
 }
 
-void WebService::closeConnection(int &fd, size_t &i, Server &server)
+void WebService::closeConnection(const int &fd, size_t &i, Server &server)
 {
     (void)i;
+    const int fd_to_delete = fd;
     if (close(fd) == -1)
-        DEBUG_MSG_2("Closing connection FD failed", strerror(errno));
+        DEBUG_MSG_2("Closing connection FD failed", fd);
+    else
+        DEBUG_MSG_2("Connection to FD closed succeeded", fd);
 
     // deleteFromPfdsVec(fd, i);
-    deleteFromPfdsVecForCGI(fd);
+    deleteFromPfdsVecForCGI(fd_to_delete);
 
-    DEBUG_MSG_2("Deleted from PFDS fd", fd);
+    DEBUG_MSG_2("WebService::closeConnection after deleteFromPfdsVecForCGI(fd); fd is ", fd);
 
-    deleteRequestObject(fd, server);
+    deleteRequestObject(fd_to_delete, server);
     DEBUG_MSG_2("Erased request object for fd", fd);
 }
 
@@ -428,28 +454,41 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 void WebService::sendResponse(int &fd, size_t &i, Server &server)
 {
     HttpRequest request_obj = server.getRequestObject(fd);
+    DEBUG_MSG_2("------->WebService::sendResponse server.getRequestObject(fd) passed ", fd);
+
     if (request_obj.complete)
     {
         HttpRequest request = server.getRequestObject(fd);
+        DEBUG_MSG_2("------->WebService::sendResponse server.getRequestObject(fd); passed ", fd);
+
         HttpResponse response;
         ResponseHandler handler;
         handler.processRequest(fd, server, request, response);
+        DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
+
         // If request is a CGI, skip this part
         const Route *route = request.route; // Route is already stored in request
+        DEBUG_MSG_2("------->WebService::sendResponse const Route *route = request.route; is the issue ", fd);
+
         if (!route->is_cgi)
         {
             if (response.status_code != 0)
             {
                 // Modify the pollfd to monitor POLLOUT for this FD
+                DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; is the issue ", fd);
+
                 pfds_vec[i].events = POLLOUT;
+                DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; passed ", fd);
             }
 
             std::string responseStr = response.generateRawResponseStr();
+            DEBUG_MSG_2("------->WebService::sendResponse generateRawResponseStr(); passed ", fd);
+
             if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
             {
-                DEBUG_MSG_1("Send error ", strerror(errno));
+                DEBUG_MSG_2("Send error ", strerror(errno));
             }
-            DEBUG_MSG("Response sent to fd", fd);
+            DEBUG_MSG_2("Response sent to fd", fd);
 
             if (response.close_connection == true)
             {
