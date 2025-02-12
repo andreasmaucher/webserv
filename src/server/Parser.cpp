@@ -104,6 +104,10 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                     route.uri = value;
                     route.path = server.getRootDirectory() + route.uri;
                 }
+                else if (key == "redirect")
+                {
+                    route.redirect_uri = value;
+                }
                 else if (key == "index")
                 {
                     route.index_file = value;

@@ -98,6 +98,25 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     // ResponseHandler::routeRequest(config, request, response);
     response.status_code = 200;
   }
+  //! REDIRECTS
+  if (! request.route->redirect_uri.empty())
+  {
+    response.status_code = 301;
+    response.setHeader("Location", request.route->redirect_uri);
+    response.reason_phrase = "Moved Permanently";
+    response.setHeader("Content-Length", "0");
+  }
+  /* // if redirect_uri is set, set the redirect exit code and return true
+  std::cout << "best_match->redirect_uri: " << best_match->redirect_uri << std::endl;
+  if (!best_match->redirect_uri.empty())
+  {
+    DEBUG_MSG("Status", "Redirect found to: " + best_match->redirect_uri);
+    std::cout << "redirecting to: " << best_match->redirect_uri << std::endl;
+    response.status_code = 301;
+    //response.setRedirect(best_match->redirect_uri);
+    std::cout << "response.status_code for redirect: " << response.status_code << std::endl;
+    return true;
+  } */
 
   if (request.headers.find("Connection") != request.headers.end() && request.headers["Connection"] == "close")
     response.close_connection = true;
