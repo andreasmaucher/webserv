@@ -699,6 +699,8 @@ void CGI::checkRunningProcesses()
 
             sendCGIResponse(pid, proc);
             WebService::deleteFromPfdsVecForCGI(proc.response_fd);
+            // delete proc.response;
+            // proc.response = NULL;
             sleep(1);
         }
         if (!proc.finished_success && proc.process_finished)

@@ -576,6 +576,7 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
 
   response.version = "HTTP/1.1";
   // 4xx or 5xx -> has a body with error message
+  DEBUG_MSG_2("ResponseHandler::responseBuilder", "response.status_code");
   if (response.status_code >= 400)
     serveErrorPage(response);
   // 200/201 -> has a body with content + content type header already filled in readFile
@@ -588,12 +589,16 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
 
   if (!response.body.empty())
   {
+    DEBUG_MSG_2("ResponseHandler::responseBuilder", "response.body.empty() not an issue");
+
     if (response.headers["Content-Type"].empty())     // mandatory if body present (e.g. errors)
       response.headers["Content-Type"] = "text/html"; // use as default
     std::ostringstream oss;
     oss << response.body.length();
     response.headers["Content-Length"] = oss.str();
   }
+  DEBUG_MSG_2("ResponseHandler::responseBuilder", "generateDateHeader() is an issue");
+
   response.headers["Date"] = generateDateHeader();
   response.headers["Server"] = "MAC_Server/1.0";
   if (response.close_connection == true && response.headers.find("Connection") == response.headers.end())
