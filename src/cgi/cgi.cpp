@@ -610,7 +610,7 @@ void CGI::checkRunningProcesses()
     std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
     while (it != running_processes.end())
     {
-        sleep(1);
+        // sleep(1);
         pid_t pid = it->first;
         CGIProcess &proc = it->second;
         // char buffer[MAX_CGI_BODY_SIZE];
@@ -652,7 +652,7 @@ void CGI::checkRunningProcesses()
                     DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() return_pid == pid, WIFEXITED(proc.status) && WEXITSTATUS(proc.status) == 0 ", pid);
 
                     readFromCGI(pid, proc);
-                    sleep(1);
+                    // sleep(1);
                 }
                 else
                 {
@@ -747,7 +747,7 @@ void CGI::checkRunningProcesses()
             it = next_it;
             // ++it;
 
-            sleep(2); // Cleaner way to sleep for exactly 2 seconds
+            // sleep(2); // Cleaner way to sleep for exactly 2 seconds
             continue;
         }
         DEBUG_MSG_2("-----------> Webservice::CGI::checkRunningProcesses()Starting check for new process ", pid);
