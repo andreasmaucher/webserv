@@ -69,6 +69,8 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
         }
       }
       response.close_connection = true;
+      DEBUG_MSG("ResponseHandler::processRequest response.close_connection = true", response.close_connection);
+
       request.complete = true;
       return;
     }
@@ -567,10 +569,10 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 // Populates the response object. The formatted response function is in the response class
 void ResponseHandler::responseBuilder(HttpResponse &response)
 {
-  DEBUG_MSG("Status", "Building response");
+  DEBUG_MSG_2("Status", "Building response");
   std::ostringstream oss;
   oss << response.status_code;
-  DEBUG_MSG("Status", "Status code: " + oss.str());
+  DEBUG_MSG_2("Status", "Status code: " + oss.str());
 
   response.version = "HTTP/1.1";
   // 4xx or 5xx -> has a body with error message
@@ -578,7 +580,11 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
     serveErrorPage(response);
   // 200/201 -> has a body with content + content type header already filled in readFile
   //  else       -> has no body or optional (POST, DELETE)???
+  DEBUG_MSG_2("ResponseHandler::responseBuilder", "serveErrorPage(response);");
+
   response.reason_phrase = getStatusMessage(response.status_code);
+
+  DEBUG_MSG_2("ResponseHandler::responseBuilder", "getStatusMessage(response.status_code);");
 
   if (!response.body.empty())
   {
@@ -593,7 +599,7 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
   if (response.close_connection == true && response.headers.find("Connection") == response.headers.end())
     response.headers["Connection"] = "close";
 
-  DEBUG_MSG("\n..............Response complete..............\n", "");
+  DEBUG_MSG_2("\n..............Response complete..............\n", "");
 }
 
 std::string ResponseHandler::generateDateHeader()

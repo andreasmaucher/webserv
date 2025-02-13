@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/11 21:23:56 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/13 00:21:47 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -489,6 +489,11 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
                 DEBUG_MSG_2("Send error ", strerror(errno));
             }
             DEBUG_MSG_2("Response sent to fd", fd);
+
+            DEBUG_MSG_2("WebService::sendResponse response.close_connection", response.close_connection);
+            // Michaael: added obligatory close of connection for all cases to get rid of extra pfds
+            response.close_connection = true;
+            // sleep(10);
 
             if (response.close_connection == true)
             {

@@ -64,15 +64,21 @@ private:
         int response_fd;
         HttpRequest *request; // To update request status if timeout occurs
         HttpResponse *response;
+        bool process_finished;
+        bool finished_success;
+        bool ready_to_send;
+        int status;
 
-        CGIProcess() : start_time(0), output_pipe(-1), request(NULL) {}
+        CGIProcess() : start_time(0), output_pipe(-1), request(NULL), response(NULL), process_finished(false), finished_success(false), ready_to_send(false), status(0) {}
     };
 
     static std::map<pid_t, CGIProcess> running_processes;
 
     static void addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest *req, HttpResponse *response);
     static void cleanupProcess(pid_t pid);
-    static void readAndSendCGIResponse(pid_t pid, CGIProcess proc);
+    static void readFromCGI(pid_t pid, CGIProcess &proc);
+    static void sendCGIResponse(pid_t pid, CGIProcess &proc);
+
     std::string extractPathInfo(const std::string &uri);
     std::string getStatusMessage(int status_code);
     pid_t runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request);
