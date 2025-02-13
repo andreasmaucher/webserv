@@ -15,7 +15,6 @@ std::string HttpResponse::generateRawResponseStr()
   // generate response status line:
   std::ostringstream oss;
   oss << this->status_code;
-  std::cout << "status_code in generateRawResponseStr without setting it myself: " << status_code << std::endl;
   raw_string = this->version + " " + oss.str() + " " + this->reason_phrase + "\r\n";
   DEBUG_MSG_2("SG5 ", "");
 
@@ -24,7 +23,6 @@ std::string HttpResponse::generateRawResponseStr()
        it != this->headers.end(); ++it)
   {
     // Use simple logging to avoid potential issues in DEBUG_MSG_2
-    std::cerr << "Header: " << it->first << ": " << it->second << "\r\n";
     raw_string += it->first + ": " + it->second + "\r\n";
     DEBUG_MSG_2("SG10 ", "");
 
@@ -39,12 +37,9 @@ std::string HttpResponse::generateRawResponseStr()
   }
   //! REDIRECTS
   // only add body for non-redirects
-  std::cout << "status_code in generateRawResponseStr: " << status_code << std::endl;
   bool is_redirect = (status_code >= 300 && status_code < 400);
-  std::cout << "is_redirect: " << is_redirect << std::endl;
   if (!this->body.empty() && !is_redirect)
   {
-    std::cout << "added body meaning NO redirect" << this->body << std::endl;
     DEBUG_MSG_2("SG8 ", "");
     raw_string += this->body; // + "/r/n" ??
   }

@@ -4,6 +4,49 @@
 #include "../../include/httpResponse.hpp"
 #include "../../include/debug.hpp"
 
+/* void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
+{
+    DIR* dir = opendir(request.path.c_str());
+    if (!dir) {
+        response.status_code = 500;
+        response.reason_phrase = "Internal Server Error";
+        return;
+    }
+
+    std::string html = "<html>\n<head>\n<title>Index of " + request.uri + "</title>\n</head>\n";
+    html += "<body>\n<h1>Index of " + request.uri + "</h1><hr>\n<pre>\n";
+
+    struct dirent* entry;
+    while ((entry = readdir(dir))) {
+        struct stat st;
+        std::string fullpath = request.path + "/" + entry->d_name;
+        
+        if (stat(fullpath.c_str(), &st) == 0) {
+            std::string name = entry->d_name;
+            std::string size = std::to_string(st.st_size);
+            std::string date = ctime(&st.st_mtime);
+            date = date.substr(0, date.length() - 1); // Remove trailing newline
+
+            if (S_ISDIR(st.st_mode)) {
+                name += "/";
+            }
+
+            // Format: name                     last-modified               size
+            html += "<a href=\"" + name + "\">" + name + "</a>";
+            html += std::string(50 - name.length(), ' ') + date;
+            html += std::string(20 - size.length(), ' ') + size + "\n";
+        }
+    }
+    closedir(dir);
+
+    html += "</pre><hr></body>\n</html>";
+    response.body = html;
+    response.status_code = 200;
+    response.reason_phrase = "OK";
+    response.setHeader("Content-Type", "text/html");
+    response.setHeader("Content-Length", std::to_string(html.length()));
+} */
+
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
   //! ANDY
@@ -15,6 +58,25 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     return;
   }
   const Route *route = request.route; // Route is already stored in request
+  // handle directory listing (if autoindex is true)
+  std::cout << "request.is_directory in processRequest before handling it: " << request.is_directory << std::endl;
+ /*  if (request.is_directory) {
+        // Check for index file first
+        std::string index_path = request.path + "/index.html";
+        if (access(index_path.c_str(), F_OK) != -1) {
+            // Serve index file
+            request.path = index_path;
+            serveStaticFile(request, response);
+        } else if (request.route && request.route->directory_listing_enabled) {
+            // Generate directory listing
+            //generateDirectoryListing(request, response);
+        } else {
+            response.status_code = 403;
+            response.reason_phrase = "Forbidden";
+        }
+        return;
+    } */
+
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
   // If it's a CGI request, handle it
@@ -168,17 +230,91 @@ void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &r
   }
 }
 
+void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
+{
+    std::string html = "<html>\n<head>\n"
+                      "<title>Index of " + request.uri + "</title>\n"
+                      "<style>\n"
+                      "body { font-family: Arial, sans-serif; margin: 40px; }\n"
+                      "h1 { color: #333; }\n"
+                      "a { text-decoration: none; color: #0066cc; }\n"
+                      "a:hover { text-decoration: underline; }\n"
+                      "</style>\n"
+                      "</head>\n"
+                      "<body>\n"
+                      "<h1>Index of " + request.uri + "</h1>\n"
+                      "<hr>\n"
+                      "<pre>\n";
+
+    DIR* dir = opendir(request.path.c_str());
+    if (!dir) {
+        response.status_code = 500;
+        response.reason_phrase = "Internal Server Error";
+        return;
+    }
+
+    // Add parent directory link if not at root
+    if (request.uri != "/") {
+        html += "<a href=\"../\">../</a>\n";
+    }
+
+    struct dirent* entry;
+    while ((entry = readdir(dir))) {
+        std::string name = entry->d_name;
+        
+    // Skip . and ..
+        if (name == "." || name == "..") {
+            continue;
+        }
+
+        // Get file info
+        struct stat file_stat;
+        std::string full_path = request.path + "/" + name;
+        if (stat(full_path.c_str(), &file_stat) == 0) {
+            // Convert size to string using stringstream
+            std::ostringstream ss;
+            ss << file_stat.st_size << " bytes";
+            std::string size = ss.str();
+            
+            // Format name with trailing slash for directories
+            std::string display_name = name;
+            if (S_ISDIR(file_stat.st_mode)) {
+                display_name += "/";
+            }
+
+            // Add entry (name padded to 50 chars, then size)
+            html += "<a href=\"" + display_name + "\">" + display_name + "</a>";
+            html += std::string(50 - display_name.length(), ' ') + size + "\n";
+        }
+    }
+    closedir(dir);
+
+    html += "</pre>\n<hr>\n</body>\n</html>";
+
+    response.body = html;
+    response.status_code = 200;
+    response.reason_phrase = "OK";
+    response.setHeader("Content-Type", "text/html");
+    
+    // Convert content length to string
+    std::ostringstream length_ss;
+    length_ss << html.length();
+    response.setHeader("Content-Length", length_ss.str());
+}
+
 // at this point the path is set in the request!
 void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &response)
 {
   DEBUG_MSG("Status", "Serving static file");
+  std::cout << "serving static file" << std::endl;
   // handle directory listing first, since the next block sets response error codes
   //  Default Index File: If directory listing is off, the server typically looks for a default index file, like index.html or index.php, in the requested directory. If found, it serves that file. If not found, it may return a 403 Forbidden or 404 Not Found response, depending on server configuration.
   //  Directory Listing Enabled: If directory listing is enabled, and no default index file exists, the server will dynamically generate a page showing the contents of the directory, so the user can browse the files.
-  if (request.is_directory)
+  //! ANDY: setting is_directory to false here makes no sense and breaks autoindex. needs new logic
+  /* if (request.is_directory)
   {
     request.file_name = DEFAULT_FILE; // index of all server directories
-    request.is_directory = false;     // to avoid the fileExists directory check
+    request.is_directory = false;     // to avoid the fileExists directory check //! DIRECTORY WE CAN NOT DO THIS?!
     // if (config.routes[request.uri].directory_listing) {
     //   DEBUG_MSG("Implement directory listing" << std::endl;
     //   //search for & serve default index file or generate dynamically
@@ -188,11 +324,69 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
     //   //search for & serve default index file or return error
     //   response.status_code = 403;  // Forbidden if no file is found and listing is off or Not Found
     // }
-  }
-  ResponseHandler::setFullPath(request);
+  } */
 
-  if (ResponseHandler::fileExists(request, response) && ResponseHandler::hasReadPermission(request.path, response))
-    readFile(request, response);
+  //! DIRECTORY
+  /* if (request.is_directory) {
+    std::cout << "removing index.html from path for directory checks" << std::endl;
+    // Remove index.html from path for directory checks
+    size_t pos = request.path.find("/index.html");
+    if (pos != std::string::npos) {
+        request.path = request.path.substr(0, pos);
+    }
+    // Remove double slashes
+    while (request.path.find("//") != std::string::npos) {
+        request.path.replace(request.path.find("//"), 2, "/");
+    }
+  } */
+  std::cout << "Initial path: " << request.path << std::endl;  // Debug
+  ResponseHandler::setFullPath(request);
+  std::cout << "request.path in serveStaticFile after setFullPath: " << request.path << std::endl;
+    if (request.is_directory)
+    {
+        // autoindex in nginx is by default disabled for POST and DELETE
+        if (request.method == "POST" || request.method == "DELETE")
+        {
+            response.status_code = 405;  // Method Not Allowed
+            response.reason_phrase = "Method Not Allowed";
+            response.setHeader("Allow", "GET");  // Indicate which methods are allowed
+            return;
+        }
+
+        // Try index.html first
+        std::string original_path = request.path;
+        request.file_name = "index.html";
+        ResponseHandler::setFullPath(request);
+
+        if (fileExists(request, response) && hasReadPermission(request.path, response))
+        {
+            readFile(request, response);
+            return;
+        }
+
+        // Restore path for directory listing
+        request.path = original_path;
+        request.is_directory = true;
+
+        if (request.route->autoindex)
+        {
+            std::cout << "Generating directory listing" << std::endl;
+            generateDirectoryListing(request, response);
+        }
+        else
+        {
+            response.status_code = 403;  // Directory listing disabled
+        }
+        return;
+    }
+
+    // Regular file handling
+    ResponseHandler::setFullPath(request);
+    if (ResponseHandler::fileExists(request, response) && 
+        ResponseHandler::hasReadPermission(request.path, response))
+    {
+        readFile(request, response);
+    }
 }
 
 bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response)
@@ -312,7 +506,7 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
   //     return false;
   // }
   // if (access(request.path.c_str(), F_OK) == 0) {
-  if (stat(request.path.c_str(), &path_stat) == 0 && (!request.is_directory && S_ISREG(path_stat.st_mode)))
+/*   if (stat(request.path.c_str(), &path_stat) == 0 && (!request.is_directory && S_ISREG(path_stat.st_mode)))
   {
     DEBUG_MSG("File status", "File exists and accessible");
     if (request.method == "POST")
@@ -321,10 +515,38 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
       response.status_code = 409;
     }
     return true;
-  }
+  } */
+
+ std::cout << "Checking path: " << request.path << std::endl;
+  std::cout << "Working directory: " << getcwd(NULL, 0) << std::endl;
+ //! DIRECTORY
+ // First check if path exists
+    if (stat(request.path.c_str(), &path_stat) == 0)
+    {
+      std::cout << "we entered fileExists: " << std::endl;
+        // If it's a directory and GET request with autoindex, allow it
+        if (request.is_directory && request.method == "GET" && request.route->autoindex)
+        {
+            std::cout << "request.is_directory in fileExists new check should be true: " << request.is_directory << std::endl;
+            return true;
+        }
+        
+        // Original check for regular files
+        if (!request.is_directory && S_ISREG(path_stat.st_mode))
+        {
+            DEBUG_MSG("File status", "File exists and accessible");
+            if (request.method == "POST")
+            {
+                DEBUG_MSG("File status", "File already exists");
+                response.status_code = 409;
+            }
+            return true;
+        }
+    }
   if (request.method == "GET" || (request.method == "DELETE" && !request.is_directory))
   {
     DEBUG_MSG("File status", "File does not exist");
+    std::cout << "request.is_directory in fileExists: " << request.is_directory << std::endl;
     response.status_code = 404;
   }
   else if (request.method == "DELETE" && request.is_directory)
@@ -347,6 +569,7 @@ void ResponseHandler::constructFullPath(HttpRequest &request, HttpResponse &resp
   //(where the server is running, if we execute from inside src for ex ../werbserv, the root dir is src and it won't work)
   // std::string full_path = request.route->path; // Assuming route_path is the matched route's path
   request.path = request.route->path;
+  std::cout << "request.path in constructFullPath: " << request.path << std::endl;
 
   // Check if file_name contains subdirectories (e.g., "subdir/filename.txt")
   size_t last_slash_pos = request.file_name.find_last_of('/');
@@ -371,7 +594,7 @@ void ResponseHandler::finalizeFullPath(HttpRequest &request, size_t &last_slash_
   }
 
   request.path += "/" + request.file_name;
-
+  std::cout << "request.path in finalizeFullPath: " << request.path << std::endl;
   DEBUG_MSG("Full path to content", request.path);
 
   return;

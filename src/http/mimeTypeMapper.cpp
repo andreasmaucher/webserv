@@ -50,6 +50,7 @@ void MimeTypeMapper::extractFileExtension(HttpRequest &request)
         }
     }
     request.is_directory = true;
+    std::cout << "request.is_directory in EXTRACT FILE EXTENSION: " << request.is_directory << std::endl;
 }
 
 void MimeTypeMapper::extractFileName(HttpRequest &request)
@@ -112,6 +113,28 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
     extractFileExtension(request);
     findContentType(request);
 
+    // Add this new condition at the start
+    //! DIRECTORY also need to handle post & delete!
+    if (request.is_directory)
+    {
+        if (request.is_directory && request.method == "GET" && request.route->autoindex)
+        {
+            std::cout << "request.is_directory content type set to allowed: " << request.is_directory << std::endl;
+            // Always allow GET requests to directories with autoindex enabled
+            return true;
+        }
+        // delete and post are not allowed for autoindex directory requests
+        else if (request.method != "GET")
+        {
+            response.status_code = 405;  // Method Not Allowed
+            response.reason_phrase = "Method Not Allowed";
+            response.setHeader("Allow", "GET");
+            return false;
+        }
+        return true;  // Allow GET even if autoindex is off (might have index.html)
+    }
+
+    std::cout << "request.is_directory in isContentTypeAllowed should not be triggered: " << request.is_directory << std::endl;
     if (request.is_directory)
     {
         DEBUG_MSG("URI type", "directory");
@@ -168,6 +191,7 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
     if (!is_valid)
     {
         response.status_code = 415;
+        std::cout << "is response.status_code 415 set in isContentTypeAllowed?: " << response.status_code << std::endl;
         DEBUG_MSG("Content type status", "Not allowed (415)");
     }
     return is_valid;

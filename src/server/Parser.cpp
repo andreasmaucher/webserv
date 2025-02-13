@@ -120,6 +120,10 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                 {
                     route.directory_listing_enabled = true;
                 }
+                if (key == "autoindex")
+                {
+                    route.autoindex = (value == "true" || value == "on" || value == "1");
+                }
             }
         }
     }

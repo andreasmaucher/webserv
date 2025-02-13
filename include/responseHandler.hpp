@@ -14,6 +14,8 @@
 #include "server.hpp"
 #include "mimeTypeMapper.hpp"
 #include "cgi.hpp"
+#include <dirent.h>
+#include <sys/types.h>
 
 // Processes the HTTP request and generates the HTTP response. Includes logic for:
 // - Routing the request
@@ -65,6 +67,7 @@ private:
     static std::string buildFullPath(int status_code);
     static std::string read_error_file(std::string &file_path);
     // static void createHtmlBody(HttpResponse &response);
+    static void generateDirectoryListing(const HttpRequest &request, HttpResponse &response);
 };
 
 #endif

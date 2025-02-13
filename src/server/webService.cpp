@@ -463,7 +463,6 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         HttpResponse response;
         ResponseHandler handler;
-        std::cout << "response.status_code in sendResponse before handler.processRequest: " << response.status_code << std::endl;
         handler.processRequest(fd, server, request, response);
         DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
 
@@ -473,8 +472,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         if (!route->is_cgi)
         {
-            std::cout << "response.status_code in sendResponse before generateRawReponseSTR expected 301: " << response.status_code << std::endl;
-            if (response.status_code != 0 && response.status_code != 301) //! REDIRECTS
+            if (response.status_code != 0 && response.status_code != 301)
             {
                 // Modify the pollfd to monitor POLLOUT for this FD
                 DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; is the issue ", fd);
