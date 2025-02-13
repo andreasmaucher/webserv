@@ -20,6 +20,7 @@
 #include <map>
 #include <ctime>
 #include <fcntl.h>
+#include <string>
 
 // this is the path to the python interpreter, needs to be adjusted depening on the users system
 #define PYTHON_PATH "/usr/bin/python3";
@@ -77,7 +78,7 @@ private:
     static void addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest *req, HttpResponse *response);
     static void cleanupProcess(pid_t pid);
     static void readFromCGI(pid_t pid, CGIProcess &proc);
-    static void sendCGIResponse(pid_t pid, CGIProcess &proc);
+    static void sendCGIResponse(CGIProcess &proc);
 
     std::string extractPathInfo(const std::string &uri);
     std::string getStatusMessage(int status_code);
