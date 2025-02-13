@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/11 21:23:56 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/13 20:10:25 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -182,19 +182,19 @@ void WebService::deleteFromPfdsVecForCGI(const int &fd)
         }
     }
 
-    for (it = pfds_vec.begin(); it != pfds_vec.end(); it++)
-    {
-        DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI CHECKING AGAIN looping throught the fds to delete, current fd ", it->fd);
-        // if (it->fd == fd)
-        // {
-        //     DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI will delete the fd, ", it->fd);
+    // for (it = pfds_vec.begin(); it != pfds_vec.end(); it++)
+    // {
+    //     DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI CHECKING AGAIN looping throught the fds to delete, current fd ", it->fd);
+    //     // if (it->fd == fd)
+    //     // {
+    //     //     DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI will delete the fd, ", it->fd);
 
-        //     pfds_vec.erase(it);
-        //     DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the fd, ", fd);
+    //     //     pfds_vec.erase(it);
+    //     //     DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the fd, ", fd);
 
-        //     break; // Exit after finding and removing
-        // }
-    }
+    //     //     break; // Exit after finding and removing
+    //     // }
+    // }
 }
 
 void WebService::deleteRequestObject(const int &fd, Server &server)
@@ -461,9 +461,9 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         HttpRequest request = server.getRequestObject(fd);
         DEBUG_MSG_2("------->WebService::sendResponse server.getRequestObject(fd); passed ", fd);
 
-        HttpResponse response;
+        HttpResponse *response = new (HttpResponse);
         ResponseHandler handler;
-        handler.processRequest(fd, server, request, response);
+        handler.processRequest(fd, server, request, *response);
         DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
 
         // If request is a CGI, skip this part
@@ -472,7 +472,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         if (!route->is_cgi)
         {
-            if (response.status_code != 0 && response.status_code != 301)
+            if (response->status_code != 0 && response->status_code != 301)
             {
                 // Modify the pollfd to monitor POLLOUT for this FD
                 DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; is the issue ", fd);
@@ -481,7 +481,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
                 DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; passed ", fd);
             }
 
-            std::string responseStr = response.generateRawResponseStr();
+            std::string responseStr = response->generateRawResponseStr();
             DEBUG_MSG_2("------->WebService::sendResponse generateRawResponseStr(); passed ", fd);
 
             if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
@@ -490,7 +490,12 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
             }
             DEBUG_MSG_2("Response sent to fd", fd);
 
-            if (response.close_connection == true)
+            DEBUG_MSG_2("WebService::sendResponse response.close_connection", response->close_connection);
+            // Michaael: added obligatory close of connection for all cases to get rid of extra pfds
+            response->close_connection = true;
+            // sleep(10);
+
+            if (response->close_connection == true)
             {
                 DEBUG_MSG_2("WebService::sendResponse: Response sent to fd, closing connection", fd);
 
