@@ -701,12 +701,12 @@ void CGI::checkRunningProcesses()
             WebService::deleteFromPfdsVecForCGI(proc.response_fd);
             // delete proc.response;
             // proc.response = NULL;
-            sleep(1);
+            // sleep(1);
         }
         if (!proc.finished_success && proc.process_finished)
         {
             DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() SEND ERROR RESPONSE  ", pid);
-            sleep(1);
+            // sleep(1);
             // TODO:Send error response
             // readFromCGI(pid, proc);
         }
