@@ -85,6 +85,7 @@ private:
 
     void postRequest(int pipe_in[2]);
     static bool isfdOpen(int fd);
+    // std::string constructErrorResponse(int status_code, const std::string &message);
 };
 
 #endif

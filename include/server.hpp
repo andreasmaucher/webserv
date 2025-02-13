@@ -5,7 +5,7 @@
 #define ROOT_DIR "www"
 #define DEFAULT_FILE "index.html"
 #define ERROR_PATH "/errors/"
-#define POLL_TIMEOUT 3000
+#define POLL_TIMEOUT 1000
 
 #include <string>
 #include <map>

@@ -20,7 +20,7 @@
     while ((entry = readdir(dir))) {
         struct stat st;
         std::string fullpath = request.path + "/" + entry->d_name;
-        
+
         if (stat(fullpath.c_str(), &st) == 0) {
             std::string name = entry->d_name;
             std::string size = std::to_string(st.st_size);
@@ -60,22 +60,22 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   const Route *route = request.route; // Route is already stored in request
   // handle directory listing (if autoindex is true)
   std::cout << "request.is_directory in processRequest before handling it: " << request.is_directory << std::endl;
- /*  if (request.is_directory) {
-        // Check for index file first
-        std::string index_path = request.path + "/index.html";
-        if (access(index_path.c_str(), F_OK) != -1) {
-            // Serve index file
-            request.path = index_path;
-            serveStaticFile(request, response);
-        } else if (request.route && request.route->directory_listing_enabled) {
-            // Generate directory listing
-            //generateDirectoryListing(request, response);
-        } else {
-            response.status_code = 403;
-            response.reason_phrase = "Forbidden";
-        }
-        return;
-    } */
+  /*  if (request.is_directory) {
+         // Check for index file first
+         std::string index_path = request.path + "/index.html";
+         if (access(index_path.c_str(), F_OK) != -1) {
+             // Serve index file
+             request.path = index_path;
+             serveStaticFile(request, response);
+         } else if (request.route && request.route->directory_listing_enabled) {
+             // Generate directory listing
+             //generateDirectoryListing(request, response);
+         } else {
+             response.status_code = 403;
+             response.reason_phrase = "Forbidden";
+         }
+         return;
+     } */
 
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
@@ -163,7 +163,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     response.status_code = 200;
   }
   //! REDIRECTS
-  if (! request.route->redirect_uri.empty())
+  if (!request.route->redirect_uri.empty())
   {
     response.status_code = 301;
     response.setHeader("Location", request.route->redirect_uri);
@@ -234,74 +234,82 @@ void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &r
 
 void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
 {
-    std::string html = "<html>\n<head>\n"
-                      "<title>Index of " + request.uri + "</title>\n"
-                      "<style>\n"
-                      "body { font-family: Arial, sans-serif; margin: 40px; }\n"
-                      "h1 { color: #333; }\n"
-                      "a { text-decoration: none; color: #0066cc; }\n"
-                      "a:hover { text-decoration: underline; }\n"
-                      "</style>\n"
-                      "</head>\n"
-                      "<body>\n"
-                      "<h1>Index of " + request.uri + "</h1>\n"
-                      "<hr>\n"
-                      "<pre>\n";
+  std::string html = "<html>\n<head>\n"
+                     "<title>Index of " +
+                     request.uri + "</title>\n"
+                                   "<style>\n"
+                                   "body { font-family: Arial, sans-serif; margin: 40px; }\n"
+                                   "h1 { color: #333; }\n"
+                                   "a { text-decoration: none; color: #0066cc; }\n"
+                                   "a:hover { text-decoration: underline; }\n"
+                                   "</style>\n"
+                                   "</head>\n"
+                                   "<body>\n"
+                                   "<h1>Index of " +
+                     request.uri + "</h1>\n"
+                                   "<hr>\n"
+                                   "<pre>\n";
 
-    DIR* dir = opendir(request.path.c_str());
-    if (!dir) {
-        response.status_code = 500;
-        response.reason_phrase = "Internal Server Error";
-        return;
-    }
+  DIR *dir = opendir(request.path.c_str());
+  if (!dir)
+  {
+    response.status_code = 500;
+    response.reason_phrase = "Internal Server Error";
+    return;
+  }
 
-    // Add parent directory link if not at root
-    if (request.uri != "/") {
-        html += "<a href=\"../\">../</a>\n";
-    }
+  // Add parent directory link if not at root
+  if (request.uri != "/")
+  {
+    html += "<a href=\"../\">../</a>\n";
+  }
 
-    struct dirent* entry;
-    while ((entry = readdir(dir))) {
-        std::string name = entry->d_name;
-        
+  struct dirent *entry;
+  while ((entry = readdir(dir)))
+  {
+    std::string name = entry->d_name;
+
     // Skip . and ..
-        if (name == "." || name == "..") {
-            continue;
-        }
-
-        // Get file info
-        struct stat file_stat;
-        std::string full_path = request.path + "/" + name;
-        if (stat(full_path.c_str(), &file_stat) == 0) {
-            // Convert size to string using stringstream
-            std::ostringstream ss;
-            ss << file_stat.st_size << " bytes";
-            std::string size = ss.str();
-            
-            // Format name with trailing slash for directories
-            std::string display_name = name;
-            if (S_ISDIR(file_stat.st_mode)) {
-                display_name += "/";
-            }
-
-            // Add entry (name padded to 50 chars, then size)
-            html += "<a href=\"" + display_name + "\">" + display_name + "</a>";
-            html += std::string(50 - display_name.length(), ' ') + size + "\n";
-        }
+    if (name == "." || name == "..")
+    {
+      continue;
     }
-    closedir(dir);
 
-    html += "</pre>\n<hr>\n</body>\n</html>";
+    // Get file info
+    struct stat file_stat;
+    std::string full_path = request.path + "/" + name;
+    if (stat(full_path.c_str(), &file_stat) == 0)
+    {
+      // Convert size to string using stringstream
+      std::ostringstream ss;
+      ss << file_stat.st_size << " bytes";
+      std::string size = ss.str();
 
-    response.body = html;
-    response.status_code = 200;
-    response.reason_phrase = "OK";
-    response.setHeader("Content-Type", "text/html");
-    
-    // Convert content length to string
-    std::ostringstream length_ss;
-    length_ss << html.length();
-    response.setHeader("Content-Length", length_ss.str());
+      // Format name with trailing slash for directories
+      std::string display_name = name;
+      if (S_ISDIR(file_stat.st_mode))
+      {
+        display_name += "/";
+      }
+
+      // Add entry (name padded to 50 chars, then size)
+      html += "<a href=\"" + display_name + "\">" + display_name + "</a>";
+      html += std::string(50 - display_name.length(), ' ') + size + "\n";
+    }
+  }
+  closedir(dir);
+
+  html += "</pre>\n<hr>\n</body>\n</html>";
+
+  response.body = html;
+  response.status_code = 200;
+  response.reason_phrase = "OK";
+  response.setHeader("Content-Type", "text/html");
+
+  // Convert content length to string
+  std::ostringstream length_ss;
+  length_ss << html.length();
+  response.setHeader("Content-Length", length_ss.str());
 }
 
 // at this point the path is set in the request!
@@ -341,54 +349,54 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
         request.path.replace(request.path.find("//"), 2, "/");
     }
   } */
-  std::cout << "Initial path: " << request.path << std::endl;  // Debug
+  std::cout << "Initial path: " << request.path << std::endl; // Debug
   ResponseHandler::setFullPath(request);
   std::cout << "request.path in serveStaticFile after setFullPath: " << request.path << std::endl;
-    if (request.is_directory)
+  if (request.is_directory)
+  {
+    // autoindex in nginx is by default disabled for POST and DELETE
+    if (request.method == "POST" || request.method == "DELETE")
     {
-        // autoindex in nginx is by default disabled for POST and DELETE
-        if (request.method == "POST" || request.method == "DELETE")
-        {
-            response.status_code = 405;  // Method Not Allowed
-            response.reason_phrase = "Method Not Allowed";
-            response.setHeader("Allow", "GET");  // Indicate which methods are allowed
-            return;
-        }
-
-        // Try index.html first
-        std::string original_path = request.path;
-        request.file_name = "index.html";
-        ResponseHandler::setFullPath(request);
-
-        if (fileExists(request, response) && hasReadPermission(request.path, response))
-        {
-            readFile(request, response);
-            return;
-        }
-
-        // Restore path for directory listing
-        request.path = original_path;
-        request.is_directory = true;
-
-        if (request.route->autoindex)
-        {
-            std::cout << "Generating directory listing" << std::endl;
-            generateDirectoryListing(request, response);
-        }
-        else
-        {
-            response.status_code = 403;  // Directory listing disabled
-        }
-        return;
+      response.status_code = 405; // Method Not Allowed
+      response.reason_phrase = "Method Not Allowed";
+      response.setHeader("Allow", "GET"); // Indicate which methods are allowed
+      return;
     }
 
-    // Regular file handling
+    // Try index.html first
+    std::string original_path = request.path;
+    request.file_name = "index.html";
     ResponseHandler::setFullPath(request);
-    if (ResponseHandler::fileExists(request, response) && 
-        ResponseHandler::hasReadPermission(request.path, response))
+
+    if (fileExists(request, response) && hasReadPermission(request.path, response))
     {
-        readFile(request, response);
+      readFile(request, response);
+      return;
     }
+
+    // Restore path for directory listing
+    request.path = original_path;
+    request.is_directory = true;
+
+    if (request.route->autoindex)
+    {
+      std::cout << "Generating directory listing" << std::endl;
+      generateDirectoryListing(request, response);
+    }
+    else
+    {
+      response.status_code = 403; // Directory listing disabled
+    }
+    return;
+  }
+
+  // Regular file handling
+  ResponseHandler::setFullPath(request);
+  if (ResponseHandler::fileExists(request, response) &&
+      ResponseHandler::hasReadPermission(request.path, response))
+  {
+    readFile(request, response);
+  }
 }
 
 bool ResponseHandler::readFile(HttpRequest &request, HttpResponse &response)
@@ -508,43 +516,43 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
   //     return false;
   // }
   // if (access(request.path.c_str(), F_OK) == 0) {
-/*   if (stat(request.path.c_str(), &path_stat) == 0 && (!request.is_directory && S_ISREG(path_stat.st_mode)))
-  {
-    DEBUG_MSG("File status", "File exists and accessible");
-    if (request.method == "POST")
+  /*   if (stat(request.path.c_str(), &path_stat) == 0 && (!request.is_directory && S_ISREG(path_stat.st_mode)))
     {
-      DEBUG_MSG("File status", "File already exists");
-      response.status_code = 409;
-    }
-    return true;
-  } */
+      DEBUG_MSG("File status", "File exists and accessible");
+      if (request.method == "POST")
+      {
+        DEBUG_MSG("File status", "File already exists");
+        response.status_code = 409;
+      }
+      return true;
+    } */
 
- std::cout << "Checking path: " << request.path << std::endl;
-  std::cout << "Working directory: " << getcwd(NULL, 0) << std::endl;
- //! DIRECTORY
- // First check if path exists
-    if (stat(request.path.c_str(), &path_stat) == 0)
+  std::cout << "Checking path: " << request.path << std::endl;
+  // std::cout << "Working directory: " << getcwd(NULL, 0) << std::endl;
+  //! DIRECTORY
+  // First check if path exists
+  if (stat(request.path.c_str(), &path_stat) == 0)
+  {
+    std::cout << "we entered fileExists: " << std::endl;
+    // If it's a directory and GET request with autoindex, allow it
+    if (request.is_directory && request.method == "GET" && request.route->autoindex)
     {
-      std::cout << "we entered fileExists: " << std::endl;
-        // If it's a directory and GET request with autoindex, allow it
-        if (request.is_directory && request.method == "GET" && request.route->autoindex)
-        {
-            std::cout << "request.is_directory in fileExists new check should be true: " << request.is_directory << std::endl;
-            return true;
-        }
-        
-        // Original check for regular files
-        if (!request.is_directory && S_ISREG(path_stat.st_mode))
-        {
-            DEBUG_MSG("File status", "File exists and accessible");
-            if (request.method == "POST")
-            {
-                DEBUG_MSG("File status", "File already exists");
-                response.status_code = 409;
-            }
-            return true;
-        }
+      std::cout << "request.is_directory in fileExists new check should be true: " << request.is_directory << std::endl;
+      return true;
     }
+
+    // Original check for regular files
+    if (!request.is_directory && S_ISREG(path_stat.st_mode))
+    {
+      DEBUG_MSG("File status", "File exists and accessible");
+      if (request.method == "POST")
+      {
+        DEBUG_MSG("File status", "File already exists");
+        response.status_code = 409;
+      }
+      return true;
+    }
+  }
   if (request.method == "GET" || (request.method == "DELETE" && !request.is_directory))
   {
     DEBUG_MSG("File status", "File does not exist");

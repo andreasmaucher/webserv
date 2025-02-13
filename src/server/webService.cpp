@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/13 20:10:25 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/13 21:24:29 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -321,7 +321,7 @@ int WebService::start()
                 // if (!(cgi_fd_to_http_response.find(pfds_vec[i].fd) == cgi_fd_to_http_response.end()))
                 //     DEBUG_MSG_2("cgi_fd_to_http_response.find(pfds_vec[i].fd) , fd ", pfds_vec[i].fd);
                 DEBUG_MSG_2("Detected CGI process or non-server fd, skipping loop, fd ", pfds_vec[i].fd);
-                usleep(100000);
+                // usleep(100000);
                 // continue;
                 skip_to_next_poll = true; // Set flag to skip to next poll
                 break;                    // Exit the for loop
@@ -505,6 +505,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
             {
                 server.resetRequestObject(fd);
             }
+            delete response;
         }
     }
 }

@@ -464,18 +464,18 @@ void CGI::sendCGIResponse(pid_t pid, CGIProcess &proc)
             CGI cgi;
             // TODO: Need to find a way how to send response
             // proc.response->body = proc.response->body;
-            proc.response->status_code = 200;
-            proc.response->reason_phrase = "OK";
-            // proc.response->setHeader("Content-Type", "text/plain");
-            proc.response->version = "HTTP/1.1";
-            // proc.response->setHeader("Content-Length", const std::to_string(proc.response->body.length()));
-            /*                         {
-                                        std::ostringstream o--ss;
-                                        oss << proc.response->body.length();
-                                        proc.response->setHeader("Content-Length", oss.str());
-                                    } */
-            // proc.response->setHeader("Connection", "close");
-            proc.response->close_connection = true;
+            // proc.response->status_code = 200;
+            // proc.response->reason_phrase = "OK";
+            // // proc.response->setHeader("Content-Type", "text/plain");
+            // proc.response->version = "HTTP/1.1";
+            // // proc.response->setHeader("Content-Length", const std::to_string(proc.response->body.length()));
+            // /*                         {
+            //                             std::ostringstream o--ss;
+            //                             oss << proc.response->body.length();
+            //                             proc.response->setHeader("Content-Length", oss.str());
+            //                         } */
+            // // proc.response->setHeader("Connection", "close");
+            // proc.response->close_connection = true;
 
             WebService::setPollfdEventsToOut(proc.response_fd);
             DEBUG_MSG_2("SG2 ", "");
@@ -512,13 +512,13 @@ void CGI::sendCGIResponse(pid_t pid, CGIProcess &proc)
 
 void CGI::readFromCGI(pid_t pid, CGIProcess &proc)
 {
-    (void)pid;
     ssize_t bytes_read;
     char buffer[MAX_CGI_BODY_SIZE];
 
     if ((bytes_read = read(proc.output_pipe, buffer, sizeof(buffer))) > 0)
     {
-        proc.response->body.append(buffer, bytes_read);
+        proc.response->body += buffer;
+        // proc.response->body.append(buffer, bytes_read);
         DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, reading from pipe, pid ", pid);
         DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, reading from pipe, bytes_read ", bytes_read);
 
@@ -696,17 +696,48 @@ void CGI::checkRunningProcesses()
             DEBUG_MSG_2("---------->Webservice::CGI::checkRunningProcesses() sendCGIResponse(pid, proc);  ", pid);
             proc.response->complete = true; // cleanup
             DEBUG_MSG_2("==================>Webservice::CGI::checkRunningProcesses() SEND RESPONSE on fd  ", proc.response_fd);
-
+            proc.response->status_code = 200;
+            proc.response->reason_phrase = "OK";
+            // proc.response->setHeader("Content-Type", "text/plain");
+            proc.response->version = "HTTP/1.1";
+            // proc.response->setHeader("Content-Length", const std::to_string(proc.response->body.length()));
+            /*                         {
+                                        std::ostringstream o--ss;
+                                        oss << proc.response->body.length();
+                                        proc.response->setHeader("Content-Length", oss.str());
+                                    } */
+            // proc.response->setHeader("Connection", "close");
+            proc.response->close_connection = true;
             sendCGIResponse(pid, proc);
             WebService::deleteFromPfdsVecForCGI(proc.response_fd);
-            // delete proc.response;
+            delete proc.response;
             // proc.response = NULL;
             // sleep(1);
         }
         if (!proc.finished_success && proc.process_finished)
         {
             DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() SEND ERROR RESPONSE  ", pid);
+            proc.response->complete = true; // cleanup
+            proc.response->body = constructErrorResponse(504, "Gateway timeout");
+            proc.response->status_code = 504;
+            proc.response->reason_phrase = "Gateway timeout";
+            // proc.response->setHeader("Content-Type", "text/plain");
+            proc.response->version = "HTTP/1.1";
+            // proc.response->setHeader("Content-Length", const std::to_string(proc.response->body.length()));
+            /*                         {
+                                        std::ostringstream o--ss;
+                                        oss << proc.response->body.length();
+                                        proc.response->setHeader("Content-Length", oss.str());
+                                    } */
+            // proc.response->setHeader("Connection", "close");
+            proc.response->close_connection = true;
             // sleep(1);
+            sendCGIResponse(pid, proc);
+
+            WebService::deleteFromPfdsVecForCGI(proc.response_fd);
+            delete proc.response;
+            // proc.response = NULL;
+
             // TODO:Send error response
             // readFromCGI(pid, proc);
         }
@@ -788,3 +819,12 @@ bool CGI::isfdOpen(int fd)
 {
     return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
 }
+
+// std::string CGI::constructErrorResponse(int status_code, const std::string &message)
+// {
+//     std::ostringstream response;
+//     response << "Status: " << status_code << "\r\n";
+//     response << "Content-Type: text/plain\r\n\r\n";
+//     response << message;
+//     return response.str();
+// }
