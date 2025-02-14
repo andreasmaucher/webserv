@@ -41,6 +41,7 @@ class HttpResponse {
         std::string file_content_type;              // e.g., text/html
         bool close_connection; 
         bool complete;                     // true if Connection: close header is set
+        bool is_cgi_response;              // used as trigger to differentiate between cgi and static error pages
 
 };
 

@@ -28,7 +28,7 @@ struct Route
     bool is_cgi;
     bool autoindex;
 
-    Route() : directory_listing_enabled(false), is_cgi(false) {}
+    Route() : directory_listing_enabled(false), is_cgi(false), autoindex(false) {}
 };
 
 // Represents the overall server configuration

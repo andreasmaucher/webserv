@@ -49,7 +49,23 @@
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
-  //! ANDY
+  //! UNDO
+ // First check if it's a CGI request and validate it early
+    if (request.uri.find("/cgi-bin/") != std::string::npos) {
+        if (!CGI::isCGIRequest(request.uri)) {
+            response.status_code = 404;  // Not Found
+            response.reason_phrase = "Not Found";
+            response.body = "Invalid CGI script path";
+            response.setHeader("Content-Type", "text/plain");
+            //response.setHeader("Content-Length", std::to_string(response.body.length()));
+            response.close_connection = true;
+            request.complete = true;      // Mark request as complete
+            response.complete = true;     // Mark response as complete
+            ResponseHandler::responseBuilder(response);  // Build the response
+            WebService::setPollfdEventsToOut(fd);  // Set fd to write mode
+            return;
+        }
+    }
   // Find matching route
   if (!findMatchingRoute(config, request, response))
   {
@@ -59,23 +75,32 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   }
   const Route *route = request.route; // Route is already stored in request
   // handle directory listing (if autoindex is true)
-  std::cout << "request.is_directory in processRequest before handling it: " << request.is_directory << std::endl;
-  /*  if (request.is_directory) {
+  /* std::cout << "request.is_directory in processRequest before handling it: " << request.is_directory << std::endl;
+   if (request.is_directory) {
+    std::cout << "request.is_directory in processRequest inner loop: jkhjklhjkh " << request.is_directory << std::endl;
          // Check for index file first
          std::string index_path = request.path + "/index.html";
+         std::cout << "2" << std::endl;
          if (access(index_path.c_str(), F_OK) != -1) {
              // Serve index file
+             std::cout << "serving index file in processRequest inner loop thsi is static!: " << request.is_directory << std::endl;
              request.path = index_path;
              serveStaticFile(request, response);
+        std::cout << "request.route" << request.route << std::endl;
+        std::cout << "request.route->directory_listing_enabled" << request.route->directory_listing_enabled << std::endl;
          } else if (request.route && request.route->directory_listing_enabled) {
              // Generate directory listing
-             //generateDirectoryListing(request, response);
+             std::cout << "3" << std::endl;
+             std::cout << "generate directory listing in processRequest inner loop: " << request.is_directory << std::endl;
+             generateDirectoryListing(request, response);
          } else {
+            std::cout << "4" << std::endl;
              response.status_code = 403;
              response.reason_phrase = "Forbidden";
          }
          return;
-     } */
+     }
+     std::cout << "after if statement in processRequest inner loop" << std::endl; */
 
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
@@ -88,11 +113,11 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     {
       CGI cgi;
       cgi.handleCGIRequest(fd, request, response);
-
       // Always start with HTTP status line for valid HTTP/1.1 response
-      response.status_code = 200;
+      //! UNDO
+      /* response.status_code = 200;
       response.version = "HTTP/1.1";
-      response.reason_phrase = "OK";
+      response.reason_phrase = "OK"; */
 
       // Parse CGI headers into response object
       size_t headerEnd = request.body.find("\r\n\r\n");
@@ -132,7 +157,6 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
       }
       response.close_connection = true;
       DEBUG_MSG("ResponseHandler::processRequest response.close_connection = true", response.close_connection);
-
       request.complete = true;
       return;
     }
@@ -232,6 +256,7 @@ void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &r
   }
 }
 
+// creates a directory listing html page if autoindex is 'on'
 void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
 {
   std::string html = "<html>\n<head>\n"
@@ -827,8 +852,9 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
   response.version = "HTTP/1.1";
   // 4xx or 5xx -> has a body with error message
   DEBUG_MSG_2("ResponseHandler::responseBuilder", "response.status_code");
+  //! ANDY commented this out since I don't want to serve error pages for cgi requests, not sure if needed for non cgi requests but technically this is the correct way
   if (response.status_code >= 400)
-    serveErrorPage(response);
+    serveErrorPage(response); //! Todo: adjust this in a way that server error page is not created for cgi requests  
   // 200/201 -> has a body with content + content type header already filled in readFile
   //  else       -> has no body or optional (POST, DELETE)???
   DEBUG_MSG_2("ResponseHandler::responseBuilder", "serveErrorPage(response);");
@@ -872,17 +898,19 @@ void ResponseHandler::serveErrorPage(HttpResponse &response)
 {
   std::string file_path = buildFullPath(response.status_code);
 
-  response.body = read_error_file(file_path);
-  if (response.body.empty())
+  if (response.is_cgi_response == false)
   {
-    response.status_code = 500;
-    return;
+    response.body = read_error_file(file_path);
+    if (response.body.empty())
+    {
+      response.status_code = 500;
+      return;
+    }
+    // alternatively we could just create the html using a template + status code & msg
+    // ResponseHandler::createHtmlBody(response);
+    response.close_connection = true;
+    response.headers["Connection"] = "close";
   }
-  // alternatively we could just create the html using a template + status code & msg
-  // ResponseHandler::createHtmlBody(response);
-  response.close_connection = true;
-  response.headers["Connection"] = "close";
-
   return;
 }
 

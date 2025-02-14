@@ -21,12 +21,13 @@ CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requ
 // Returns true if the path contains "/cgi-bin/", ".py", or ".cgi"
 bool CGI::isCGIRequest(const std::string &path)
 {
-    // First check if it's in the cgi-bin directory
-    /* if (path.find("/cgi-bin/") == std::string::npos) {
-        return false;
-    } */
-    size_t len = path.length();
-    return (len > 3 && path.substr(len - 3) == ".py");
+    size_t start = path.find("/cgi-bin/") + 9;  // +9 to skip "/cgi-bin/"
+    size_t end = path.find('/', start);         // Find next '/' or end of string
+    if (end == std::string::npos) {
+        end = path.length();
+    }
+    std::string scriptName = path.substr(start, end - start);
+    return (scriptName.length() > 3 && scriptName.substr(scriptName.length() - 3) == ".py");
 }
 
 /*
@@ -176,10 +177,21 @@ std::string CGI::extractPathInfo(const std::string &uri)
 void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response)
 {
     DEBUG_MSG("Starting CGI Request", request.uri);
+    response.is_cgi_response = true; // used to differentiate between cgi and static error pages
 
     DEBUG_MSG_2("CGI::handleCGIRequest receiving FD is  ", fd);
     // (void)fd;
     // (void)response;
+    /* if (!isCGIRequest(request.uri)) {
+        response.status_code = 400;  // Bad Request
+        response.reason_phrase = "Bad Request";
+        response.body = "Bad Request: Invalid CGI file type. Only .py files are allowed.";
+        response.setHeader("Content-Type", "text/plain");
+        //response.setHeader("Content-Length", std::to_string(response.body.length()));
+        response.setHeader("Connection", "close");
+        response.close_connection = true;
+        return;
+    } */
     try
     {
         // First check if the script exists
@@ -501,6 +513,7 @@ void CGI::readFromCGI(pid_t pid, CGIProcess &proc)
 {
     ssize_t bytes_read;
     char buffer[MAX_CGI_BODY_SIZE];
+    (void)pid;
 
     if ((bytes_read = read(proc.output_pipe, buffer, sizeof(buffer))) > 0)
     {

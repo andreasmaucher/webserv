@@ -8,9 +8,9 @@ import subprocess
 # sys.stderr.write(f"Current working directory: {os.getcwd()}\n")
 # sys.stderr.write(f"Environment variables: {dict(os.environ)}\n")
 
-# Print headers
-# print("Content-Type: text/plain")
-# print()  # Empty line to separate headers from body
+# Must send headers first
+print("Content-Type: text/plain")
+print()  # Empty line is mandatory to separate headers from body
 
 # Run ls command and capture output
 try:

@@ -316,7 +316,6 @@ void RequestParser::tokenizeRequestLine(HttpRequest &request)
   {
     request.is_directory = false;
   }
-  std::cout << "request.is_directory in tokenizeRequestLine: " << request.is_directory << std::endl;
 }
 
 bool RequestParser::validRequestLine(HttpRequest &request)

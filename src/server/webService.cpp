@@ -449,7 +449,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
             }
         }
     }
-}
+}     
 
 void WebService::sendResponse(int &fd, size_t &i, Server &server)
 {
@@ -463,8 +463,23 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         HttpResponse *response = new (HttpResponse);
         ResponseHandler handler;
+
         handler.processRequest(fd, server, request, *response);
         DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
+         //! UNDO
+         // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
+        if (request.route == NULL) {
+            // Handle invalid CGI or other requests without routes
+            pfds_vec[i].events = POLLOUT;
+            std::string responseStr = response->generateRawResponseStr();
+            if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1) {
+                DEBUG_MSG_2("Send error ", strerror(errno));
+            }
+            
+            closeConnection(fd, i, server);
+            delete response;
+            return;
+        }
 
         // If request is a CGI, skip this part
         const Route *route = request.route; // Route is already stored in request
