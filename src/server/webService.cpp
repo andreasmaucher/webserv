@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/13 21:24:29 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/15 00:27:49 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -275,10 +275,50 @@ void WebService::setupSockets()
     DEBUG_MSG("Total servers set up", servers.size());
 }
 
+void WebService::printPollFds()
+{
+    DEBUG_MSG("=== POLL FDS STATUS ===", "");
+    for (size_t i = 0; i < pfds_vec.size(); i++)
+    {
+        int fd = pfds_vec[i].fd;
+        std::string fd_type;
+
+        if (cgi_fd_to_http_response.find(fd) != cgi_fd_to_http_response.end())
+        {
+            fd_type = "CGI";
+        }
+        else if (fd_to_server.find(fd) != fd_to_server.end())
+        {
+            Server *server = fd_to_server[fd];
+            if (fd == server->getListenerFd())
+            {
+                fd_type = "SERVER LISTENER";
+            }
+            else
+            {
+                fd_type = "SERVER CONNECTION";
+            }
+        }
+        else
+        {
+            fd_type = "UNKNOWN";
+        }
+
+        DEBUG_MSG_2("FD: ", fd);
+        DEBUG_MSG_2("Type: ", fd_type);
+        DEBUG_MSG_2("Events: ", pfds_vec[i].events);
+        DEBUG_MSG_2("Revents: ", pfds_vec[i].revents);
+        DEBUG_MSG("-------------------", "");
+    }
+    DEBUG_MSG("=====================", "");
+}
+
 int WebService::start()
 {
     DEBUG_MSG("Server Status", "Starting");
     bool skip_to_next_poll = false;
+    size_t i = 0;
+    (void)i;
     while (true)
     {
         skip_to_next_poll = false; // Flag to control outer loop skip
@@ -289,15 +329,20 @@ int WebService::start()
             DEBUG_MSG_1("Poll error", strerror(errno));
             continue;
         }
+        printPollFds(); // Add this line here
+
         // Check CGI processes for timeouts
 
         DEBUG_MSG_2("-----------> Webservice::start() entering CGI check ", "");
+        DEBUG_MSG_2("----------->  CGI::checkRunningProcesses(pfds_vec[i].fd ", pfds_vec[i].fd);
+        DEBUG_MSG_2("----------->  CGI::checkRunningProcesses i is  ", i);
 
-        CGI::checkRunningProcesses();
+        // CGI::checkRunningProcesses(pfds_vec[i].fd);
         // Iterate backwards to handle removals safely
         DEBUG_MSG_2("-----------> Webservice::start() passed CGI check ", "");
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
+            // sleep(1);
             DEBUG_MSG_2("-----------> Webservice::start() pfds_vec.size() ", pfds_vec.size());
             DEBUG_MSG_2("-----------> Webservice::start() pfds_vec[i].fd ", pfds_vec[i].fd);
             DEBUG_MSG_2("-----------> Webservice::start() i ", i);
@@ -314,15 +359,30 @@ int WebService::start()
                 DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec[i].revents == 0 is true", "");
                 continue;
             }
+            if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end())
+            {
+                DEBUG_MSG_2("Detected CGI FD, entering CGI::checkRunningProcesses(pfds_vec[i].fd);fd ", pfds_vec[i].fd);
+                // sleep(1);
+
+                CGI::checkRunningProcesses(pfds_vec[i].fd);
+
+                // i--;
+            }
+            // else
+            // {
+            //     i--;
+            //     break;
+            // }
 
             if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end())
             {
 
                 // if (!(cgi_fd_to_http_response.find(pfds_vec[i].fd) == cgi_fd_to_http_response.end()))
                 //     DEBUG_MSG_2("cgi_fd_to_http_response.find(pfds_vec[i].fd) , fd ", pfds_vec[i].fd);
-                DEBUG_MSG_2("Detected CGI process or non-server fd, skipping loop, fd ", pfds_vec[i].fd);
+                DEBUG_MSG_2("Detected NON-server FD, skipping loop, fd ", pfds_vec[i].fd);
                 // usleep(100000);
                 // continue;
+                // i--;
                 skip_to_next_poll = true; // Set flag to skip to next poll
                 break;                    // Exit the for loop
             }
@@ -340,6 +400,7 @@ int WebService::start()
             // }
             if (skip_to_next_poll)
             {
+                // sleep(1);
                 continue; // Skip to next iteration of while loop
             }
             DEBUG_MSG_2("Passed FD check --->  FD is either in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);

@@ -42,7 +42,7 @@ public:
 
     void sendResponse(const std::string &response) const;
 
-    static void checkRunningProcesses();
+    static void checkRunningProcesses(int pfds_fd);
 
 private:
     int clientSocket;
@@ -71,6 +71,21 @@ private:
         int status;
 
         CGIProcess() : start_time(0), output_pipe(-1), request(NULL), response(NULL), process_finished(false), finished_success(false), ready_to_send(false), status(0) {}
+        // ~CGIProcess()
+        // {
+        //     if (output_pipe != -1)
+        //     {
+        //         close(output_pipe);
+        //         output_pipe = -1;
+        //     }
+        //     // Other cleanup...
+        // }
+
+        // ~CGIProcess()
+        // {
+        //     if (response)
+        //         delete response;
+        // }
     };
 
     static std::map<pid_t, CGIProcess> running_processes;
@@ -86,6 +101,8 @@ private:
 
     void postRequest(int pipe_in[2]);
     static bool isfdOpen(int fd);
+    static void printRunningProcesses();
+
     // std::string constructErrorResponse(int status_code, const std::string &message);
 };
 

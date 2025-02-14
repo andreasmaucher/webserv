@@ -55,7 +55,7 @@ private:
     int get_listener_socket(const std::string &port);
     void *get_in_addr(struct sockaddr *sa);
     static void deleteFromPfdsVec(int &fd, size_t &i);
-
+    void printPollFds();
 
     // Parser
     // bool parseConfigFile(const std::string &config_filename);
