@@ -178,16 +178,17 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
 {
     DEBUG_MSG("Starting CGI Request", request.uri);
     DEBUG_MSG_2("CGI::handleCGIRequest receiving FD is  ", fd);
+
+    response.is_cgi_response = true; // used to differentiate between cgi and static error pages
+
+    DEBUG_MSG_2("CGI::handleCGIRequest receiving FD is  ", fd);
+   
+    std::string fullScriptPath = resolveCGIPath(request.uri);
+    scriptPath = fullScriptPath;
+    method = request.method;
+    requestBody = request.body;
+
     executeCGI(fd, response, request);
-/*     catch (const std::exception &e)
-    {
-        std::cout << "start handleCGIRequest 5" << std::endl;
-        DEBUG_MSG_1("CGI Error", e.what());
-        response.status_code = 500;
-        response.body = "Internal Server Error: " + std::string(e.what());
-        response.close_connection = true;
-        response.complete = true;
-    } */
 }
 
 /*
