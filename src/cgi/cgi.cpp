@@ -662,6 +662,7 @@ void CGI::checkRunningProcesses(int pfds_fd)
                 }
                 else
                 {
+
                     proc.process_finished = true;
                     proc.finished_success = false;
                     proc.response->complete = true;

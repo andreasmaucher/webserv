@@ -142,7 +142,7 @@ void Server::debugPrintRoutes() const
         // const std::string &uri = it->first;
         const Route &route = it->second;
 
-        DEBUG_MSG("Route URI", uri);
+        // DEBUG_MSG("Route URI", uri);
         DEBUG_MSG("Route Path", route.path);
 
         std::string methods_str;

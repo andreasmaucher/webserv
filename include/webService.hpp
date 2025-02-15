@@ -22,7 +22,7 @@
 #include "debug.hpp"
 
 #define DEFAULT_CONFIG "./server/default.conf"
-#define MAX_BACKLOG_UNACCEPTED_CON 20
+#define MAX_BACKLOG_UNACCEPTED_CON 1000
 #define BUFFER_SIZE 100
 // #define PORT "8080"
 #define INIT_FD_SIZE 2
@@ -46,7 +46,6 @@ private:
 
     struct addrinfo hints, *ai, *p;
     size_t poll_start_offset;
-
 
     // std::vector <Server>  parseConfig(const std::string &config_file);
     void setupSockets();

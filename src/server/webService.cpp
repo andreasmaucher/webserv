@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/15 20:31:46 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/15 21:52:55 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -289,6 +289,13 @@ void WebService::setupSockets()
     DEBUG_MSG("Total servers set up", servers.size());
 }
 
+std::string toString(int value)
+{
+    std::stringstream ss;
+    ss << value;
+    return ss.str();
+}
+
 void WebService::printPollFds()
 {
     DEBUG_MSG("=== POLL FDS STATUS ===", "");
@@ -296,6 +303,7 @@ void WebService::printPollFds()
     {
         int fd = pfds_vec[i].fd;
         std::string fd_type;
+        std::string connection_type;
 
         if (cgi_fd_to_http_response.find(fd) != cgi_fd_to_http_response.end())
         {
@@ -311,6 +319,7 @@ void WebService::printPollFds()
             else
             {
                 fd_type = "SERVER CONNECTION";
+                // Check if this is request or response fd
             }
         }
         else
@@ -319,9 +328,40 @@ void WebService::printPollFds()
         }
 
         DEBUG_MSG_2("FD: ", fd);
-        DEBUG_MSG_2("Type: ", fd_type);
-        DEBUG_MSG_2("Events: ", pfds_vec[i].events);
-        DEBUG_MSG_2("Revents: ", pfds_vec[i].revents);
+        DEBUG_MSG_2("Type: ", fd_type + connection_type);
+
+        // Print events with their values and meanings
+        std::string event_str = "";
+        if (pfds_vec[i].events & POLLIN)
+            event_str += "POLLIN(1) ";
+        if (pfds_vec[i].events & POLLPRI)
+            event_str += "POLLPRI(4) ";
+        if (pfds_vec[i].events & POLLOUT)
+            event_str += "POLLOUT(4) ";
+        if (pfds_vec[i].events & POLLERR)
+            event_str += "POLLERR(8) ";
+        if (pfds_vec[i].events & POLLHUP)
+            event_str += "POLLHUP(16) ";
+        if (pfds_vec[i].events & POLLNVAL)
+            event_str += "POLLNVAL(32) ";
+        DEBUG_MSG_2("Events(" + toString(pfds_vec[i].events) + "): ", event_str);
+
+        // Print revents with their values and meanings
+        std::string revent_str = "";
+        if (pfds_vec[i].revents & POLLIN)
+            revent_str += "POLLIN(1) ";
+        if (pfds_vec[i].revents & POLLPRI)
+            revent_str += "POLLPRI(4) ";
+        if (pfds_vec[i].revents & POLLOUT)
+            revent_str += "POLLOUT(4) ";
+        if (pfds_vec[i].revents & POLLERR)
+            revent_str += "POLLERR(8) ";
+        if (pfds_vec[i].revents & POLLHUP)
+            revent_str += "POLLHUP(16) ";
+        if (pfds_vec[i].revents & POLLNVAL)
+            revent_str += "POLLNVAL(32) ";
+        DEBUG_MSG_2("Revents(" + toString(pfds_vec[i].revents) + "): ", revent_str);
+
         DEBUG_MSG("-------------------", "");
     }
     DEBUG_MSG("=====================", "");
@@ -384,6 +424,7 @@ int WebService::start()
     // bool skip_to_next_poll = false;
     size_t i = 0;
     (void)i;
+    // pfds_vec.reserve(1000);
     while (true)
     {
         // skip_to_next_poll = false; // Flag to control outer loop skip
@@ -403,8 +444,6 @@ int WebService::start()
         // Check CGI processes for timeouts
 
         DEBUG_MSG_2("-----------> Webservice::start() entering CGI check ", "");
-        DEBUG_MSG_2("----------->  CGI::checkRunningProcesses(pfds_vec[i].fd ", pfds_vec[i].fd);
-        DEBUG_MSG_2("----------->  CGI::checkRunningProcesses i is  ", i);
 
         // CGI::checkRunningProcesses(pfds_vec[i].fd);
         // Iterate backwards to handle removals safely
@@ -429,7 +468,7 @@ int WebService::start()
                 DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec[i].revents == 0 is true", "");
                 continue;
             }
-            if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end() && (pfds_vec[i].revents & POLLIN || pfds_vec[i].revents & POLLOUT))
+            if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end() && (pfds_vec[i].revents & POLLIN || pfds_vec[i].revents & POLLOUT || pfds_vec[i].revents & POLLHUP || pfds_vec[i].revents & POLLERR || pfds_vec[i].revents & POLLNVAL))
             {
                 DEBUG_MSG_2("Detected CGI FD, entering CGI::checkRunningProcesses(pfds_vec[i].fd);fd ", pfds_vec[i].fd);
                 //  sleep(1);
@@ -475,6 +514,7 @@ int WebService::start()
             //  get server object from a particular connection fd
             Server *server_obj = fd_to_server[pfds_vec[i].fd];
             DEBUG_MSG_2("Passed Server assignment check --->, fd ", pfds_vec[i].fd);
+            // sleep(1);
             if (pfds_vec[i].revents & POLLIN)
             {
                 if (i < servers.size())
