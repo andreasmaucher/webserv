@@ -45,6 +45,8 @@ private:
     // int poll_count;
 
     struct addrinfo hints, *ai, *p;
+    size_t poll_start_offset;
+
 
     // std::vector <Server>  parseConfig(const std::string &config_file);
     void setupSockets();

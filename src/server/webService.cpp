@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   webService.cpp                                     :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
+/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/15 18:09:10 by mrizakov         ###   ########.fr       */
+/*   Updated: 2025/02/15 20:31:46 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -381,12 +381,12 @@ void CGI::checkAllCGIProcesses()
 int WebService::start()
 {
     DEBUG_MSG("Server Status", "Starting");
-    bool skip_to_next_poll = false;
+    // bool skip_to_next_poll = false;
     size_t i = 0;
     (void)i;
     while (true)
     {
-        skip_to_next_poll = false; // Flag to control outer loop skip
+        // skip_to_next_poll = false; // Flag to control outer loop skip
 
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
         if (poll_count == -1)
@@ -429,7 +429,7 @@ int WebService::start()
                 DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec[i].revents == 0 is true", "");
                 continue;
             }
-            if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end())
+            if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end() && (pfds_vec[i].revents & POLLIN || pfds_vec[i].revents & POLLOUT))
             {
                 DEBUG_MSG_2("Detected CGI FD, entering CGI::checkRunningProcesses(pfds_vec[i].fd);fd ", pfds_vec[i].fd);
                 //  sleep(1);
@@ -445,15 +445,14 @@ int WebService::start()
 
             if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end())
             {
-
                 // if (!(cgi_fd_to_http_response.find(pfds_vec[i].fd) == cgi_fd_to_http_response.end()))
                 //     DEBUG_MSG_2("cgi_fd_to_http_response.find(pfds_vec[i].fd) , fd ", pfds_vec[i].fd);
                 DEBUG_MSG_2("Detected NON-server FD, skipping loop, fd ", pfds_vec[i].fd);
                 // usleep(100000);
-                // continue;
+                continue;
                 // i--;
-                skip_to_next_poll = true; // Set flag to skip to next poll
-                break;                    // Exit the for loop
+                // skip_to_next_poll = true; // Set flag to skip to next poll
+                // break;                    // Exit the for loop
             }
             // if (fd_to_server.find(pfds_vec[i].fd) != fd_to_server.end() || (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end()))
             // {
@@ -467,11 +466,11 @@ int WebService::start()
             //     // skip_to_next_poll = true; // Set flag to skip to next poll
             //     // break;                    // Exit the for loop
             // }
-            if (skip_to_next_poll)
-            {
-                // sleep(1);
-                continue; // Skip to next iteration of while loop
-            }
+            // if (skip_to_next_poll)
+            // {
+            //     // sleep(1);
+            //     continue; // Skip to next iteration of while loop
+            // }
             DEBUG_MSG_2("Passed FD check --->  FD is either in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);
             //  get server object from a particular connection fd
             Server *server_obj = fd_to_server[pfds_vec[i].fd];
