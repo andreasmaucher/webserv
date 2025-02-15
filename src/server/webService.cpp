@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   webService.cpp                                     :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/15 17:33:41 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/15 18:09:10 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -80,7 +80,7 @@ int WebService::get_listener_socket(const std::string &port)
     // Get address info
     if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0)
     {
-        DEBUG_MSG("getaddrinfo error", gai_strerror(addrinfo_status));
+        DEBUG_MSG_2("getaddrinfo error", gai_strerror(addrinfo_status));
         return -1;
     }
 
@@ -88,7 +88,7 @@ int WebService::get_listener_socket(const std::string &port)
     // Loop through results and bind to first valid one
     for (p = ai; p != NULL; p = p->ai_next)
     {
-        listener_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        listener_fd = socket(p->ai_family, p->ai_socktype | SOCK_NONBLOCK, p->ai_protocol);
         if (listener_fd < 0)
             continue;
 
@@ -96,7 +96,7 @@ int WebService::get_listener_socket(const std::string &port)
         int yes = 1;
         if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
         {
-            DEBUG_MSG("setsockopt error", strerror(errno));
+            DEBUG_MSG_2("setsockopt error", strerror(errno));
             continue;
         }
 
@@ -115,14 +115,14 @@ int WebService::get_listener_socket(const std::string &port)
     // If we got here, it means we didn't get bound
     if (p == NULL)
     {
-        DEBUG_MSG("Failed to bind", "");
+        DEBUG_MSG_2("Failed to bind", "");
         return -1;
     }
 
     // Listen
     if (listen(listener_fd, MAX_BACKLOG_UNACCEPTED_CON) == -1)
     {
-        DEBUG_MSG("listen error", strerror(errno));
+        DEBUG_MSG_2("listen error", strerror(errno));
         return -1;
     }
 
@@ -396,7 +396,7 @@ int WebService::start()
         }
         if (!CGI::running_processes.empty())
         {
-            CGI::checkAllCGIProcesses();
+            // CGI::checkAllCGIProcesses();
             printPollFds();
         }
 

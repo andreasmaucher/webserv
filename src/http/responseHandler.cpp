@@ -2,7 +2,7 @@
 #include "../../include/cgi.hpp"
 #include "../../include/httpRequest.hpp"
 #include "../../include/httpResponse.hpp"
-#include "../../include/DEBUG.hpp"
+#include "../../include/debug.hpp"
 
 /* void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
 {

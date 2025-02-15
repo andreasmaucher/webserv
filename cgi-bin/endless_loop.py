@@ -16,7 +16,7 @@ print()  # Empty line to separate headers from body
 
 # Endless loop to test non-blocking and process killing
 while True:
-    sys.stderr.write("Still running...\n")
+    sys.stdout.write("Still running...\n")
     time.sleep(1)
     # sys.stderr.write("Work, baby work!...\n")
 # Run ls command and capture output

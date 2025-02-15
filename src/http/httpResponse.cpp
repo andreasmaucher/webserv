@@ -1,5 +1,5 @@
 #include "../../include/httpResponse.hpp"
-#include "../../include/DEBUG.hpp"
+#include "../../include/debug.hpp"
 
 HttpResponse::HttpResponse() : version(""), status_code(0), reason_phrase(""), headers(), body(""), file_content_type(""), close_connection(false), complete(false) {}
 
