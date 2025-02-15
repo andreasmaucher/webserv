@@ -25,7 +25,7 @@
 // this is the path to the python interpreter, needs to be adjusted depening on the users system
 #define PYTHON_PATH "/usr/bin/python3";
 
-#define CGI_TIMEOUT 5
+#define CGI_TIMEOUT 100
 
 class HttpResponse;
 
@@ -43,6 +43,23 @@ public:
     void sendResponse(const std::string &response) const;
 
     static void checkRunningProcesses(int pfds_fd);
+    static void checkAllCGIProcesses();
+    struct CGIProcess
+    {
+        time_t start_time; // When the process started
+        int output_pipe;   // Only need output pipe to read data
+        int response_fd;
+        HttpRequest *request; // To update request status if timeout occurs
+        HttpResponse *response;
+        bool process_finished;
+        bool finished_success;
+        bool ready_to_send;
+        int status;
+
+        CGIProcess() : start_time(0), output_pipe(-1), request(NULL), response(NULL), process_finished(false), finished_success(false), ready_to_send(false), status(0) {}
+    };
+
+    static std::map<pid_t, CGIProcess> running_processes;
 
 private:
     int clientSocket;
@@ -57,38 +74,6 @@ private:
     void sendHttpResponseHeaders(const std::string &contentType) const;
     std::string resolveCGIPath(const std::string &uri);
     static std::string constructErrorResponse(int status_code, const std::string &message);
-
-    struct CGIProcess
-    {
-        time_t start_time; // When the process started
-        int output_pipe;   // Only need output pipe to read data
-        int response_fd;
-        HttpRequest *request; // To update request status if timeout occurs
-        HttpResponse *response;
-        bool process_finished;
-        bool finished_success;
-        bool ready_to_send;
-        int status;
-
-        CGIProcess() : start_time(0), output_pipe(-1), request(NULL), response(NULL), process_finished(false), finished_success(false), ready_to_send(false), status(0) {}
-        // ~CGIProcess()
-        // {
-        //     if (output_pipe != -1)
-        //     {
-        //         close(output_pipe);
-        //         output_pipe = -1;
-        //     }
-        //     // Other cleanup...
-        // }
-
-        // ~CGIProcess()
-        // {
-        //     if (response)
-        //         delete response;
-        // }
-    };
-
-    static std::map<pid_t, CGIProcess> running_processes;
 
     static void addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest *req, HttpResponse *response);
     static void cleanupProcess(pid_t pid);

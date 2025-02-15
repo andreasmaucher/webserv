@@ -2,7 +2,7 @@
 #include "../../include/cgi.hpp"
 #include "../../include/httpRequest.hpp"
 #include "../../include/httpResponse.hpp"
-#include "../../include/debug.hpp"
+#include "../../include/DEBUG.hpp"
 
 /* void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
 {
@@ -79,7 +79,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
 
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
-  // If it's a CGI request, handle it
+  //  If it's a CGI request, handle it
   //? CGI RESPONSE request process starts here
   if (route->is_cgi)
   {
@@ -149,9 +149,9 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
 
   /* -- Carinas part starts here -- */
   DEBUG_MSG("Status", "Processing request");
-  // from here on, we will populate & use the response object status code only
-  // response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
-  // find connection header and set close_connection in response object
+  //  from here on, we will populate & use the response object status code only
+  //  response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
+  //  find connection header and set close_connection in response object
   if (request.error_code == 0)
   { // Check error_code but don't set response status
     ResponseHandler::routeRequest(fd, config, request, response);
@@ -349,7 +349,8 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
         request.path.replace(request.path.find("//"), 2, "/");
     }
   } */
-  std::cout << "Initial path: " << request.path << std::endl; // Debug
+  std::cout << "Initial path: " << request.path << std::endl;
+  // DEBUG
   ResponseHandler::setFullPath(request);
   std::cout << "request.path in serveStaticFile after setFullPath: " << request.path << std::endl;
   if (request.is_directory)
@@ -715,7 +716,7 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
   const Route *best_match = NULL;
   size_t longest_match_length = 0;
 
-  // Debug output for all routes
+  // DEBUG output for all routes
   DEBUG_MSG("Status", "Available routes:");
   for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
   {
@@ -773,7 +774,7 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
 bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &response)
 {
   DEBUG_MSG("Status", "Checking if method " + request.method + " is allowed");
-  // Verify the requested method is allowed in that route searching in the set
+  //  Verify the requested method is allowed in that route searching in the set
   if (request.route->methods.find(request.method) == request.route->methods.end())
   {
     DEBUG_MSG("Status", "Method not allowed in route");

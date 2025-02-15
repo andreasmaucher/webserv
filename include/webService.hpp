@@ -71,7 +71,7 @@ public:
     static void closeConnection(const int &fd, size_t &i, Server &server);
     void handleSigint(int signal);
     static void sigintHandler(int signal);
-    static void addToPfdsVector(int new_fd);
+    static void addToPfdsVector(int new_fd, bool isCGIOutput = false);
     // static void deleteFromPfdsVec(int &fd, size_t &i);
     static void deleteFromPfdsVecForCGI(const int &fd);
     static void deleteRequestObject(const int &fd, Server &server);

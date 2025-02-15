@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/15 00:27:49 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/15 03:05:40 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -127,9 +127,9 @@ int WebService::get_listener_socket(const std::string &port)
     return listener_fd;
 }
 
-void WebService::addToPfdsVector(int new_fd)
+void WebService::addToPfdsVector(int new_fd, bool isCGIOutput)
 {
-    // Reserve space before adding to prevent reallocation during iteration
+    // Reserve extra space if needed...
     if (pfds_vec.size() == pfds_vec.capacity())
     {
         pfds_vec.reserve(pfds_vec.capacity() * 2 + 1);
@@ -137,7 +137,15 @@ void WebService::addToPfdsVector(int new_fd)
 
     struct pollfd new_pollfd;
     new_pollfd.fd = new_fd;
-    new_pollfd.events = POLLIN | POLLOUT;
+    // If this is the CGI output pipe, listen for more events:
+    if (isCGIOutput)
+    {
+        new_pollfd.events = POLLIN | POLLHUP | POLLERR;
+    }
+    else
+    {
+        new_pollfd.events = POLLIN | POLLOUT;
+    }
     new_pollfd.revents = 0;
 
     pfds_vec.push_back(new_pollfd);
@@ -152,12 +160,12 @@ void WebService::deleteFromPfdsVec(int &fd, size_t &i)
         pfds_vec.erase(pfds_vec.begin() + i);
         DEBUG_MSG_2("WebService::deleteFromPfdsVec: Erased fd from vector at index", i);
         DEBUG_MSG_2("WebService::deleteFromPfdsVec: Current pfds_vec size", pfds_vec.size());
-        // exit(1);
+        //  exit(1);
     }
     else
     {
         DEBUG_MSG_2("WebService::deleteFromPfdsVec: Error: fd not found in vector at index", i);
-        // exit(1);
+        //  exit(1);
     }
 }
 
@@ -176,7 +184,7 @@ void WebService::deleteFromPfdsVecForCGI(const int &fd)
 
             WebService::pfds_vec.erase(it);
             DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the fd, ", fd_to_delete);
-            // DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the it->fd, ", it->fd);
+            //  DEBUG_MSG_2("WebService::deleteFromPfdsVecForCGI deleted the it->fd, ", it->fd);
 
             break; // Exit after finding and removing
         }
@@ -207,9 +215,13 @@ void WebService::closeConnection(const int &fd, size_t &i, Server &server)
     (void)i;
     const int fd_to_delete = fd;
     if (close(fd) == -1)
+    {
         DEBUG_MSG_2("Closing connection FD failed", fd);
+    }
     else
+    {
         DEBUG_MSG_2("Connection to FD closed succeeded", fd);
+    }
 
     // deleteFromPfdsVec(fd, i);
     deleteFromPfdsVecForCGI(fd_to_delete);
@@ -250,7 +262,7 @@ void WebService::newConnection(Server &server)
         DEBUG_MSG("New connection accepted for server ", server.getName());
         DEBUG_MSG("On fd", new_fd);
 
-        addToPfdsVector(new_fd);
+        addToPfdsVector(new_fd, false);
         mapFdToServer(new_fd, server);
         createRequestObject(new_fd, server);
     }
@@ -269,7 +281,7 @@ void WebService::setupSockets()
             throw std::runtime_error("Error getting listening socket for server: " + (*it).getName());
         }
         (*it).setListenerFd(listener_fd);
-        addToPfdsVector(listener_fd);
+        addToPfdsVector(listener_fd, false);
         mapFdToServer(listener_fd, *it);
     }
     DEBUG_MSG("Total servers set up", servers.size());
@@ -313,6 +325,57 @@ void WebService::printPollFds()
     DEBUG_MSG("=====================", "");
 }
 
+void CGI::checkAllCGIProcesses()
+{
+    time_t now = time(NULL);
+
+    // Iterate through all running CGI processes.
+    // (Assuming running_processes is a map keyed by PID or some unique ID.)
+    for (std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
+         it != running_processes.end();
+         /* no increment */)
+    {
+        pid_t pid = it->first;
+
+        CGIProcess &proc = it->second;
+        if ((now - proc.start_time) > CGI_TIMEOUT)
+        {
+            DEBUG_MSG_2("CGI timeout reached for pid", pid);
+
+            // Force kill the process, mark as finished and unsuccessful:
+            kill(pid, SIGKILL);
+            proc.process_finished = true;
+            proc.finished_success = false;
+
+            // Mark response as complete so that cleanup logic proceeds:
+            proc.response->complete = true;
+
+            // Send a timeout response:
+            proc.response->body = constructErrorResponse(504, "Gateway timeout");
+            proc.response->status_code = 504;
+            proc.response->reason_phrase = "Gateway timeout";
+            proc.response->close_connection = true;
+            sendCGIResponse(proc);
+
+            // Remove from any mappings and clean up FDs
+            WebService::cgi_fd_to_http_response.erase(proc.output_pipe);
+            WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+            WebService::deleteFromPfdsVecForCGI(proc.response_fd);
+            WebService::fd_to_server.erase(proc.response_fd);
+            proc.output_pipe = -1; // Mark as invalid
+
+            // Erase this CGI process from the running_processes map.
+            std::map<pid_t, CGIProcess>::iterator current = it;
+            ++it;
+            running_processes.erase(current);
+            delete proc.response;
+
+            continue;
+        }
+        ++it; // Only increment if no timeout occurred
+    }
+}
+
 int WebService::start()
 {
     DEBUG_MSG("Server Status", "Starting");
@@ -329,7 +392,11 @@ int WebService::start()
             DEBUG_MSG_1("Poll error", strerror(errno));
             continue;
         }
-        printPollFds(); // Add this line here
+        if (!CGI::running_processes.empty())
+        {
+            CGI::checkAllCGIProcesses();
+            printPollFds();
+        }
 
         // Check CGI processes for timeouts
 
@@ -339,9 +406,9 @@ int WebService::start()
 
         // CGI::checkRunningProcesses(pfds_vec[i].fd);
         // Iterate backwards to handle removals safely
-        DEBUG_MSG_2("-----------> Webservice::start() passed CGI check ", "");
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
+
             // sleep(1);
             DEBUG_MSG_2("-----------> Webservice::start() pfds_vec.size() ", pfds_vec.size());
             DEBUG_MSG_2("-----------> Webservice::start() pfds_vec[i].fd ", pfds_vec[i].fd);
@@ -354,6 +421,7 @@ int WebService::start()
 
                 continue;
             }
+            // if (!(pfds_vec[i].revents & (POLLIN | POLLHUP | POLLERR)))
             if (pfds_vec[i].revents == 0)
             {
                 DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec[i].revents == 0 is true", "");
@@ -362,17 +430,16 @@ int WebService::start()
             if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end())
             {
                 DEBUG_MSG_2("Detected CGI FD, entering CGI::checkRunningProcesses(pfds_vec[i].fd);fd ", pfds_vec[i].fd);
-                // sleep(1);
+                //  sleep(1);
 
                 CGI::checkRunningProcesses(pfds_vec[i].fd);
 
                 // i--;
             }
-            // else
-            // {
-            //     i--;
-            //     break;
-            // }
+            else
+            {
+                DEBUG_MSG_2("Not a CGI process ", pfds_vec[i].fd);
+            }
 
             if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end())
             {
@@ -404,7 +471,7 @@ int WebService::start()
                 continue; // Skip to next iteration of while loop
             }
             DEBUG_MSG_2("Passed FD check --->  FD is either in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);
-            // get server object from a particular connection fd
+            //  get server object from a particular connection fd
             Server *server_obj = fd_to_server[pfds_vec[i].fd];
             DEBUG_MSG_2("Passed Server assignment check --->, fd ", pfds_vec[i].fd);
             if (pfds_vec[i].revents & POLLIN)
@@ -444,8 +511,8 @@ int WebService::start()
 // implement timeout for recv()?
 void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
-    // DEBUG_MSG("=== RECEIVE REQUEST ===", "");
-    // DEBUG_MSG("Processing FD", fd);
+    DEBUG_MSG("=== RECEIVE REQUEST ===", "");
+    DEBUG_MSG("Processing FD", fd);
 
     if (!server.getRequestObject(fd).complete)
     {
@@ -552,7 +619,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
             DEBUG_MSG_2("Response sent to fd", fd);
 
             DEBUG_MSG_2("WebService::sendResponse response.close_connection", response->close_connection);
-            // Michaael: added obligatory close of connection for all cases to get rid of extra pfds
+            //  Michaael: added obligatory close of connection for all cases to get rid of extra pfds
             response->close_connection = true;
             // sleep(10);
 

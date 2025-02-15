@@ -1,6 +1,6 @@
 !/bin/bash
 
-set -x  # Enable debug mode to see what's happening
+set -x  # Enable DEBUG mode to see what's happening
 
 #if testing from inside of the container use:
 #docker run -it --rm -v "$(pwd)":/home/root webserv-img
