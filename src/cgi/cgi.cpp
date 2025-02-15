@@ -401,28 +401,31 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
     DEBUG_MSG("Output pipe - Read FD", pipe_out[0]);
     DEBUG_MSG("Output pipe - Write FD", pipe_out[1]);
     pid_t pid = runChildCGI(pipe_in, pipe_out, request);
+
     DEBUG_MSG_2("---------------->CGI: executeCGI: new CGI process added: PID ", pid);
     DEBUG_MSG_2("---------------->CGI: executeCGI: new CGI process added: fd ", fd);
     if (pid > 0)
     {
-        // Parent process
-        // Add process to tracking map right after fork
-        addProcess(pid, pipe_out[0], fd, &request, &response);
         // Close unused file descriptors in parent
         close(pipe_in[0]);  // Close read end of input pipe
         close(pipe_out[1]); // Close write end of output pipe
+        // Parent process
+        // Add process to tracking map right after fork
+        addProcess(pid, pipe_out[0], fd, &request, &response);
+        WebService::fd_to_server.erase(fd);
+
+        pollfd pollfd_obj;
+        pollfd_obj.fd = pipe_out[0];
+        pollfd_obj.revents = POLLIN;
+        WebService::addToPfdsVector(pollfd_obj.fd);
+        DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", pipe_out[0]);
+        WebService::cgi_fd_to_http_response[pollfd_obj.fd] = &response;
+        DEBUG_MSG_1("Waitpid will start, pid : ", pid);
     }
 
     // If POST request, write the request body to the CGI's stdin
     postRequest(pipe_in);
 
-    pollfd pollfd_obj;
-    pollfd_obj.fd = pipe_out[0];
-    pollfd_obj.revents = POLLIN;
-    WebService::addToPfdsVector(pollfd_obj.fd);
-    DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", pipe_out[0]);
-    WebService::cgi_fd_to_http_response[pollfd_obj.fd] = &response;
-    DEBUG_MSG_1("Waitpid will start, pid : ", pid);
     waitpid(-1, &status, WNOHANG);
 }
 
@@ -727,9 +730,11 @@ void CGI::checkRunningProcesses(int pfds_fd)
             // Common cleanup: remove CGI mappings and delete the response once.
             WebService::cgi_fd_to_http_response.erase(proc.output_pipe);
             WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+            WebService::deleteFromPfdsVecForCGI(proc.response_fd);
+
             proc.output_pipe = -1;
 
-            // delete proc.response;
+            delete proc.response;
             // proc.response = nullptr;
 
             // Erase the process entry using an iterator workaround.
