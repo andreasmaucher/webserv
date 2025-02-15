@@ -44,6 +44,11 @@ public:
 
     static void checkRunningProcesses();
 
+    static std::string resolveCGIPath(const std::string &uri);
+
+    static std::string extractPathInfo(const std::string &uri);
+
+
 private:
     int clientSocket;
     std::string scriptPath;
@@ -55,7 +60,6 @@ private:
     void executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
     void sendCGIOutputToClient(int pipefd) const;
     void sendHttpResponseHeaders(const std::string &contentType) const;
-    std::string resolveCGIPath(const std::string &uri);
     static std::string constructErrorResponse(int status_code, const std::string &message);
 
     struct CGIProcess
@@ -80,7 +84,6 @@ private:
     static void readFromCGI(pid_t pid, CGIProcess &proc);
     static void sendCGIResponse(CGIProcess &proc);
 
-    std::string extractPathInfo(const std::string &uri);
     std::string getStatusMessage(int status_code);
     pid_t runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request);
 

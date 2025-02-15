@@ -22,5 +22,8 @@ try:
 except subprocess.CalledProcessError as e:
     # print("Error executing ls command:", e)
     sys.stderr.write(f"Error in ls command: {e}\n")
+    sys.stderr.write(f"CGI Error: {str(e)}\n")
+    sys.stderr.write(traceback.format_exc())
+    sys.exit(1)
 
 # sys.stderr.write("Python CGI script ending...\n")

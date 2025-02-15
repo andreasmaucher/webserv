@@ -11,9 +11,9 @@
 #include <ctime>
 #include "httpRequest.hpp"
 #include "httpResponse.hpp"
+#include "../include/cgi.hpp"
 #include "server.hpp"
 #include "mimeTypeMapper.hpp"
-#include "cgi.hpp"
 #include <dirent.h>
 #include <sys/types.h>
 
@@ -68,6 +68,9 @@ private:
     static std::string read_error_file(std::string &file_path);
     // static void createHtmlBody(HttpResponse &response);
     static void generateDirectoryListing(const HttpRequest &request, HttpResponse &response);
+    static bool handleCGIErrors(int &fd, HttpRequest &request, HttpResponse &response);
+    static void prepareCGIErrorResponse(HttpResponse &response, int status_code, const std::string &reason, const std::string &body, const std::string &allowed_methods);
+    static void finalizeCGIErrorResponse(int &fd, HttpRequest &request, HttpResponse &response);
 };
 
 #endif

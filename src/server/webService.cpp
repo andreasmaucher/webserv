@@ -368,7 +368,6 @@ int WebService::start()
             if (pfds_vec[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
                 DEBUG_MSG_2("-------->Close connection  ", pfds_vec[i].fd);
-
                 closeConnection(pfds_vec[i].fd, i, *server_obj);
             }
         }
@@ -504,7 +503,6 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
                 DEBUG_MSG_2("Send error ", strerror(errno));
             }
             DEBUG_MSG_2("Response sent to fd", fd);
-
             DEBUG_MSG_2("WebService::sendResponse response.close_connection", response->close_connection);
             // Michaael: added obligatory close of connection for all cases to get rid of extra pfds
             response->close_connection = true;
@@ -513,7 +511,6 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
             if (response->close_connection == true)
             {
                 DEBUG_MSG_2("WebService::sendResponse: Response sent to fd, closing connection", fd);
-
                 closeConnection(fd, i, server);
             }
             else

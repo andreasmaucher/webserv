@@ -177,73 +177,17 @@ std::string CGI::extractPathInfo(const std::string &uri)
 void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response)
 {
     DEBUG_MSG("Starting CGI Request", request.uri);
-    response.is_cgi_response = true; // used to differentiate between cgi and static error pages
-
     DEBUG_MSG_2("CGI::handleCGIRequest receiving FD is  ", fd);
-    // (void)fd;
-    // (void)response;
-    /* if (!isCGIRequest(request.uri)) {
-        response.status_code = 400;  // Bad Request
-        response.reason_phrase = "Bad Request";
-        response.body = "Bad Request: Invalid CGI file type. Only .py files are allowed.";
-        response.setHeader("Content-Type", "text/plain");
-        //response.setHeader("Content-Length", std::to_string(response.body.length()));
-        response.setHeader("Connection", "close");
-        response.close_connection = true;
-        return;
-    } */
-    try
+    executeCGI(fd, response, request);
+/*     catch (const std::exception &e)
     {
-        // First check if the script exists
-        std::string fullScriptPath = resolveCGIPath(request.uri);
-        scriptPath = fullScriptPath;
-        method = request.method;
-        requestBody = request.body;
-
-        // When the script file doesn't exist
-        if (access(fullScriptPath.c_str(), F_OK) == -1)
-        {
-            request.error_code = 404; // Not Found
-            request.body = constructErrorResponse(404, "Script not found: " + fullScriptPath);
-            request.complete = true;
-            return;
-        }
-
-        try
-        {
-            // Check if there's a path parameter (file reference)
-            std::string pathInfo = extractPathInfo(request.uri);
-            if (!pathInfo.empty())
-            {
-                // Check if the referenced file exists in uploads directory
-                std::string filePath = "www/uploads/" + pathInfo;
-                if (access(filePath.c_str(), F_OK) == -1)
-                {
-                    request.error_code = 404;
-                    request.body = constructErrorResponse(404, "Referenced file not found: " + pathInfo);
-                    request.complete = true;
-                    return;
-                }
-            }
-        }
-        catch (const std::runtime_error &e)
-        {
-            // Handle validation errors from extractPathInfo
-            request.error_code = 400; // Bad Request
-            request.body = constructErrorResponse(400, e.what());
-            request.complete = true;
-            return;
-        }
-
-        executeCGI(fd, response, request);
-    }
-    catch (const std::exception &e)
-    {
+        std::cout << "start handleCGIRequest 5" << std::endl;
         DEBUG_MSG_1("CGI Error", e.what());
-        request.error_code = 500;
-        request.body = constructErrorResponse(500, "Internal Server Error: " + std::string(e.what()));
-        request.complete = true;
-    }
+        response.status_code = 500;
+        response.body = "Internal Server Error: " + std::string(e.what());
+        response.close_connection = true;
+        response.complete = true;
+    } */
 }
 
 /*
@@ -635,6 +579,9 @@ void CGI::checkRunningProcesses()
                 else
                 {
                     DEBUG_MSG_2("Process finished with error: ", strerror(errno));
+                    std::cout << "WEXITSTATUS(proc.status): " << WEXITSTATUS(proc.status) << std::endl;
+                    std::cout << "WIFEXITED(proc.status): " << WIFEXITED(proc.status) << std::endl;
+                    std::cout << "proc.response_body " << proc.response->body << std::endl;
                     proc.process_finished = true;
                     proc.finished_success = false;
                     // TODO: set errror codes and appopriate error response
@@ -686,6 +633,7 @@ void CGI::checkRunningProcesses()
         {
             DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() SEND ERROR RESPONSE  ", pid);
             proc.response->complete = true; // cleanup
+            std::cout << "timeout here" << std::endl;
             proc.response->body = constructErrorResponse(504, "Gateway timeout");
             proc.response->status_code = 504;
             proc.response->reason_phrase = "Gateway timeout";

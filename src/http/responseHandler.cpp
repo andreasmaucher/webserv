@@ -4,68 +4,94 @@
 #include "../../include/httpResponse.hpp"
 #include "../../include/debug.hpp"
 
-/* void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
-{
-    DIR* dir = opendir(request.path.c_str());
-    if (!dir) {
-        response.status_code = 500;
-        response.reason_phrase = "Internal Server Error";
-        return;
+void ResponseHandler::finalizeCGIErrorResponse(int &fd, HttpRequest &request, HttpResponse &response) {
+    request.complete = true;
+    response.complete = true;
+    ResponseHandler::responseBuilder(response);
+    WebService::setPollfdEventsToOut(fd);
+}
+
+void ResponseHandler::prepareCGIErrorResponse(HttpResponse &response, 
+    int status_code, const std::string &reason, 
+    const std::string &body, const std::string &allowed_methods) {
+    
+    response.status_code = status_code;
+    response.reason_phrase = reason;
+    response.body = body;
+    response.setHeader("Content-Type", "text/plain");
+    response.setHeader("Connection", "close");
+    
+    if (!allowed_methods.empty()) {
+        response.setHeader("Allow", allowed_methods);
     }
+    
+    response.close_connection = true;
+}
 
-    std::string html = "<html>\n<head>\n<title>Index of " + request.uri + "</title>\n</head>\n";
-    html += "<body>\n<h1>Index of " + request.uri + "</h1><hr>\n<pre>\n";
-
-    struct dirent* entry;
-    while ((entry = readdir(dir))) {
-        struct stat st;
-        std::string fullpath = request.path + "/" + entry->d_name;
-
-        if (stat(fullpath.c_str(), &st) == 0) {
-            std::string name = entry->d_name;
-            std::string size = std::to_string(st.st_size);
-            std::string date = ctime(&st.st_mtime);
-            date = date.substr(0, date.length() - 1); // Remove trailing newline
-
-            if (S_ISDIR(st.st_mode)) {
-                name += "/";
-            }
-
-            // Format: name                     last-modified               size
-            html += "<a href=\"" + name + "\">" + name + "</a>";
-            html += std::string(50 - name.length(), ' ') + date;
-            html += std::string(20 - size.length(), ' ') + size + "\n";
+bool ResponseHandler::handleCGIErrors(int &fd, HttpRequest &request, HttpResponse &response) {
+    // Check if it's a potential CGI request
+    if (request.uri.find("/cgi-bin/") == std::string::npos) {
+        return true; // Not a CGI request, continue normal static processing
+    }
+    // Method validation
+    if (request.method != "GET" && request.method != "POST" && request.method != "DELETE") {
+        prepareCGIErrorResponse(response, 405, "Method Not Allowed", 
+            "Method Not Allowed for CGI requests", "GET, POST, DELETE");
+        finalizeCGIErrorResponse(fd, request, response);
+        return false;
+    }
+    if (CGI::isCGIRequest(request.uri)) {
+        response.is_cgi_response = true; // used to differentiate between cgi and static error pages
+    }
+    // Check for valid CGI file extension first (sends error whenever the file is not a .py)
+    if (!CGI::isCGIRequest(request.uri)) {
+        prepareCGIErrorResponse(response, 400, "Bad Request", 
+          "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
+        finalizeCGIErrorResponse(fd, request, response);
+        return false;
+    }
+    // Check if script exists
+    try {
+        CGI::resolveCGIPath(request.uri);
+    } catch (const std::runtime_error& e) {
+        prepareCGIErrorResponse(response, 404, "Not Found", 
+            std::string("Script not found: ") + e.what(), "");
+        finalizeCGIErrorResponse(fd, request, response);
+        return false;
+    }
+    // Check if there's a path parameter (file reference)
+    std::string pathInfo;
+    try { 
+        pathInfo = CGI::extractPathInfo(request.uri);
+    } 
+    catch (const std::runtime_error& e) {
+        prepareCGIErrorResponse(response, 400, "Bad Request", 
+        std::string("Invalid file extension or other PATH_INFO error: ") + e.what(), "");
+        finalizeCGIErrorResponse(fd, request, response);
+        return false; 
+    }
+    if (!pathInfo.empty())
+    {
+        // Check if the referenced file exists in uploads directory
+        std::string filePath = "www/uploads/" + pathInfo;
+        if (access(filePath.c_str(), F_OK) == -1)
+        {
+            prepareCGIErrorResponse(response, 404, "Not Found", 
+            std::string("Referenced file not found: ") + pathInfo, "");
+            finalizeCGIErrorResponse(fd, request, response);
+            return false;
         }
     }
-    closedir(dir);
-
-    html += "</pre><hr></body>\n</html>";
-    response.body = html;
-    response.status_code = 200;
-    response.reason_phrase = "OK";
-    response.setHeader("Content-Type", "text/html");
-    response.setHeader("Content-Length", std::to_string(html.length()));
-} */
+    return true; // No errors, continue with normal processing
+}
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
-  //! UNDO
- // First check if it's a CGI request and validate it early
-    if (request.uri.find("/cgi-bin/") != std::string::npos) {
-        if (!CGI::isCGIRequest(request.uri)) {
-            response.status_code = 404;  // Not Found
-            response.reason_phrase = "Not Found";
-            response.body = "Invalid CGI script path";
-            response.setHeader("Content-Type", "text/plain");
-            //response.setHeader("Content-Length", std::to_string(response.body.length()));
-            response.close_connection = true;
-            request.complete = true;      // Mark request as complete
-            response.complete = true;     // Mark response as complete
-            ResponseHandler::responseBuilder(response);  // Build the response
-            WebService::setPollfdEventsToOut(fd);  // Set fd to write mode
-            return;
-        }
+  //! All CGI error checks need to happen in here before handleCGIRequest
+  if (!handleCGIErrors(fd, request, response)) {
+        return;
     }
+  
   // Find matching route
   if (!findMatchingRoute(config, request, response))
   {
@@ -73,35 +99,9 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     response.status_code = 404;
     return;
   }
+  
   const Route *route = request.route; // Route is already stored in request
-  // handle directory listing (if autoindex is true)
-  /* std::cout << "request.is_directory in processRequest before handling it: " << request.is_directory << std::endl;
-   if (request.is_directory) {
-    std::cout << "request.is_directory in processRequest inner loop: jkhjklhjkh " << request.is_directory << std::endl;
-         // Check for index file first
-         std::string index_path = request.path + "/index.html";
-         std::cout << "2" << std::endl;
-         if (access(index_path.c_str(), F_OK) != -1) {
-             // Serve index file
-             std::cout << "serving index file in processRequest inner loop thsi is static!: " << request.is_directory << std::endl;
-             request.path = index_path;
-             serveStaticFile(request, response);
-        std::cout << "request.route" << request.route << std::endl;
-        std::cout << "request.route->directory_listing_enabled" << request.route->directory_listing_enabled << std::endl;
-         } else if (request.route && request.route->directory_listing_enabled) {
-             // Generate directory listing
-             std::cout << "3" << std::endl;
-             std::cout << "generate directory listing in processRequest inner loop: " << request.is_directory << std::endl;
-             generateDirectoryListing(request, response);
-         } else {
-            std::cout << "4" << std::endl;
-             response.status_code = 403;
-             response.reason_phrase = "Forbidden";
-         }
-         return;
-     }
-     std::cout << "after if statement in processRequest inner loop" << std::endl; */
-
+ 
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
   // If it's a CGI request, handle it
@@ -189,6 +189,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   //! REDIRECTS
   if (!request.route->redirect_uri.empty())
   {
+    std::cout << "redirecting to: aaAAAAAA " << request.route->redirect_uri << std::endl;
     response.status_code = 301;
     response.setHeader("Location", request.route->redirect_uri);
     response.reason_phrase = "Moved Permanently";
@@ -341,7 +342,6 @@ void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpR
 void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &response)
 {
   DEBUG_MSG("Status", "Serving static file");
-  std::cout << "serving static file" << std::endl;
   // handle directory listing first, since the next block sets response error codes
   //  Default Index File: If directory listing is off, the server typically looks for a default index file, like index.html or index.php, in the requested directory. If found, it serves that file. If not found, it may return a 403 Forbidden or 404 Not Found response, depending on server configuration.
   //  Directory Listing Enabled: If directory listing is enabled, and no default index file exists, the server will dynamically generate a page showing the contents of the directory, so the user can browse the files.
@@ -374,9 +374,21 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
         request.path.replace(request.path.find("//"), 2, "/");
     }
   } */
-  std::cout << "Initial path: " << request.path << std::endl; // Debug
   ResponseHandler::setFullPath(request);
-  std::cout << "request.path in serveStaticFile after setFullPath: " << request.path << std::endl;
+
+  /* // Move directory redirect check here, before any file operations
+  if (request.is_directory && !request.uri.empty() && request.uri[request.uri.length() - 1] != '/') {
+      response.status_code = 301;
+      response.reason_phrase = "Moved Permanently";
+      response.setHeader("Location", request.uri + "/");
+      response.setHeader("Content-Length", "0");
+      response.setHeader("Connection", "close");
+      response.body = "";
+      response.complete = true;
+      response.close_connection = true;
+      return;
+  }
+  
   if (request.is_directory)
   {
     // autoindex in nginx is by default disabled for POST and DELETE
@@ -405,7 +417,6 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
 
     if (request.route->autoindex)
     {
-      std::cout << "Generating directory listing" << std::endl;
       generateDirectoryListing(request, response);
     }
     else
@@ -413,7 +424,7 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
       response.status_code = 403; // Directory listing disabled
     }
     return;
-  }
+  } */
 
   // Regular file handling
   ResponseHandler::setFullPath(request);
@@ -552,17 +563,14 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
       return true;
     } */
 
-  std::cout << "Checking path: " << request.path << std::endl;
   // std::cout << "Working directory: " << getcwd(NULL, 0) << std::endl;
   //! DIRECTORY
   // First check if path exists
   if (stat(request.path.c_str(), &path_stat) == 0)
   {
-    std::cout << "we entered fileExists: " << std::endl;
     // If it's a directory and GET request with autoindex, allow it
     if (request.is_directory && request.method == "GET" && request.route->autoindex)
     {
-      std::cout << "request.is_directory in fileExists new check should be true: " << request.is_directory << std::endl;
       return true;
     }
 
@@ -581,7 +589,6 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
   if (request.method == "GET" || (request.method == "DELETE" && !request.is_directory))
   {
     DEBUG_MSG("File status", "File does not exist");
-    std::cout << "request.is_directory in fileExists: " << request.is_directory << std::endl;
     response.status_code = 404;
   }
   else if (request.method == "DELETE" && request.is_directory)
@@ -866,7 +873,6 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
   if (!response.body.empty())
   {
     DEBUG_MSG_2("ResponseHandler::responseBuilder", "response.body.empty() not an issue");
-
     if (response.headers["Content-Type"].empty())     // mandatory if body present (e.g. errors)
       response.headers["Content-Type"] = "text/html"; // use as default
     std::ostringstream oss;
@@ -879,7 +885,6 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
   response.headers["Server"] = "MAC_Server/1.0";
   if (response.close_connection == true && response.headers.find("Connection") == response.headers.end())
     response.headers["Connection"] = "close";
-
   DEBUG_MSG_2("\n..............Response complete..............\n", "");
 }
 
