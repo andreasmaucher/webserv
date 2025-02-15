@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/15 03:05:40 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/15 17:33:41 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -71,9 +71,11 @@ int WebService::get_listener_socket(const std::string &port)
 {
     struct addrinfo hints;
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;       // IPv4
+    hints.ai_family = AF_INET; // IPv4
+    // hints.ai_socktype = SOCK_STREAM | SOCK_NONBLOCK; // TCP
     hints.ai_socktype = SOCK_STREAM; // TCP
-    hints.ai_flags = AI_PASSIVE;     // Use my IP
+
+    hints.ai_flags = AI_PASSIVE; // Use my IP
 
     // Get address info
     if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0)

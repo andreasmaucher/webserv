@@ -25,7 +25,7 @@
 // this is the path to the python interpreter, needs to be adjusted depening on the users system
 #define PYTHON_PATH "/usr/bin/python3";
 
-#define CGI_TIMEOUT 100
+#define CGI_TIMEOUT 1000
 
 class HttpResponse;
 
