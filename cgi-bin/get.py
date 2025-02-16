@@ -9,6 +9,7 @@ import subprocess
 # sys.stderr.write(f"Environment variables: {dict(os.environ)}\n")
 
 # Must send headers first
+#
 print("Content-Type: text/plain")
 print()  # Empty line is mandatory to separate headers from body
 
