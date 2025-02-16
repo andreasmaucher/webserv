@@ -28,7 +28,22 @@ void HttpRequest::reset()
 
 void HttpRequest::printRequest()
 {
+  DEBUG_MSG("=== MULTIPART FORM DEBUG ===", "");
   DEBUG_MSG("Method", this->method);
+  DEBUG_MSG("Content-Type", this->headers["Content-Type"]);
+  DEBUG_MSG("Content-Length", this->headers["Content-Length"]);
+  DEBUG_MSG("Body size", this->body.size());
+  
+  // multipart boundary check for upload functionality
+  std::string contentType = this->headers["Content-Type"];
+  if (contentType.find("multipart/form-data") != std::string::npos) {
+    DEBUG_MSG("Multipart form detected", "true");
+    size_t boundaryPos = contentType.find("boundary=");
+    if (boundaryPos != std::string::npos) {
+      DEBUG_MSG("Boundary", contentType.substr(boundaryPos + 9));
+    }
+  }
+
   DEBUG_MSG("URI", this->uri);
   DEBUG_MSG("Version", this->version);
 
