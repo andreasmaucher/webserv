@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/15 21:52:55 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/16 02:11:04 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -528,13 +528,13 @@ int WebService::start()
                     receiveRequest(pfds_vec[i].fd, i, *server_obj);
                 }
             }
-            if (pfds_vec[i].revents & POLLOUT)
+            else if (pfds_vec[i].revents & POLLOUT)
             {
                 DEBUG_MSG_2("------->Send response  ", pfds_vec[i].fd);
 
                 sendResponse(pfds_vec[i].fd, i, *server_obj);
             }
-            if (pfds_vec[i].revents & (POLLERR | POLLHUP | POLLNVAL))
+            else if (pfds_vec[i].revents & (POLLERR | POLLHUP | POLLNVAL))
             {
                 DEBUG_MSG_2("-------->Close connection  ", pfds_vec[i].fd);
 
@@ -557,7 +557,8 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 
     if (!server.getRequestObject(fd).complete)
     {
-        errno = 0;
+        DEBUG_MSG_3("RECV at receiveRequest", fd);
+
         int nbytes = recv(fd, buf, sizeof buf, 0);
         DEBUG_MSG("Bytes received", nbytes);
 

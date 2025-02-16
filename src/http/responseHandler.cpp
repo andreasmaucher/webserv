@@ -906,6 +906,7 @@ std::string ResponseHandler::read_error_file(std::string &file_path)
   std::ifstream file;
 
   file.open(file_path.c_str(), std::ios::in | std::ios::binary);
+  DEBUG_MSG_3("READ ERROR File Trying to read error file path: ", file_path);
 
   if (!file.is_open())
   {
@@ -915,6 +916,8 @@ std::string ResponseHandler::read_error_file(std::string &file_path)
 
   std::ostringstream buffer;
   buffer << file.rdbuf();
+  DEBUG_MSG_3("READ ERROR File done Trying to read error file path: ", file_path);
+
   file.close();
 
   return buffer.str();

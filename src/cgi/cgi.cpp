@@ -267,42 +267,42 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
 
 void CGI::postRequest(int pipe_in[2])
 {
-    if (method == "POST")
-    {
-        if (!requestBody.empty())
-        {
-            std::cerr << "CGI POST: Starting to write POST data" << std::endl;
-            std::cerr << "POST data length: " << requestBody.length() << std::endl;
+    //     if (method == "POST")
+    // {
+    //     if (!requestBody.empty())
+    //     {
+    //         std::cerr << "CGI POST: Starting to write POST data" << std::endl;
+    //         std::cerr << "POST data length: " << requestBody.length() << std::endl;
 
-            const size_t CHUNK_SIZE = 4096;
-            size_t total_written = 0;
-            const char *data = requestBody.c_str();
-            size_t remaining = requestBody.length();
+    //         const size_t CHUNK_SIZE = 4096;
+    //         size_t total_written = 0;
+    //         const char *data = requestBody.c_str();
+    //         size_t remaining = requestBody.length();
 
-            while (remaining > 0)
-            {
-                size_t to_write = std::min(CHUNK_SIZE, remaining);
-                ssize_t written = write(pipe_in[1], data + total_written, to_write);
+    //         while (remaining > 0)
+    //         {
+    //             size_t to_write = std::min(CHUNK_SIZE, remaining);
+    //             ssize_t written = write(pipe_in[1], data + total_written, to_write);
 
-                if (written == -1)
-                {
-                    std::cerr << "Write error: " << strerror(errno) << std::endl;
-                    close(pipe_in[1]);
-                    throw std::runtime_error("Failed to write to CGI input pipe");
-                }
+    //             if (written == -1)
+    //             {
+    //                 std::cerr << "Write error: " << strerror(errno) << std::endl;
+    //                 close(pipe_in[1]);
+    //                 throw std::runtime_error("Failed to write to CGI input pipe");
+    //             }
 
-                total_written += written;
-                remaining -= written;
+    //             total_written += written;
+    //             remaining -= written;
 
-                std::cerr << "Written " << written << " bytes, total " << total_written
-                          << " of " << requestBody.length() << std::endl;
-            }
+    //             std::cerr << "Written " << written << " bytes, total " << total_written
+    //                       << " of " << requestBody.length() << std::endl;
+    //         }
 
-            std::cerr << "CGI POST: Finished writing POST data" << std::endl;
-        }
-        close(pipe_in[1]); // Close write end after writing
-    }
-    else
+    //         std::cerr << "CGI POST: Finished writing POST data" << std::endl;
+    //     }
+    //     close(pipe_in[1]); // Close write end after writing
+    // }
+    // else
     {
         close(pipe_in[1]); // Close write end immediately for non-POST requests
     }
@@ -507,8 +507,12 @@ void CGI::readFromCGI(pid_t pid, CGIProcess &proc)
     ssize_t bytes_read;
     char buffer[MAX_CGI_BODY_SIZE];
 
+    DEBUG_MSG_3("READ will start at readFromCGI", proc.output_pipe);
+
     if ((bytes_read = read(proc.output_pipe, buffer, sizeof(buffer))) > 0)
     {
+        DEBUG_MSG_3("READ done at readFromCGI", proc.output_pipe);
+
         // proc.response->body += buffer;
         proc.response->body.append(buffer, bytes_read);
         DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, reading from pipe, read >0  pid ", pid);
