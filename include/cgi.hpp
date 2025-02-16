@@ -44,25 +44,9 @@ public:
 
     static void checkRunningProcesses(int pfds_fd);
     static void checkAllCGIProcesses();
-    static void checkRunningProcesses();
 
     static std::string resolveCGIPath(const std::string &uri);
-
     static std::string extractPathInfo(const std::string &uri);
-
-
-private:
-    int clientSocket;
-    std::string scriptPath;
-    std::string method;
-    std::string queryString;
-    std::string requestBody;
-
-    char **setCGIEnvironment(const HttpRequest &httpRequest) const;
-    void executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
-    void sendCGIOutputToClient(int pipefd) const;
-    void sendHttpResponseHeaders(const std::string &contentType) const;
-    static std::string constructErrorResponse(int status_code, const std::string &message);
 
     struct CGIProcess
     {
@@ -92,7 +76,6 @@ private:
     void executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
     void sendCGIOutputToClient(int pipefd) const;
     void sendHttpResponseHeaders(const std::string &contentType) const;
-    std::string resolveCGIPath(const std::string &uri);
     static std::string constructErrorResponse(int status_code, const std::string &message);
 
     static void addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest *req, HttpResponse *response);
