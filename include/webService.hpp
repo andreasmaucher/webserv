@@ -56,7 +56,6 @@ private:
     int get_listener_socket(const std::string &port);
     void *get_in_addr(struct sockaddr *sa);
     static void deleteFromPfdsVec(int &fd, size_t &i);
-    void printPollFds();
 
     // Parser
     // bool parseConfigFile(const std::string &config_filename);
@@ -77,6 +76,10 @@ public:
     static void deleteFromPfdsVecForCGI(const int &fd);
     static void deleteRequestObject(const int &fd, Server &server);
     static void setPollfdEventsToOut(int fd);
+    static void printPollFdStatus(pollfd pollfd);
+    static struct pollfd *findPollFd(int fd);
+    static void printPollFds();
+    static void setPollfdEvents(int fd, short events);
 
     static std::map<int, HttpResponse *> cgi_fd_to_http_response; // fds to respective server objects pointer
     static std::vector<pollfd> pfds_vec;
