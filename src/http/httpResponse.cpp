@@ -25,7 +25,6 @@ std::string HttpResponse::generateRawResponseStr()
     // Use simple logging to avoid potential issues in DEBUG_MSG_2
     raw_string += it->first + ": " + it->second + "\r\n";
     DEBUG_MSG_2("SG10 ", "");
-
   }
   DEBUG_MSG_2("SG9 ", "");
 

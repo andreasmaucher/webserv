@@ -22,7 +22,7 @@
 #include "debug.hpp"
 
 #define DEFAULT_CONFIG "./server/default.conf"
-#define MAX_BACKLOG_UNACCEPTED_CON 20
+#define MAX_BACKLOG_UNACCEPTED_CON 1000
 #define BUFFER_SIZE 100
 // #define PORT "8080"
 #define INIT_FD_SIZE 2
@@ -45,6 +45,7 @@ private:
     // int poll_count;
 
     struct addrinfo hints, *ai, *p;
+    size_t poll_start_offset;
 
     // std::vector <Server>  parseConfig(const std::string &config_file);
     void setupSockets();
@@ -55,7 +56,7 @@ private:
     int get_listener_socket(const std::string &port);
     void *get_in_addr(struct sockaddr *sa);
     static void deleteFromPfdsVec(int &fd, size_t &i);
-
+    void printPollFds();
 
     // Parser
     // bool parseConfigFile(const std::string &config_filename);
@@ -71,7 +72,7 @@ public:
     static void closeConnection(const int &fd, size_t &i, Server &server);
     void handleSigint(int signal);
     static void sigintHandler(int signal);
-    static void addToPfdsVector(int new_fd);
+    static void addToPfdsVector(int new_fd, bool isCGIOutput = false);
     // static void deleteFromPfdsVec(int &fd, size_t &i);
     static void deleteFromPfdsVecForCGI(const int &fd);
     static void deleteRequestObject(const int &fd, Server &server);

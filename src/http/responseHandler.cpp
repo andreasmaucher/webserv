@@ -108,7 +108,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
  
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
-  // If it's a CGI request, handle it
+  //  If it's a CGI request, handle it
   //? CGI RESPONSE request process starts here
   if (route->is_cgi)
   {
@@ -177,9 +177,9 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
 
   /* -- Carinas part starts here -- */
   DEBUG_MSG("Status", "Processing request");
-  // from here on, we will populate & use the response object status code only
-  // response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
-  // find connection header and set close_connection in response object
+  //  from here on, we will populate & use the response object status code only
+  //  response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
+  //  find connection header and set close_connection in response object
   if (request.error_code == 0)
   { // Check error_code but don't set response status
     ResponseHandler::routeRequest(fd, config, request, response);
@@ -751,7 +751,7 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
   const Route *best_match = NULL;
   size_t longest_match_length = 0;
 
-  // Debug output for all routes
+  // DEBUG output for all routes
   DEBUG_MSG("Status", "Available routes:");
   for (std::map<std::string, Route>::const_iterator it = routes.begin(); it != routes.end(); ++it)
   {
@@ -809,7 +809,7 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
 bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &response)
 {
   DEBUG_MSG("Status", "Checking if method " + request.method + " is allowed");
-  // Verify the requested method is allowed in that route searching in the set
+  //  Verify the requested method is allowed in that route searching in the set
   if (request.route->methods.find(request.method) == request.route->methods.end())
   {
     DEBUG_MSG("Status", "Method not allowed in route");
@@ -942,6 +942,7 @@ std::string ResponseHandler::read_error_file(std::string &file_path)
   std::ifstream file;
 
   file.open(file_path.c_str(), std::ios::in | std::ios::binary);
+  DEBUG_MSG_3("READ ERROR File Trying to read error file path: ", file_path);
 
   if (!file.is_open())
   {
@@ -951,6 +952,8 @@ std::string ResponseHandler::read_error_file(std::string &file_path)
 
   std::ostringstream buffer;
   buffer << file.rdbuf();
+  DEBUG_MSG_3("READ ERROR File done Trying to read error file path: ", file_path);
+
   file.close();
 
   return buffer.str();

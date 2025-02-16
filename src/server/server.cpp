@@ -122,12 +122,12 @@ void Server::debugServer() const
         DEBUG_MSG("Error Code ", it->first);
         DEBUG_MSG("Error Code ", it->second);
     }
-    DEBUG_MSG("Server Debug", "----------------------------------------");
+    DEBUG_MSG("Server DEBUG", "----------------------------------------");
 }
 
 void Server::debugPrintRoutes() const
 {
-    DEBUG_MSG("Routes Debug for Server", name);
+    DEBUG_MSG("Routes DEBUG for Server", name);
     DEBUG_MSG("(Port: ", port);
 
     if (routes.empty())
@@ -165,7 +165,7 @@ void Server::debugPrintRoutes() const
         DEBUG_MSG("Index File", route.index_file);
         DEBUG_MSG("Directory Listing", route.directory_listing_enabled);
         DEBUG_MSG("CGI Status", route.is_cgi);
-        DEBUG_MSG("Route Debug", "----------------------------------------");
+        DEBUG_MSG("Route DEBUG", "----------------------------------------");
     }
 }
 

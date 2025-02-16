@@ -25,7 +25,7 @@
 // this is the path to the python interpreter, needs to be adjusted depening on the users system
 #define PYTHON_PATH "/usr/bin/python3";
 
-#define CGI_TIMEOUT 5
+#define CGI_TIMEOUT 1000
 
 class HttpResponse;
 
@@ -42,6 +42,8 @@ public:
 
     void sendResponse(const std::string &response) const;
 
+    static void checkRunningProcesses(int pfds_fd);
+    static void checkAllCGIProcesses();
     static void checkRunningProcesses();
 
     static std::string resolveCGIPath(const std::string &uri);
@@ -79,6 +81,20 @@ private:
 
     static std::map<pid_t, CGIProcess> running_processes;
 
+private:
+    int clientSocket;
+    std::string scriptPath;
+    std::string method;
+    std::string queryString;
+    std::string requestBody;
+
+    char **setCGIEnvironment(const HttpRequest &httpRequest) const;
+    void executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
+    void sendCGIOutputToClient(int pipefd) const;
+    void sendHttpResponseHeaders(const std::string &contentType) const;
+    std::string resolveCGIPath(const std::string &uri);
+    static std::string constructErrorResponse(int status_code, const std::string &message);
+
     static void addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest *req, HttpResponse *response);
     static void cleanupProcess(pid_t pid);
     static void readFromCGI(pid_t pid, CGIProcess &proc);
@@ -89,6 +105,8 @@ private:
 
     void postRequest(int pipe_in[2]);
     static bool isfdOpen(int fd);
+    static void printRunningProcesses();
+
     // std::string constructErrorResponse(int status_code, const std::string &message);
 };
 
