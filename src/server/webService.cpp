@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/16 02:11:04 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/02/16 03:29:53 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -557,9 +557,9 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 
     if (!server.getRequestObject(fd).complete)
     {
-        DEBUG_MSG_3("RECV at receiveRequest", fd);
+        DEBUG_MSG_3("RECV at receiveRequest  int nbytes = recv(fd, buf, sizeof buf, MSG_DONTWAIT);", fd);
 
-        int nbytes = recv(fd, buf, sizeof buf, 0);
+        int nbytes = recv(fd, buf, sizeof buf, MSG_DONTWAIT);
         DEBUG_MSG("Bytes received", nbytes);
 
         if (nbytes == 0)
@@ -653,11 +653,14 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
             std::string responseStr = response->generateRawResponseStr();
             DEBUG_MSG_2("------->WebService::sendResponse generateRawResponseStr(); passed ", fd);
+            DEBUG_MSG_3("SEND at SendResponse for non-CGI response", fd);
 
             if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
             {
-                DEBUG_MSG_2("Send error ", strerror(errno));
+                DEBUG_MSG_3("Send error ", strerror(errno));
             }
+            DEBUG_MSG_3("SEND success at SendResponse for non-CGI response", fd);
+
             DEBUG_MSG_2("Response sent to fd", fd);
 
             DEBUG_MSG_2("WebService::sendResponse response.close_connection", response->close_connection);
