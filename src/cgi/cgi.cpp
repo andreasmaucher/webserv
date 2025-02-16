@@ -74,23 +74,6 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 
     return fullPath;
 }
-/* std::string CGI::resolveCGIPath(const std::string &uri)
-{
-    char buffer[PATH_MAX];
-    if (getcwd(buffer, PATH_MAX) == NULL)
-    {
-        throw std::runtime_error("Failed to get current working directory");
-    }
-    std::string projectRoot = std::string(buffer);
-    DEBUG_MSG("Project root", projectRoot);
-    DEBUG_MSG("URI", uri);
-
-    // Make sure cgi-bin exists in project root
-    std::string relativePath = uri.substr(8); // removes "/cgi-bin"
-    std::string fullPath = projectRoot + "/cgi-bin" + relativePath;
-    DEBUG_MSG("Full resolved path", fullPath);
-    return fullPath;
-} */
 
 // helper function to construct error response for non-existent or non-executable scripts
 std::string CGI::constructErrorResponse(int status_code, const std::string &message)
@@ -138,15 +121,19 @@ std::string CGI::extractPathInfo(const std::string &uri)
         return "";
     }
 
-    std::string pathInfo = uri.substr(scriptEnd + 1); // +1 to skip the leading '/'
-
+    //! took out as too restrictive for DELETE requests
+    std::string pathInfo = uri.substr(scriptEnd);
+    // Remove any leading slashes
+    pathInfo = pathInfo.substr(pathInfo.find_first_not_of('/'));
+    //std::string pathInfo = uri.substr(scriptEnd + 1); // +1 to skip the leading '/'
+    
     // Additional security checks
-    if (pathInfo.find(".py") != std::string::npos)
+    /* if (pathInfo.find(".py") != std::string::npos)
     {
         throw std::runtime_error("Invalid PATH_INFO: Cannot contain .py files");
-    }
+    } */
 
-    // Optional: Add more restrictions on allowed file types
+    /* // Optional: Add more restrictions on allowed file types
     const std::string allowed_extensions[] = {".jpg", ".jpeg", ".png", ".gif"};
     bool is_allowed = false;
     for (size_t i = 0; i < sizeof(allowed_extensions) / sizeof(allowed_extensions[0]); ++i)
@@ -162,7 +149,7 @@ std::string CGI::extractPathInfo(const std::string &uri)
     if (!is_allowed)
     {
         throw std::runtime_error("Invalid file type in PATH_INFO");
-    }
+    } */
 
     return pathInfo;
 }
@@ -212,6 +199,22 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
         env_strings.push_back("CONTENT_TYPE=" + it->second);
         DEBUG_MSG("CGI Content-Type", it->second);
     }
+    // Extract PATH_INFO (everything after .py)
+    size_t scriptEnd = httpRequest.uri.find(".py") + 3;
+    std::string pathInfo = "";
+    if (scriptEnd < httpRequest.uri.length()) {
+        pathInfo = httpRequest.uri.substr(scriptEnd);
+    }
+    env_strings.push_back("PATH_INFO=" + pathInfo);
+    
+    // Set SCRIPT_NAME (the path to the script itself)
+    std::string scriptName = httpRequest.uri.substr(0, scriptEnd);
+    env_strings.push_back("SCRIPT_NAME=" + scriptName);
+    
+    // Add debugging
+    DEBUG_MSG("Setting PATH_INFO to", pathInfo);
+    DEBUG_MSG("Setting SCRIPT_NAME to", scriptName);
+    
     // Convert strings to char* array
     char **env_array = new char *[env_strings.size() + 1];
     for (size_t i = 0; i < env_strings.size(); i++)

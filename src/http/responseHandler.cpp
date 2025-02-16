@@ -28,13 +28,16 @@ void ResponseHandler::prepareCGIErrorResponse(HttpResponse &response,
     response.close_connection = true;
 }
 
-bool ResponseHandler::handleCGIErrors(int &fd, HttpRequest &request, HttpResponse &response) {
-    // Check if it's a potential CGI request
-    if (request.uri.find("/cgi-bin/") == std::string::npos) {
-        return true; // Not a CGI request, continue normal static processing
+bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &request, HttpResponse &response) {
+
+  (void)config;
+   // if it is not a CGI request, continue normal processing
+   if (request.uri.find("/cgi-bin") != 0) {
+        return true;
     }
     // Method validation
     if (request.method != "GET" && request.method != "POST" && request.method != "DELETE") {
+        std::cout << "within CGI error check 2" << std::endl;
         prepareCGIErrorResponse(response, 405, "Method Not Allowed", 
             "Method Not Allowed for CGI requests", "GET, POST, DELETE");
         finalizeCGIErrorResponse(fd, request, response);
@@ -45,6 +48,7 @@ bool ResponseHandler::handleCGIErrors(int &fd, HttpRequest &request, HttpRespons
     }
     // Check for valid CGI file extension first (sends error whenever the file is not a .py)
     if (!CGI::isCGIRequest(request.uri)) {
+      std::cout << "within CGI error check 1" << std::endl;
         prepareCGIErrorResponse(response, 400, "Bad Request", 
           "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
         finalizeCGIErrorResponse(fd, request, response);
@@ -61,7 +65,8 @@ bool ResponseHandler::handleCGIErrors(int &fd, HttpRequest &request, HttpRespons
     }
     // Check if there's a path parameter (file reference)
     std::string pathInfo;
-    try { 
+    //! this gets wrongly triggered by delete requests!
+    /* try { 
         pathInfo = CGI::extractPathInfo(request.uri);
     } 
     catch (const std::runtime_error& e) {
@@ -69,7 +74,7 @@ bool ResponseHandler::handleCGIErrors(int &fd, HttpRequest &request, HttpRespons
         std::string("Invalid file extension or other PATH_INFO error: ") + e.what(), "");
         finalizeCGIErrorResponse(fd, request, response);
         return false; 
-    }
+    } */
     if (!pathInfo.empty())
     {
         // Check if the referenced file exists in uploads directory
@@ -88,10 +93,9 @@ bool ResponseHandler::handleCGIErrors(int &fd, HttpRequest &request, HttpRespons
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
   //! All CGI error checks need to happen in here before handleCGIRequest
-  if (!handleCGIErrors(fd, request, response)) {
+  if (!handleCGIErrors(fd, config, request, response)) {
         return;
     }
-  
   // Find matching route
   if (!findMatchingRoute(config, request, response))
   {
@@ -376,7 +380,7 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
   } */
   ResponseHandler::setFullPath(request);
 
-  /* // Move directory redirect check here, before any file operations
+  // Move directory redirect check here, before any file operations
   if (request.is_directory && !request.uri.empty() && request.uri[request.uri.length() - 1] != '/') {
       response.status_code = 301;
       response.reason_phrase = "Moved Permanently";
@@ -424,7 +428,7 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
       response.status_code = 403; // Directory listing disabled
     }
     return;
-  } */
+  }
 
   // Regular file handling
   ResponseHandler::setFullPath(request);
