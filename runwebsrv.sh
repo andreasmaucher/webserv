@@ -1,7 +1,13 @@
-#!/bin/bash
+!/bin/bash
 
-#if working from the host use:
-docker run -it --rm -v "$(pwd)":/home/root webserv-img
+set -x  # Enable DEBUG mode to see what's happening
 
-## if working from the container use this option for exposing the port:
-#docker run -it --rm -v "$(pwd)":/home/root -p 8080:8080 webserv-img
+#if testing from inside of the container use:
+#docker run -it --rm -v "$(pwd)":/home/root webserv-img
+
+## if working from outside of the container use this option for exposing the port:
+# docker run --ulimit nofile=20000:20000 -it --rm -v "$(pwd)":/home/root -p 8080:8080 webserv-img sh -c "make re && valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./webserv tomldb.config"
+docker run --ulimit nofile=20000:20000 -it --rm -v "$(pwd)":/home/root -p 8080:8080 webserv-img sh -c "make re && ./webserv tomldb.config"
+
+
+# pfds_vec.reserve(pfds_vec.capacity() * 2 + 1);

@@ -1,6 +1,7 @@
 #default config file ( default.conf ) located at /etc/nginx/conf.d in the nginx container
 
 server {
+
     listen       80;
     listen  [::]:80;
     server_name  localhost;

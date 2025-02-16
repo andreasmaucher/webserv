@@ -6,7 +6,7 @@
 #include <map>
 #include <sstream>
 #include <string>
-#include "serverConfig.hpp"
+#include "server.hpp"
 
 struct ChunkState {
   size_t chunk_size;    // Size of the current chunk
@@ -87,12 +87,15 @@ class HttpRequest {
     bool is_directory;
     bool is_cgi;
     int error_code;
+    std::string queryString;
+    std::string contentType;
 
     //for parsing
     size_t position;
     bool complete;
     bool headers_parsed;
     ChunkState chunk_state;
+    int clientSocket;
   
 };
 

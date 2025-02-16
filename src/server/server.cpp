@@ -1,304 +1,258 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   server.cpp                                         :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: cestevez <cestevez@student.42berlin.de>    +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2024/11/12 17:39:09 by cestevez         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "../../include/server.hpp"
+#include "../../include/httpRequest.hpp"
+#include "../../include/webService.hpp"
 
-Server::Server(const std::string &port) : pfds_vec(1), new_fd(-1) 
+// Server::Server() {}
+
+Server::Server(int listener_fd, std::string port, std::string name, std::string root_directory) : listener_fd(listener_fd), port(port), name(name), root_directory(root_directory) {}
+
+Server::Server() : listener_fd(-1), port(""), name(""), host(""), root_directory("")
 {
-    signal(SIGINT, sigintHandler);
-    setup(port);
+    // Initialize other members if needed
 }
 
-Server::~Server()
+const std::string &Server::getPort() const
 {
-    // Added cleanup to exit conditions, need to check if it is always triggered
-    // TODO: Maybe worth puttting back in the destructor
-    // Server::cleanup();
-    std::cout << "Server exited" << std::endl;
+    return port;
 }
 
-void *Server::get_in_addr(struct sockaddr *sa)
+const std::string &Server::getName() const
 {
-    if (sa->sa_family == AF_INET)
-    {
-        return &(((struct sockaddr_in *)sa)->sin_addr);
-    }
-    return &(((struct sockaddr_in6 *)sa)->sin6_addr);
+    return name;
 }
 
-// Return a listening socket
-    // getaddrinfo(NULL, PORT, &hints, &ai)
-    // NULL - hostname or IP address of the server, NULL means any available network, use for incoming connections
-    // PORT - port
-    // hints - criteria to resolve the ip address
-    // ai - pointer to a linked list of results returned by getaddrinfo().
-    // It holds the resolved network addresses that match the criteria specified in hints.
-int Server::get_listener_socket(const std::string port)
+const int &Server::getListenerFd() const
 {
-    (void)port;
-    // Get us a socket and bind it
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;     // Unspecified IPv4 or IPv6, can use both
-    hints.ai_socktype = SOCK_STREAM; // TCP
-    hints.ai_flags = AI_PASSIVE;     // Fill in the IP address of the server automatically when getaddrinfo(), for listening sockets
-    reuse_socket_opt = 1;
-
-    std::cout << "Connecting on port " << port << std::endl;
-    if ((addrinfo_status = getaddrinfo(NULL, port.c_str(), &hints, &ai)) != 0)
-    {
-        fprintf(stderr, "pollserver: %s\n", gai_strerror(addrinfo_status));
-        exit(1);
-    }
-    for (p = ai; p != NULL; p = p->ai_next)
-    { // loop through the ai ll and try to create a socket
-        listener_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (listener_fd < 0)
-        {
-            continue;
-        }
-        // Lose the pesky "address already in use" error message
-        // Manually added option to allow to reuse ports straight after closing the server - SO_REUSEADDR
-        if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &reuse_socket_opt, sizeof(reuse_socket_opt)) < 0)
-        {
-            perror("setsockopt(SO_REUSEADDR) failed");
-            exit(1);
-        }
-        // tries to bind the socket, otherwise closes it
-        if (bind(listener_fd, p->ai_addr, p->ai_addrlen) < 0)
-        {
-            close(listener_fd);
-            continue;
-        }
-        // breaks loop on success
-        break;
-    }
-    // If we got here, it means we didn't get bound. Reached end of ai ll
-    if (p == NULL)
-    {
-        return -1;
-    }
-    // Cleaning up ai ll
-    freeaddrinfo(ai); // All done with this
-    ai = NULL;
-
-    // Listening
-    // Starts listening for incoming connections on the listener socket, with a maximum backlog of 10 connections waiting to be accepted.
-    if (listen(listener_fd, MAX_SIM_CONN) == -1)
-    {
-        return -1;
-    }
-    // returns fd of the listening socket
     return listener_fd;
 }
 
-void Server::add_to_pfds_vec(int newfd)
+const std::string &Server::getRootDirectory() const
 {
-    struct pollfd new_pollfd;
-    new_pollfd.fd = newfd;
-    new_pollfd.events = POLLIN | POLLOUT;
-    new_pollfd.revents = 0;
-
-    pfds_vec.push_back(new_pollfd);
-    std::cout << "Added new fd: " << new_fd << " to pfds_vec at index: " << pfds_vec.size() - 1 << ". pfds_vec size: " << pfds_vec.size() << std::endl;
+    return root_directory;
 }
 
-// Removing and index from the set
-void Server::del_from_pfds_vec(int fd)
+Route *Server::getRoute(const std::string &uri)
 {
-    for (size_t i = 0; i < pfds_vec.size(); i++)
+    std::map<std::string, Route>::iterator it = routes.find(uri);
+    if (it != routes.end())
     {
-        if (pfds_vec[i].fd == fd)
+        return &it->second; // Return pointer to the found Route
+    }
+    return NULL; // Return nullptr if not found
+}
+
+const std::map<std::string, Route> &Server::getRoutes() const
+{
+    return routes;
+}
+
+const std::map<int, std::string> &Server::getErrorPages() const
+{
+    return error_pages;
+}
+
+HttpRequest &Server::getRequestObject(int &fd)
+{
+    return this->client_fd_to_request[fd];
+}
+
+void Server::setRootDirectory(const std::string &root_directory)
+{
+    this->root_directory = root_directory;
+}
+
+void Server::setRoute(const std::string &uri, const Route &route)
+{
+    routes[uri] = route; // This will add a new route or update an existing one
+}
+
+// void Server::setRoutes(const std::map<std::string, Route> &routes) {
+//     this->routes = routes;
+// }
+
+void Server::setErrorPage(const int &code, const std::string &path)
+{
+    error_pages[code] = path;
+}
+
+void Server::setErrorPages(const std::map<int, std::string> &error_pages)
+{
+    this->error_pages = error_pages;
+}
+
+void Server::setListenerFd(const int &listener_fd)
+{
+    this->listener_fd = listener_fd;
+}
+
+void Server::setRequestObject(int &fd, HttpRequest &request)
+{
+    this->client_fd_to_request[fd] = request;
+}
+
+void Server::deleteRequestObject(const int &fd)
+{
+    int fd_to_delete = fd;
+    this->client_fd_to_request.erase(fd_to_delete);
+}
+
+void Server::resetRequestObject(int &fd)
+{
+    this->client_fd_to_request[fd].reset();
+}
+
+void Server::debugServer() const
+{
+    DEBUG_MSG("Server Name", name);
+    DEBUG_MSG("Port", port);
+    DEBUG_MSG("Listener FD", listener_fd);
+    DEBUG_MSG("Host", host);
+    DEBUG_MSG("Root Directory", root_directory);
+    DEBUG_MSG("Client Max Body Size", client_max_body_size);
+    DEBUG_MSG("Index", index);
+
+    if (error_pages.empty())
+    {
+        DEBUG_MSG("Error Pages", "None configured");
+        return;
+    }
+
+    for (std::map<int, std::string>::const_iterator it = error_pages.begin(); it != error_pages.end(); ++it)
+    {
+        DEBUG_MSG("Error Code ", it->first);
+        DEBUG_MSG("Error Code ", it->second);
+    }
+    DEBUG_MSG("Server DEBUG", "----------------------------------------");
+}
+
+void Server::debugPrintRoutes() const
+{
+    DEBUG_MSG("Routes DEBUG for Server", name);
+    DEBUG_MSG("(Port: ", port);
+
+    if (routes.empty())
+    {
+        DEBUG_MSG("Routes Status", "No routes configured");
+        return;
+    }
+
+    std::map<std::string, Route>::const_iterator it;
+    for (it = routes.begin(); it != routes.end(); ++it)
+    {
+        // const std::string &uri = it->first;
+        const Route &route = it->second;
+
+        // DEBUG_MSG("Route URI", uri);
+        DEBUG_MSG("Route Path", route.path);
+
+        std::string methods_str;
+        for (std::set<std::string>::const_iterator method_it = route.methods.begin();
+             method_it != route.methods.end(); ++method_it)
         {
-            pfds_vec.erase(pfds_vec.begin() + i);
-            std::cout << "Erased fd from vector at index: " << i << ". pfds_vec size: " << pfds_vec.size() << std::endl;
+            methods_str += *method_it + " ";
         }
+        DEBUG_MSG("Allowed Methods", methods_str);
 
-    }
-}
-
-void Server::closeConnection(int &fd, int &i, std::vector<HttpRequest> &httpRequests) {
-    std::cout << "Closing connection on fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds vector due to error or client request." << std::endl;
-    close(fd);
-    std::cout << "Closed fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds vector" << std::endl;
-    del_from_pfds_vec(fd);
-    httpRequests.erase(httpRequests.begin() + i); // Erase the HttpRequest for this fd
-    std::cout << "Erased request object at index:" << i << " from httpRequests vector" << std::endl;
-}
-
-void Server::new_connection()
-{
-
-    printf("\nNew connection!\n");
-    addrlen = sizeof remoteaddr;
-    new_fd = accept(listener_fd, (struct sockaddr *)&remoteaddr, &addrlen);
-    if (new_fd == -1)
-    {
-        perror("accept");
-    }
-    else
-    {
-        std::cout << "New connection accepted on fd: " << new_fd << std::endl;
-        add_to_pfds_vec(new_fd);
-        HttpRequest newRequest;
-        httpRequests.push_back(newRequest);
-        std::cout << "New httpRequest instance created for connection on fd: " << new_fd << " at index: " << httpRequests.size() - 1 << " . HttpRequests vector size: " << httpRequests.size() << std::endl;
-
-    }
-}
-
-
-int Server::setup(const std::string &port)
-{
-    (void)port;
-
-    // calling temporary hardcoding function for testing
-    config = createFakeServerConfig();
-
-    listener_fd = get_listener_socket(port);
-    if (listener_fd == -1)
-    {
-        fprintf(stderr, "error getting listening socket\n");
-        exit(1);
-    }
-    pfds_vec[0].fd = listener_fd;
-    pfds_vec[0].events = POLLIN | POLLOUT;
-    pfds_vec[0].revents = 0;
-
-    // listener doesn't need a request object, just to keep the index in sync?
-    HttpRequest newRequest;
-    httpRequests.push_back(newRequest);
-    std::cout << "pfds_vec size at setup: " << pfds_vec.size() << std::endl;
-    std::cout << "httpRequest vector size at setup: " << httpRequests.size() << std::endl;
-    
-    return (listener_fd);
-}
-
-int Server::start()
-{
-    while (1)
-    {
-        poll_count = poll(pfds_vec.data(), pfds_vec.size(), -1);
-        if (poll_count == -1)
+        std::string types_str;
+        for (std::set<std::string>::const_iterator type_it = route.content_type.begin();
+             type_it != route.content_type.end(); ++type_it)
         {
-            perror("poll");
-            exit(1);
+            types_str += *type_it + " ";
         }
-        // Run through the existing connections looking for data to read
-        for (size_t i = 0; i < pfds_vec.size(); i++)
-        {
-            //do the POLLIN and POLLOUT checks actually work or just using request.complete?
-            if (pfds_vec[i].revents & POLLIN)
-            {
-                if (pfds_vec[i].fd == listener_fd) // initial created fd at index 0 is the listener
-                {
-                    new_connection();
-                } else { // we are in the fd of an existing connection
-                    receiveRequest(i);
-                }
-            }
-            // POLLOUT is set when the socket is ready to send data (bc not receiving anymore)
-            if (pfds_vec[i].revents & POLLOUT)
-            {
-                sendResponse(i, httpRequests[i]);
-            }
-        }
+        DEBUG_MSG("Content Types", types_str);
+
+        DEBUG_MSG("Redirect URI", route.redirect_uri);
+        DEBUG_MSG("Index File", route.index_file);
+        DEBUG_MSG("Directory Listing", route.directory_listing_enabled);
+        DEBUG_MSG("CGI Status", route.is_cgi);
+        DEBUG_MSG("Route DEBUG", "----------------------------------------");
     }
 }
 
-void Server::receiveRequest(int i)
+void Server::clear()
 {
-    std::cout << "Request function called for request at index: " << i << " . Size of httpRequests vector: " << httpRequests.size() << std::endl;
-    if (!httpRequests[i].complete)//i < static_cast<int>(httpRequests.size()) && 
-    {        
-        int nbytes = recv(pfds_vec[i].fd, buf, sizeof buf, 0); // Receive data from client
-        if (nbytes <= 0)
-        {
-            // if (nbytes == 0)
-            // {
-            //     printf("Connection interrupted or closed by client. ");
-            // }
-            // else
-            // {
-            //     perror("recv");
-            // }
-            closeConnection(pfds_vec[i].fd, i, httpRequests);
-        }
-        else
-        {
-            buf[nbytes] = '\0';
-            httpRequests[i].raw_request.append(buf);
-            std::cout << "Received data from fd: " << pfds_vec[i].fd << " at index: " << i << " from pfds vector" << std::endl;
-            if (httpRequests[i].raw_request.find(END_HEADER) != std::string::npos)
-            {
-                std::cout << "Parsing request from request object at index:" << i << std::endl;
-                RequestParser::parseRawRequest(httpRequests[i]);
-            }
-        }
-    }
+    host.clear();
+    port.clear();
+    name.clear();
+    root_directory.clear();
+    client_max_body_size.clear();
+    index.clear();
+    routes.clear();
+    error_pages.clear();
 }
 
-void Server::sendResponse(int i, HttpRequest &request)
-{
-    std::cout << "Response function called for request at index:" << i << std::endl;
-    std::cout << "Request complete: " << request.complete << std::endl;
-    if (request.complete)
-    {
-        HttpResponse response;
-        ResponseHandler::processRequest(config, request, response);
+// bool Server::loadConfig(const std::string &config_file) {
+//     std::ifstream file(config_file);
+//     if (!file.is_open()) {
+//         std::cerr << "Error: could not open config file " << config_file << std::endl;
+//         return false;
+//     }
 
-        std::string responseStr = response.generateRawResponseStr();
-        std::cout << "Response string: " << responseStr << std::endl;
-        if (send(pfds_vec[i].fd, responseStr.c_str(), responseStr.size(), 0) == -1)
-        {
-            perror("send");
-        }
-        std::cout << "Response sent to fd: " << pfds_vec[i].fd << " at index: " << i << " in pfds_vec" << std::endl;
-        if (response.close_connection == true)
-        {
-            closeConnection(pfds_vec[i].fd, i, httpRequests);
-        } else {
-            // Keep connection open for further requests from same client, cleaning the request object
-            pfds_vec[i].revents = POLLIN; // Set to listen for more requests
-            request.reset();
-        }
-    }
-}
+//     std::string line;
+//     std::string uri;
+//     std::string path;
+//     std::string index_file;
+//     std::set<std::string> methods;
+//     std::set<std::string> content_type;
+//     std::string redirect_uri;
+//     bool directory_listing_enabled;
+//     bool is_cgi;
+//     while (std::getline(file, line)) {
+//         if (line.empty() || line[0] == '#') {
+//             continue;
+//         }
 
-void Server::cleanup()
-{
-    if (new_fd != -1)
-    {
-        close(new_fd);
-    }
-    if (ai != NULL)
-    {
-        freeaddrinfo(ai);
-    }
-    // TODO: change malloc to new and free
-    // if (pfds_vec)
-    //     delete[] pfds;
-}
+//         std::istringstream iss(line);
+//         std::string key;
+//         iss >> key;
+//         if (key == "root") {
+//             iss >> root_directory;
+//         } else if (key == "route") {
+//             uri.clear();
+//             path.clear();
+//             methods.clear();
+//             index_file.clear();
+//             content_type.clear();
+//             redirect_uri.clear();
+//             directory_listing_enabled = false;
+//             is_cgi = false;
+//             std::string parameter;
+//             while (iss >> parameter) {
+//                 if (parameter == "uri") {
+//                     iss >> uri;
+//                 } else if (parameter == "path") {
+//                     iss >> path;
+//                 } else if (parameter == "method") {
+//                     while (iss >> parameter) {
+//                         methods.insert(parameter);
+//                     }
+//                 } else if (parameter == "content_type") {
+//                     while (iss >> parameter) {
+//                         content_type.insert(parameter);
+//                     }
+//                 } else if (parameter == "redirection") {
+//                     iss >> redirect_uri;
+//                 } else if (parameter == "index") {
+//                         iss >> index_file;
+//                 } else if (parameter == "directory_listing_enabled") {
+//                     directory_listing_enabled = true;
+//                 } else if (parameter == "is_cgi") {
+//                     is_cgi = true;
+//                 }
+//             }
+//             Route route;
+//             route.uri = uri;
+//             route.path = path;
+//             route.methods = methods;
+//             route.index = index_file;
+//             route.content_type = content_type;
+//             route.redirect_uri = redirect_uri;
+//             route.directory_listing_enabled = directory_listing_enabled;
+//             route.is_cgi = is_cgi;
+//             routes[uri] = route;
+//         }
+//     }
 
-void Server::sigintHandler(int signal)
-{
-    if (signal == SIGINT)
-    {
-        printf("Ctrl- C Closing connection\n"); // Print the message.
-        // TODO: should figure out a way to cleanup memory and close fd's
-        //  cleanup();
-        //  close(new_fd);
-
-        printf("Exiting\n");
-        // Memory leaks will be present, since we can't run freeaddrinfo(res) unless it is declared as a global
-        exit(0);
-    }
-}
+//     file.close();
+//     return true;
+// }

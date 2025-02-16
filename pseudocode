@@ -1,3 +1,22 @@
+Multiserver implementation:
+
+1. Instantiate WebService class:
+   class has a std::vector<Server> servers attribute, empty at the beginning and filled by the config parser
+    1.1. parse the config file
+        - instantiate as many servers as specified in the config file, saving them in a vector
+        - for each of the servers save its name, port, routes, etc.
+        - each server has a httpRequests vector attribute!
+    1.2. constructor calls the setup connections function
+        - each server gets its listener socket using its port
+        
+
+
+
+
+
+
+// ****************************************************************************************** //
+
 Main server logic (request processing - routing - response creation):
 
 

@@ -1,0 +1,52 @@
+#TESTING CGI CMD: siege -c10 -t30s -v -f cgi-urls.txt
+# More concurrent users: siege -c20 -t30s -v -f cgi-urls.txt
+# Longer duration: siege -c10 -t60s -v -f cgi-urls.txt
+# No delay between requests: siege -c10 -t30s -b -v -f cgi-urls.txt
+
+# GET request (correct)
+http://localhost:8080/cgi-bin/get.py
+
+# POST request (needs POST method)
+http://localhost:8080/cgi-bin/post.py POST
+
+# DELETE request (needs DELETE method)
+http://localhost:8080/cgi-bin/delete.py DELETE
+
+# Test invalid paths
+http://localhost:8080/cgi-bin/nonexistent.py GET
+http://localhost:8080/cgi-bin/nonexistent.py POST
+http://localhost:8080/cgi-bin/nonexistent.py DELETE
+
+# Test invalid URL encoding
+http://localhost:8080/cgi-bin/get.py?invalid=%FF GET
+http://localhost:8080/cgi-bin/post.py?invalid=%FF POST
+http://localhost:8080/cgi-bin/delete.py?invalid=%FF DELETE
+
+# Test wrong methods
+http://localhost:8080/cgi-bin/get.py DELETE    # GET endpoint with wrong method
+http://localhost:8080/cgi-bin/post.py GET      # POST endpoint with wrong method
+http://localhost:8080/cgi-bin/delete.py POST   # DELETE endpoint with wrong method
+
+# Basic requests
+http://localhost:8080/cgi-bin/get.py?name=test
+http://localhost:8080/cgi-bin/get.py?id=123&type=user
+
+# JSON response
+http://localhost:8080/cgi-bin/get.py?format=json
+
+# HTML response
+http://localhost:8080/cgi-bin/get.py?format=html
+# Plain text response
+http://localhost:8080/cgi-bin/get.py?format=text
+
+# Mix of simple and complex requests
+http://localhost:8080/cgi-bin/get.py?simple=true
+http://localhost:8080/cgi-bin/get.py?complex=true&data=large
+http://localhost:8080/cgi-bin/post.py POST large_data=true
+
+# POST with different data
+http://localhost:8080/cgi-bin/post.py POST name=john&age=25
+http://localhost:8080/cgi-bin/post.py POST data={"user":"test"}
+
+# DELETE specific resources
+http://localhost:8080/cgi-bin/delete.py?id=123 DELETE
