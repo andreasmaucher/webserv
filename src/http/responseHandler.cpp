@@ -17,8 +17,27 @@ void ResponseHandler::prepareCGIErrorResponse(HttpResponse &response,
     
     response.status_code = status_code;
     response.reason_phrase = reason;
-    response.body = body;
-    response.setHeader("Content-Type", "text/plain");
+    // Convert status_code to string using ostringstream
+    std::ostringstream ss;
+    ss << status_code;
+    
+    // Read the error page HTML file
+    std::string error_page_path = "www/errors/" + ss.str() + ".html";
+    std::ifstream error_file(error_page_path.c_str());
+    
+    if (error_file.is_open()) {
+        // Read HTML content
+        std::stringstream buffer;
+        buffer << error_file.rdbuf();
+        response.body = buffer.str();
+        response.setHeader("Content-Type", "text/html");
+        error_file.close();
+    } else {
+        // Fallback to plain text if HTML file not found
+        response.body = body;
+        response.setHeader("Content-Type", "text/plain");
+    }
+
     response.setHeader("Connection", "close");
     
     if (!allowed_methods.empty()) {
