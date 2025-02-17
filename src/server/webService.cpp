@@ -635,7 +635,6 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         handler.processRequest(fd, server, request, *response);
         DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
-         //! UNDO
          // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
         if (request.route == NULL) {
             // Handle invalid CGI or other requests without routes
@@ -714,49 +713,3 @@ void WebService::setPollfdEventsToOut(int fd)
         }
     }
 }
-
-// void WebService::checkCGIProcesses(Server &server)
-// {
-//     for (std::map<int, HttpRequest>::iterator it = server.requests.begin();
-//          it != server.requests.end(); ++it)
-//     {
-//         int client_fd = it->first;
-//         HttpResponse &response = server.getResponseObject(client_fd);
-
-//         if (response.is_cgi_running)
-//         {
-//             // Check if process has finished
-//             int status;
-//             pid_t result = waitpid(response.cgi_pid, &status, WNOHANG);
-
-//             if (result > 0)
-//             { // Process finished
-//                 // Read remaining output
-//                 char buffer[1024];
-//                 std::string output;
-
-//                 while (true)
-//                 {
-//                     ssize_t bytes = read(response.cgi_output_fd, buffer, sizeof(buffer) - 1);
-//                     if (bytes <= 0)
-//                         break;
-//                     buffer[bytes] = '\0';
-//                     output += buffer;
-//                 }
-
-//                 close(response.cgi_output_fd);
-//                 response.is_cgi_running = false;
-
-//                 // Process the CGI output and send response
-//                 response.setBody(output);
-//                 response.status_code = 200;
-//             }
-//             else if (result < 0)
-//             { // Error occurred
-//                 response.is_cgi_running = false;
-//                 response.status_code = 500;
-//             }
-//             // result == 0 means process still running
-//         }
-//     }
-// }

@@ -78,7 +78,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 // helper function to construct error response for non-existent or non-executable scripts
 std::string CGI::constructErrorResponse(int status_code, const std::string &message)
 {
-    CGI cgi; // Create temporary object
+    CGI cgi;
     std::ostringstream response;
     response << "HTTP/1.1 " << status_code << " " << cgi.getStatusMessage(status_code) << "\r\n";
     response << "Content-Type: text/plain\r\n";
@@ -121,36 +121,9 @@ std::string CGI::extractPathInfo(const std::string &uri)
         return "";
     }
 
-    //! took out as too restrictive for DELETE requests
     std::string pathInfo = uri.substr(scriptEnd);
     // Remove any leading slashes
     pathInfo = pathInfo.substr(pathInfo.find_first_not_of('/'));
-    //std::string pathInfo = uri.substr(scriptEnd + 1); // +1 to skip the leading '/'
-    
-    // Additional security checks
-    /* if (pathInfo.find(".py") != std::string::npos)
-    {
-        throw std::runtime_error("Invalid PATH_INFO: Cannot contain .py files");
-    } */
-
-    /* // Optional: Add more restrictions on allowed file types
-    const std::string allowed_extensions[] = {".jpg", ".jpeg", ".png", ".gif"};
-    bool is_allowed = false;
-    for (size_t i = 0; i < sizeof(allowed_extensions) / sizeof(allowed_extensions[0]); ++i)
-    {
-        if (pathInfo.length() >= allowed_extensions[i].length() &&
-            pathInfo.substr(pathInfo.length() - allowed_extensions[i].length()) == allowed_extensions[i])
-        {
-            is_allowed = true;
-            break;
-        }
-    }
-
-    if (!is_allowed)
-    {
-        throw std::runtime_error("Invalid file type in PATH_INFO");
-    } */
-
     return pathInfo;
 }
 
@@ -472,8 +445,6 @@ void CGI::readFromCGI(pid_t pid, CGIProcess &proc)
     if ((bytes_read = read(proc.output_pipe, buffer, sizeof(buffer))) > 0)
     {
         DEBUG_MSG_3("READ done at readFromCGI", proc.output_pipe);
-
-        // proc.response->body += buffer;
         proc.response->body.append(buffer, bytes_read);
         DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, reading from pipe, read >0  pid ", pid);
         DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, reading from pipe, bytes_read ", bytes_read);
@@ -481,15 +452,9 @@ void CGI::readFromCGI(pid_t pid, CGIProcess &proc)
         if (WIFEXITED(proc.status) && WEXITSTATUS(proc.status) == 0)
         {
             DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, reading from pipe, (WIFEXITED(proc.status) && WEXITSTATUS(proc.status) == 0) ", strerror(errno));
-            //  HERE
-            //  proc.process_finished = true;
             proc.finished_success = true;
-            // proc.response->complete = true;
         }
         proc.process_finished = true;
-
-        // Added Martin's suggestion;
-        // proc.response->complete = true;
         return;
     }
     if (bytes_read == -1)
@@ -547,7 +512,6 @@ void CGI::readFromCGI(pid_t pid, CGIProcess &proc)
         {
             DEBUG_MSG_2("-----------> Webservice::CGI::checkRunningProcesses() proc.response_fd closed  ", proc.output_pipe);
         }
-        // WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
     }
 }
 
@@ -571,13 +535,11 @@ void CGI::checkRunningProcesses(int pfds_fd)
 {
     if (running_processes.empty())
         return;
-    // pid_t return_pid;
     printRunningProcesses(); // Add this line to see the map contents
 
     std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
     while (it != running_processes.end())
     {
-
         // sleep(1);
         pid_t pid = it->first;
         CGIProcess &proc = it->second;
