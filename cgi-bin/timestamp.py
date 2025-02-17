@@ -1,43 +1,42 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import os
 import sys
 import time
 from datetime import datetime
-import cgi
 
-def main():
-    # Get parameters from both methods
-    path_info = os.environ.get('PATH_INFO', '').lstrip('/')  # Remove leading slash
-    query_params = cgi.FieldStorage()
-    
-    # Get filename from either PATH_INFO or query parameter
-    filename = path_info if path_info else query_params.getvalue('filename', '')
-    
-    # If the file is in uploads directory, prepend the path
-    if filename and not os.path.isabs(filename):
-        filename = os.path.join('www/uploads', filename)
-    
-    # Get current timestamp
-    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    
-    print("Content-Type: text/plain\r\n")
-    
-    if not filename:
-        print(f"Current timestamp: {current_time}")
-        return
-        
-    if not os.path.exists(filename):
-        print(f"Error: File not found: {filename}")
-        return
-        
-    # Get just the filename without the path for display
-    display_name = os.path.basename(filename)
-    name, ext = os.path.splitext(display_name)
-    new_filename = f"{name}_{current_time}{ext}"
-    
-    print(f"Original filename: {display_name}")
-    print(f"Timestamped filename: {new_filename}")
+print("Content-Type: text/plain")
+print()  # Blank line to separate headers from body
 
-if __name__ == "__main__":
-    main()
+try:
+    # Extract the filename from PATH_INFO
+    path_info = os.environ.get('PATH_INFO', '').lstrip('/')
+    if not path_info:
+        print("Error: No filename provided")
+        sys.exit(1)
+
+    # Construct full path to the file
+    file_path = os.path.join('www/uploads', path_info)
+    
+    # Get file's modification time
+    if os.path.exists(file_path):
+        file_timestamp = os.path.getmtime(file_path)
+        timestamp_str = datetime.fromtimestamp(file_timestamp).strftime('%Y-%m-%d_%H-%M-%S')
+        
+        # Get original filename without path
+        original_filename = os.path.basename(path_info)
+        
+        # Create new filename with actual file timestamp
+        filename_without_ext, file_extension = os.path.splitext(original_filename)
+        new_filename = f"{filename_without_ext}_{timestamp_str}{file_extension}"
+        
+        print(f"Original filename: {original_filename}")
+        print(f"Timestamped filename: {new_filename}")
+        print(f"File's actual modification time: {datetime.fromtimestamp(file_timestamp)}")
+    else:
+        print(f"Error: File {path_info} not found in uploads directory")
+        sys.exit(1)
+
+except Exception as e:
+    print(f"Error: {str(e)}")
+    sys.exit(1)

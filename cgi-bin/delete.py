@@ -3,6 +3,7 @@ import sys
 import os
 import json
 
+#USER TESTING: curl -X DELETE -v http://localhost:8080/cgi-bin/delete.py/test.txt
 # Enhanced debug logging
 sys.stderr.write("Python DELETE CGI script starting...\n")
 sys.stderr.write("All environment variables:\n")
