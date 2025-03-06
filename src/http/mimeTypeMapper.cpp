@@ -131,7 +131,6 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
         }
         return true;  // Allow GET even if autoindex is off (might have index.html)
     }
-
     if (request.is_directory)
     {
         DEBUG_MSG("URI type", "directory");

@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   webService.cpp                                     :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/16 02:11:04 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/03/06 18:27:39 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -553,69 +553,69 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
     DEBUG_MSG("=== RECEIVE REQUEST ===", "");
     DEBUG_MSG("Processing FD", fd);
+    
+    if (server.getRequestObject(fd).complete)
+        return;
+        
+    DEBUG_MSG_3("RECV at receiveRequest", fd);
 
-    if (!server.getRequestObject(fd).complete)
+    int nbytes = recv(fd, buf, sizeof buf, 0);
+    DEBUG_MSG("Bytes received", nbytes);
+
+    if (nbytes == 0)
     {
-        DEBUG_MSG_3("RECV at receiveRequest", fd);
+        DEBUG_MSG_2("WebService::receiveRequest Receive closed succesfully", nbytes);
+        closeConnection(fd, i, server);
+    }
+    else if (nbytes < 0)
+    {
+        DEBUG_MSG_2(" WebService::receiveRequest Receive failed, error", strerror(errno));
+        closeConnection(fd, i, server);
+    }
+    else
+    {
+        buf[nbytes] = '\0';
+        server.getRequestObject(fd).raw_request.append(buf);
+        DEBUG_MSG("Received data from fd", fd);
+        DEBUG_MSG("Data received", buf);
+        DEBUG_MSG("Request object raw_request", server.getRequestObject(fd).raw_request);
 
-        int nbytes = recv(fd, buf, sizeof buf, 0);
-        DEBUG_MSG("Bytes received", nbytes);
-
-        if (nbytes == 0)
+        // Try to parse headers if we haven't yet
+        if (!server.getRequestObject(fd).headers_parsed &&
+            server.getRequestObject(fd).raw_request.find("\r\n\r\n") != std::string::npos)
         {
-            DEBUG_MSG_2("WebService::receiveRequest Receive closed succesfully", nbytes);
-            closeConnection(fd, i, server);
+            DEBUG_MSG("Request Status", "Parsing headers");
+            try
+            {
+                RequestParser::parseRawRequest(server.getRequestObject(fd));
+            }
+            catch (const std::exception &e)
+            {
+                DEBUG_MSG_2("WebService::receiveRequest Error parsing request", e.what());
+                closeConnection(fd, i, server);
+                return;
+            }
         }
-        else if (nbytes < 0)
+
+        // If headers are parsed, try to parse body
+        if (server.getRequestObject(fd).headers_parsed)
         {
-            DEBUG_MSG_2(" WebService::receiveRequest Receive failed, error", strerror(errno));
-            closeConnection(fd, i, server);
+            try
+            {
+                RequestParser::parseRawRequest(server.getRequestObject(fd));
+            }
+            catch (const std::exception &e)
+            {
+                DEBUG_MSG_2("WebService::receiveRequest Error parsing body", e.what());
+                closeConnection(fd, i, server);
+                return;
+            }
         }
-        else
+
+        DEBUG_MSG("Current body size", server.getRequestObject(fd).body.size());
+        if (server.getRequestObject(fd).complete)
         {
-            buf[nbytes] = '\0';
-            server.getRequestObject(fd).raw_request.append(buf);
-            DEBUG_MSG("Received data from fd", fd);
-            DEBUG_MSG("Data received", buf);
-            DEBUG_MSG("Request object raw_request", server.getRequestObject(fd).raw_request);
-
-            // Try to parse headers if we haven't yet
-            if (!server.getRequestObject(fd).headers_parsed &&
-                server.getRequestObject(fd).raw_request.find("\r\n\r\n") != std::string::npos)
-            {
-                DEBUG_MSG("Request Status", "Parsing headers");
-                try
-                {
-                    RequestParser::parseRawRequest(server.getRequestObject(fd));
-                }
-                catch (const std::exception &e)
-                {
-                    DEBUG_MSG_2("WebService::receiveRequest Error parsing request", e.what());
-                    closeConnection(fd, i, server);
-                    return;
-                }
-            }
-
-            // If headers are parsed, try to parse body
-            if (server.getRequestObject(fd).headers_parsed)
-            {
-                try
-                {
-                    RequestParser::parseRawRequest(server.getRequestObject(fd));
-                }
-                catch (const std::exception &e)
-                {
-                    DEBUG_MSG_2("WebService::receiveRequest Error parsing body", e.what());
-                    closeConnection(fd, i, server);
-                    return;
-                }
-            }
-
-            DEBUG_MSG("Current body size", server.getRequestObject(fd).body.size());
-            if (server.getRequestObject(fd).complete)
-            {
-                DEBUG_MSG("Request complete", "Ready to process");
-            }
+            DEBUG_MSG("Request complete", "Ready to process");
         }
     }
 }     
@@ -625,70 +625,46 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
     HttpRequest request_obj = server.getRequestObject(fd);
     DEBUG_MSG_2("------->WebService::sendResponse server.getRequestObject(fd) passed ", fd);
 
-    if (request_obj.complete)
+    if (!request_obj.complete)
+        return;
+    
+    HttpRequest request = server.getRequestObject(fd);
+    DEBUG_MSG_2("------->WebService::sendResponse server.getRequestObject(fd); passed ", fd);
+
+    HttpResponse *response = new (HttpResponse);
+    ResponseHandler handler;
+
+    handler.processRequest(fd, server, request, *response);
+    DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
+
+    const Route *route = request.route; // Route is already stored in request
+    DEBUG_MSG_2("------->WebService::sendResponse const Route *route = request.route; is the issue ", fd);
+
+    if (request.route == NULL || !route->is_cgi)
     {
-        HttpRequest request = server.getRequestObject(fd);
-        DEBUG_MSG_2("------->WebService::sendResponse server.getRequestObject(fd); passed ", fd);
-
-        HttpResponse *response = new (HttpResponse);
-        ResponseHandler handler;
-
-        handler.processRequest(fd, server, request, *response);
-        DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
-         //! UNDO
-         // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
-        if (request.route == NULL) {
-            // Handle invalid CGI or other requests without routes
-            pfds_vec[i].events = POLLOUT;
-            std::string responseStr = response->generateRawResponseStr();
-            if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1) {
-                DEBUG_MSG_2("Send error ", strerror(errno));
-            }
-            
-            closeConnection(fd, i, server);
-            delete response;
-            return;
-        }
-
-        // If request is a CGI, skip this part
-        const Route *route = request.route; // Route is already stored in request
-        DEBUG_MSG_2("------->WebService::sendResponse const Route *route = request.route; is the issue ", fd);
-
-        if (!route->is_cgi)
+        if (request.route == NULL || (response->status_code != 0 && response->status_code != 301))
         {
-            if (response->status_code != 0 && response->status_code != 301)
-            {
-                // Modify the pollfd to monitor POLLOUT for this FD
-                DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; is the issue ", fd);
+            // Modify the pollfd to monitor POLLOUT for this FD
+            DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; is the issue ", fd);
 
-                pfds_vec[i].events = POLLOUT;
-                DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; passed ", fd);
-            }
-
-            std::string responseStr = response->generateRawResponseStr();
-            DEBUG_MSG_2("------->WebService::sendResponse generateRawResponseStr(); passed ", fd);
-
-            if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
-            {
-                DEBUG_MSG_2("Send error ", strerror(errno));
-            }
-            DEBUG_MSG_2("Response sent to fd", fd);
-            DEBUG_MSG_2("WebService::sendResponse response.close_connection", response->close_connection);
-            //  Michaael: added obligatory close of connection for all cases to get rid of extra pfds
-            response->close_connection = true;
-            // sleep(10);
-
-            if (response->close_connection == true)
-            {
-                DEBUG_MSG_2("WebService::sendResponse: Response sent to fd, closing connection", fd);
-                closeConnection(fd, i, server);
-            }
-            else
-            {
-                server.resetRequestObject(fd);
-            }
-            delete response;
+            pfds_vec[i].events = POLLOUT;
+            DEBUG_MSG_2("------->WebService::sendResponse pfds_vec[i].events = POLLOUT; passed ", fd);
         }
+
+        std::string responseStr = response->generateRawResponseStr();
+        DEBUG_MSG_2("------->WebService::sendResponse generateRawResponseStr(); passed ", fd);
+
+        int send_status = send(fd, responseStr.c_str(), responseStr.size(), 0);
+        if (send_status == -1) {
+            DEBUG_MSG_2("Send error ", strerror(errno));
+        }
+        else if (send_status == 0) {
+            DEBUG_MSG_2("Connection closed", "");
+        }
+        
+        DEBUG_MSG_2("WebService::sendResponse: Response sent to fd, closing connection", fd);
+        closeConnection(fd, i, server);
+        delete response;
     }
 }
 
