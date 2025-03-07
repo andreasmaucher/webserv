@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Parser.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/28 17:48:44 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/03/07 17:54:18 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -114,6 +114,7 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
                 }
                 if (key == "is_cgi" && value == "true")
                 {
+                    std::cout << "CGI route found!!!!!!!!!!!!!!!!!!!!!!!!1" << std::endl;
                     route.is_cgi = true;
                 }
                 if (key == "directory_listing_enabled" && value == "true")
