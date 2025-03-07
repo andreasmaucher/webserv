@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/02/16 23:32:22 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/03/07 23:24:49 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -228,8 +228,6 @@ void WebService::closeConnection(const int &fd, size_t &i, Server &server)
     // deleteFromPfdsVec(fd, i);
     deleteFromPfdsVecForCGI(fd_to_delete);
 
-    DEBUG_MSG_2("WebService::closeConnection after deleteFromPfdsVecForCGI(fd); fd is ", fd);
-
     deleteRequestObject(fd_to_delete, server);
     DEBUG_MSG_2("Erased request object for fd", fd);
 }
@@ -253,8 +251,6 @@ void WebService::newConnection(Server &server)
     struct sockaddr_storage remoteaddr;
     addrlen = sizeof remoteaddr;
     int new_fd = accept(server.getListenerFd(), (struct sockaddr *)&remoteaddr, &addrlen);
-
-    errno = 0;
     if (new_fd == -1)
     {
         DEBUG_MSG_1("Accept error", strerror(errno));
@@ -263,8 +259,12 @@ void WebService::newConnection(Server &server)
     {
         DEBUG_MSG("New connection accepted for server ", server.getName());
         DEBUG_MSG("On fd", new_fd);
+        // TODO:change to pollin immediately
 
         addToPfdsVector(new_fd, false);
+        setPollfdEventsToIn(new_fd);
+        printPollFdStatus(findPollFd(new_fd));
+
         mapFdToServer(new_fd, server);
         createRequestObject(new_fd, server);
     }
@@ -284,6 +284,7 @@ void WebService::setupSockets()
         }
         (*it).setListenerFd(listener_fd);
         addToPfdsVector(listener_fd, false);
+        setPollfdEventsToIn(listener_fd);
         mapFdToServer(listener_fd, *it);
     }
     DEBUG_MSG("Total servers set up", servers.size());
@@ -302,13 +303,13 @@ void CGI::checkAllCGIProcesses()
 
     // Iterate through all running CGI processes.
     // (Assuming running_processes is a map keyed by PID or some unique ID.)
-    for (std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
-         it != running_processes.end();
+    for (std::map<pid_t, CGI::CGIProcess>::iterator it = CGI::running_processes.begin();
+         it != CGI::running_processes.end();
          /* no increment */)
     {
         pid_t pid = it->first;
 
-        CGIProcess &proc = it->second;
+        CGI::CGIProcess &proc = it->second;
         if ((now - proc.start_time) > CGI_TIMEOUT)
         {
             DEBUG_MSG_2("CGI timeout reached for pid", pid);
@@ -336,9 +337,9 @@ void CGI::checkAllCGIProcesses()
             proc.output_pipe = -1; // Mark as invalid
 
             // Erase this CGI process from the running_processes map.
-            std::map<pid_t, CGIProcess>::iterator current = it;
+            std::map<pid_t, CGI::CGIProcess>::iterator current = it;
             ++it;
-            running_processes.erase(current);
+            CGI::running_processes.erase(current);
             delete proc.response;
 
             continue;
@@ -364,21 +365,21 @@ int WebService::start()
             DEBUG_MSG_1("Poll error", strerror(errno));
             continue;
         }
+        DEBUG_MSG_3("----------------------------------> Webservice::start() PASSED POLL ", "");
+
         if (!CGI::running_processes.empty())
         {
-            // CGI::checkAllCGIProcesses();
-            printPollFds();
+            CGI::checkAllCGIProcesses();
+            // printPollFds();
         }
 
         // Check CGI processes for timeouts
-
-        DEBUG_MSG_2("-----------> Webservice::start() entering CGI check ", "");
 
         // CGI::checkRunningProcesses(pfds_vec[i].fd);
         // Iterate backwards to handle removals safely
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
-
+            // sleep(1);
             // sleep(1);
             DEBUG_MSG_2("-----------> Webservice::start() pfds_vec.size() ", pfds_vec.size());
             DEBUG_MSG_2("-----------> Webservice::start() pfds_vec[i].fd ", pfds_vec[i].fd);
@@ -480,15 +481,22 @@ int WebService::start()
 // implement timeout for recv()?
 void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
-    DEBUG_MSG("=== RECEIVE REQUEST ===", "");
-    DEBUG_MSG("Processing FD", fd);
-
+    DEBUG_MSG_3("=== RECEIVE REQUEST ===", "");
+    DEBUG_MSG_3("Processing FD", fd);
+    if (server.getRequestObject(fd).complete)
+    {
+        // Request is complete, so switch event monitoring to POLLOUT.
+        setPollfdEventsToOut(fd);
+        DEBUG_MSG_3("Switching FD to POLLOUT since request complete:", fd);
+    }
     if (!server.getRequestObject(fd).complete)
     {
-        DEBUG_MSG_3("RECV at receiveRequest", fd);
-
+        WebService::printPollFdStatus(WebService::findPollFd(fd));
+        DEBUG_MSG_3("RECV started at receiveRequest", fd);
         int nbytes = recv(fd, buf, sizeof buf, 0);
-        DEBUG_MSG("Bytes received", nbytes);
+        DEBUG_MSG_3("RECV done at receiveRequest", fd);
+
+        DEBUG_MSG_3("Bytes received", nbytes);
 
         if (nbytes == 0)
         {
@@ -540,10 +548,12 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
                 }
             }
 
-            DEBUG_MSG("Current body size", server.getRequestObject(fd).body.size());
+            DEBUG_MSG_3("Current body size", server.getRequestObject(fd).body.size());
             if (server.getRequestObject(fd).complete)
             {
-                DEBUG_MSG("Request complete", "Ready to process");
+                DEBUG_MSG_3("Request complete", "Ready to process");
+                setPollfdEventsToOut(fd);
+                DEBUG_MSG_3("Request is complete? ", server.getRequestObject(fd).complete);
             }
         }
     }
@@ -638,9 +648,23 @@ void WebService::setPollfdEventsToOut(int fd)
 {
     for (size_t i = 0; i < pfds_vec.size(); ++i)
     {
-        if (pfds_vec[i].fd == fd)
+        if (WebService::pfds_vec[i].fd == fd)
         {
-            pfds_vec[i].events = POLLOUT;
+            WebService::pfds_vec[i].events = POLLOUT;
+            WebService::pfds_vec[i].revents = 0;
+            break; // Exit once found
+        }
+    }
+}
+
+void WebService::setPollfdEventsToIn(int fd)
+{
+    for (size_t i = 0; i < pfds_vec.size(); ++i)
+    {
+        if (WebService::pfds_vec[i].fd == fd)
+        {
+            WebService::pfds_vec[i].events = POLLIN;
+            WebService::pfds_vec[i].revents = 0;
             break; // Exit once found
         }
     }
@@ -663,31 +687,40 @@ void WebService::printPollFds()
     for (size_t i = 0; i < pfds_vec.size(); i++)
     {
         int fd = pfds_vec[i].fd;
-        std::string fd_type;
+        std::string fd_type1;
+        std::string fd_type2;
+        std::string fd_type3;
+        std::string fd_type4;
+
         std::string connection_type;
         if (cgi_fd_to_http_response.find(fd) != cgi_fd_to_http_response.end())
         {
-            fd_type = "CGI";
+            fd_type1 = " CGI cgi_fd_to_http_response ";
         }
-        else if (fd_to_server.find(fd) != fd_to_server.end())
+        if (fd_to_server.find(fd) != fd_to_server.end())
         {
             Server *server = fd_to_server[fd];
             if (fd == server->getListenerFd())
             {
-                fd_type = "SERVER LISTENER";
+                fd_type2 = " SERVER LISTENER ";
             }
             else
             {
-                fd_type = "SERVER CONNECTION";
+                fd_type2 = "SERVER CONNECTION fd_to_server";
                 // Check if this is request or response fd
             }
         }
-        else
-        {
-            fd_type = "UNKNOWN";
-        }
+
+        // fd_type3 = "UNKNOWN";
+
+        // if (running_processes.find)
+
         DEBUG_MSG_3("FD: ", fd);
-        DEBUG_MSG_3("Type: ", fd_type + connection_type);
+        DEBUG_MSG_3("Type: ", fd_type1 + connection_type);
+        DEBUG_MSG_3("Type: ", fd_type2 + connection_type);
+        DEBUG_MSG_3("Type: ", fd_type3 + connection_type);
+        DEBUG_MSG_3("Type: ", fd_type3 + connection_type);
+
         // Print events with their values and meanings
         std::string event_str = "";
         if (pfds_vec[i].events & POLLIN)
@@ -735,108 +768,109 @@ struct pollfd *WebService::findPollFd(int fd)
     return NULL; // Return NULL if fd not found
 }
 
-void WebService::printPollFdStatus(pollfd pollfd)
+std::string WebService::checkPollfdEvents(int fd)
 {
-    std::string fd_type;
-    std::string connection_type;
-    if (cgi_fd_to_http_response.find(pollfd.fd) != cgi_fd_to_http_response.end())
+    std::string return_str = "";
+    for (size_t i = 0; i < pfds_vec.size(); ++i)
     {
-        fd_type = "CGI";
-    }
-    else if (fd_to_server.find(pollfd.fd) != fd_to_server.end())
-    {
-        Server *server = fd_to_server[pollfd.fd];
-        if (pollfd.fd == server->getListenerFd())
+        if (pfds_vec[i].fd == fd)
         {
-            fd_type = "SERVER LISTENER";
+            // DEBUG_MSG_2("Checking events for FD:", fd);
+
+            // Check events
+            std::string event_str = "";
+            if (pfds_vec[i].events & POLLIN)
+                event_str += "POLLIN ";
+            if (pfds_vec[i].events & POLLOUT)
+                event_str += "POLLOUT ";
+            return_str += "Events:" + event_str;
+
+            // Check revents
+            std::string revent_str = "";
+            if (pfds_vec[i].revents & POLLIN)
+                revent_str += "POLLIN ";
+            if (pfds_vec[i].revents & POLLOUT)
+                revent_str += "POLLOUT ";
+            if (pfds_vec[i].revents & POLLERR)
+                revent_str += "POLLERR ";
+            if (pfds_vec[i].revents & POLLHUP)
+                revent_str += "POLLHUP ";
+            if (pfds_vec[i].revents & POLLNVAL)
+                revent_str += "POLLNVAL ";
+            if (pfds_vec[i].revents & POLLPRI)
+                revent_str += "POLLPRI ";
+
+            return_str += " Revents:" + revent_str;
+            return return_str;
+        }
+    }
+    return_str = "FD not found in pfds_vec:";
+    return return_str;
+}
+
+void WebService::printPollFdStatus(pollfd *pollfd)
+{
+
+    int fd = pollfd->fd;
+    std::string fd_type1 = "";
+    std::string fd_type2 = "";
+    std::string fd_type3 = "";
+    std::string fd_type4 = "";
+    std::string fd_type5 = "";
+    std::string fd_type3_revents = "";
+    std::string fd_type4_revents = "";
+
+    std::string connection_type;
+    if (WebService::cgi_fd_to_http_response.find(fd) != WebService::cgi_fd_to_http_response.end())
+    {
+        fd_type1 = " Yes " + toString(fd);
+    }
+    if (WebService::fd_to_server.find(fd) != WebService::fd_to_server.end())
+    {
+        Server *server = WebService::fd_to_server[fd];
+        if (fd == server->getListenerFd())
+        {
+            fd_type2 = " Yes, SERVER LISTENER ";
         }
         else
         {
-            fd_type = "SERVER CONNECTION";
+            fd_type2 = " Yes, client connection " + toString(fd);
             // Check if this is request or response fd
         }
     }
-    else
+    for (std::map<pid_t, CGI::CGIProcess>::iterator it = CGI::running_processes.begin();
+         it != CGI::running_processes.end(); ++it)
     {
-        fd_type = "UNKNOWN";
+        pid_t pid = it->first;
+        CGI::CGIProcess &proc = it->second;
+        // Check if fd matches either the output pipe or response fd
+        if (proc.output_pipe == fd || proc.response_fd == fd)
+        {
+            if (proc.output_pipe == fd)
+            {
+                fd_type3 = "CGI output_pipe : " + toString(fd);
+                fd_type3_revents = WebService::checkPollfdEvents(proc.output_pipe);
+            }
+            else
+                fd_type3 = " No";
+            if (proc.response_fd == fd)
+            {
+                fd_type4 = "CGI response_fd : " + toString(fd);
+                fd_type4_revents = WebService::checkPollfdEvents(proc.response_fd);
+            }
+            else
+                fd_type4 = " No";
+            fd_type5 = "PID : " + toString(pid);
+        }
     }
-    DEBUG_MSG_3("FD: ", pollfd.fd);
-    DEBUG_MSG_3("Type: ", fd_type + connection_type);
-    // Print events with their values and meanings
-    std::string event_str = "";
-    if (pollfd.events & POLLIN)
-        event_str += "POLLIN(1) ";
-    if (pollfd.events & POLLPRI)
-        event_str += "POLLPRI(4) ";
-    if (pollfd.events & POLLOUT)
-        event_str += "POLLOUT(4) ";
-    if (pollfd.events & POLLERR)
-        event_str += "POLLERR(8) ";
-    if (pollfd.events & POLLHUP)
-        event_str += "POLLHUP(16) ";
-    if (pollfd.events & POLLNVAL)
-        event_str += "POLLNVAL(32) ";
-    DEBUG_MSG_3("Events(" + toString(pollfd.events) + "): ", event_str);
-    // Print revents with their values and meanings
-    std::string revent_str = "";
-    if (pollfd.revents & POLLIN)
-        revent_str += "POLLIN(1) ";
-    if (pollfd.revents & POLLPRI)
-        revent_str += "POLLPRI(4) ";
-    if (pollfd.revents & POLLOUT)
-        revent_str += "POLLOUT(4) ";
-    if (pollfd.revents & POLLERR)
-        revent_str += "POLLERR(8) ";
-    if (pollfd.revents & POLLHUP)
-        revent_str += "POLLHUP(16) ";
-    if (pollfd.revents & POLLNVAL)
-        revent_str += "POLLNVAL(32) ";
-    DEBUG_MSG_3("Revents(" + toString(pollfd.revents) + "): ", revent_str);
+    DEBUG_MSG_3("FD: ", fd);
+    DEBUG_MSG_3("Type - cgi_fd_to_http_response ", fd_type1);
+    DEBUG_MSG_3("Type - fd_to_server ", fd_type2);
+    DEBUG_MSG_3("Type - CGI::running_processes output_pipe", fd_type3);
+    DEBUG_MSG_3("", fd_type3_revents);
+    DEBUG_MSG_3("Type - CGI::running_processes response_fd", fd_type4);
+    DEBUG_MSG_3("", fd_type4_revents);
+    DEBUG_MSG_3("Type - CGI::running_processes ", fd_type5);
+
     DEBUG_MSG_3("-------------------", "");
 }
-
-// void WebService::checkCGIProcesses(Server &server)
-// {
-//     for (std::map<int, HttpRequest>::iterator it = server.requests.begin();
-//          it != server.requests.end(); ++it)
-//     {
-//         int client_fd = it->first;
-//         HttpResponse &response = server.getResponseObject(client_fd);
-
-//         if (response.is_cgi_running)
-//         {
-//             // Check if process has finished
-//             int status;
-//             pid_t result = waitpid(response.cgi_pid, &status, WNOHANG);
-
-//             if (result > 0)
-//             { // Process finished
-//                 // Read remaining output
-//                 char buffer[1024];
-//                 std::string output;
-
-//                 while (true)
-//                 {
-//                     ssize_t bytes = read(response.cgi_output_fd, buffer, sizeof(buffer) - 1);
-//                     if (bytes <= 0)
-//                         break;
-//                     buffer[bytes] = '\0';
-//                     output += buffer;
-//                 }
-
-//                 close(response.cgi_output_fd);
-//                 response.is_cgi_running = false;
-
-//                 // Process the CGI output and send response
-//                 response.setBody(output);
-//                 response.status_code = 200;
-//             }
-//             else if (result < 0)
-//             { // Error occurred
-//                 response.is_cgi_running = false;
-//                 response.status_code = 500;
-//             }
-//             // result == 0 means process still running
-//         }
-//     }
-// }
