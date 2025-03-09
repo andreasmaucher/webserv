@@ -4,16 +4,6 @@
 #include "../../include/webService.hpp"
 #include "../../include/responseHandler.hpp"
 
-#include <sstream>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <algorithm>
-#include <cstring>
-#include <iostream>
-#include <map>
-#include <ctime>
-
 // Default constructor for the CGI class
 CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requestBody("") {}
 
@@ -75,7 +65,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     return fullPath;
 }
 
-// helper function to construct error response for non-existent or non-executable scripts
+// helper function to construct error response
 std::string CGI::constructErrorResponse(int status_code, const std::string &message)
 {
     CGI cgi;
