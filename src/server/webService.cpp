@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/07 23:24:49 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/03/10 19:43:11 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -574,10 +574,8 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         handler.processRequest(fd, server, request, *response);
         DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
-        //! UNDO
-        // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
-        if (request.route == NULL)
-        {
+         // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
+        if (request.route == NULL) {
             // Handle invalid CGI or other requests without routes
             pfds_vec[i].events = POLLOUT;
             std::string responseStr = response->generateRawResponseStr();

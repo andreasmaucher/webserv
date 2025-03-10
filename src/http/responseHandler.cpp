@@ -11,14 +11,35 @@ void ResponseHandler::finalizeCGIErrorResponse(int &fd, HttpRequest &request, Ht
     WebService::setPollfdEventsToOut(fd);
 }
 
+/*
+  This function is used to prepare a CGI error response.
+  It sets the status code, reason phrase, and body of the response.
+  It also reads the error page HTML file and sets the body of the response.
+*/
 void ResponseHandler::prepareCGIErrorResponse(HttpResponse &response, 
     int status_code, const std::string &reason, 
     const std::string &body, const std::string &allowed_methods) {
     
     response.status_code = status_code;
     response.reason_phrase = reason;
-    response.body = body;
-    response.setHeader("Content-Type", "text/plain");
+
+    std::ostringstream ss;
+    ss << status_code;
+    
+    std::string error_page_path = "www/errors/" + ss.str() + ".html";
+    std::ifstream error_file(error_page_path.c_str());
+    
+    if (error_file.is_open()) {
+        std::stringstream buffer;
+        buffer << error_file.rdbuf();
+        response.body = buffer.str();
+        response.setHeader("Content-Type", "text/html");
+        error_file.close();
+    } else {
+        response.body = body;
+        response.setHeader("Content-Type", "text/plain");
+    }
+
     response.setHeader("Connection", "close");
     
     if (!allowed_methods.empty()) {
@@ -28,14 +49,17 @@ void ResponseHandler::prepareCGIErrorResponse(HttpResponse &response,
     response.close_connection = true;
 }
 
+/*
+  This function is used to handle CGI errors.
+  It checks if the request is a CGI request and if the method is allowed.
+  If not, it prepares a CGI error response and finalizes it.
+*/
 bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &request, HttpResponse &response) {
 
   (void)config;
-   // if it is not a CGI request, continue normal processing
    if (request.uri.find("/cgi-bin") != 0) {
         return true;
     }
-    // Method validation
     if (request.method != "GET" && request.method != "POST" && request.method != "DELETE") {
         std::cout << "within CGI error check 2" << std::endl;
         prepareCGIErrorResponse(response, 405, "Method Not Allowed", 
@@ -65,16 +89,6 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
     }
     // Check if there's a path parameter (file reference)
     std::string pathInfo;
-    //! this gets wrongly triggered by delete requests!
-    /* try { 
-        pathInfo = CGI::extractPathInfo(request.uri);
-    } 
-    catch (const std::runtime_error& e) {
-        prepareCGIErrorResponse(response, 400, "Bad Request", 
-        std::string("Invalid file extension or other PATH_INFO error: ") + e.what(), "");
-        finalizeCGIErrorResponse(fd, request, response);
-        return false; 
-    } */
     if (!pathInfo.empty())
     {
         // Check if the referenced file exists in uploads directory
@@ -87,16 +101,14 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
             return false;
         }
     }
-    return true; // No errors, continue with normal processing
+    return true;
 }
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
-  //! All CGI error checks need to happen in here before handleCGIRequest
   if (!handleCGIErrors(fd, config, request, response)) {
         return;
     }
-  // Find matching route
   if (!findMatchingRoute(config, request, response))
   {
     DEBUG_MSG("Route status", "No matching route found");
@@ -104,12 +116,11 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     return;
   }
   
-  const Route *route = request.route; // Route is already stored in request
+  const Route *route = request.route;
  
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
-  //  If it's a CGI request, handle it
-  //? CGI RESPONSE request process starts here
+  
   if (route->is_cgi)
   {
     DEBUG_MSG_1("Request status", "Handling CGI request");
@@ -117,21 +128,13 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     {
       CGI cgi;
       cgi.handleCGIRequest(fd, request, response);
-      // Always start with HTTP status line for valid HTTP/1.1 response
-      //! UNDO
-      /* response.status_code = 200;
-      response.version = "HTTP/1.1";
-      response.reason_phrase = "OK"; */
-
-      // Parse CGI headers into response object
+      
       size_t headerEnd = request.body.find("\r\n\r\n");
       if (headerEnd != std::string::npos)
       {
         std::string headers = request.body.substr(0, headerEnd);
-        // Set body to everything AFTER the headers and the blank line
+        
         response.body = request.body.substr(headerEnd + 4);
-
-        // Parse headers
         size_t pos = 0;
         std::string headerSection = headers;
         while ((pos = headerSection.find("\r\n")) != std::string::npos)
@@ -147,7 +150,6 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
           headerSection = headerSection.substr(pos + 2);
         }
 
-        // Handle last header if exists
         if (!headerSection.empty())
         {
           size_t colonPos = headerSection.find(": ");
@@ -167,10 +169,9 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     catch (const std::exception &e)
     {
       DEBUG_MSG("CGI execution failed", e.what());
-      response.status_code = 500;
-      response.body = "CGI execution failed";
-      response.close_connection = true;
-      request.complete = true; // Make sure request is marked complete
+      prepareCGIErrorResponse(response, 500, "Internal Server Error", 
+      "Internal Server Error: CGI execution failed", "");
+      finalizeCGIErrorResponse(fd, request, response);
       return;
     }
   }
@@ -190,26 +191,16 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     // ResponseHandler::routeRequest(config, request, response);
     response.status_code = 200;
   }
-  //! REDIRECTS
   if (!request.route->redirect_uri.empty())
   {
-    std::cout << "redirecting to: aaAAAAAA " << request.route->redirect_uri << std::endl;
     response.status_code = 301;
     response.setHeader("Location", request.route->redirect_uri);
     response.reason_phrase = "Moved Permanently";
     response.setHeader("Content-Length", "0");
+    response.setHeader("Connection", "close");
+    response.body = "";
+    response.close_connection = true;
   }
-  /* // if redirect_uri is set, set the redirect exit code and return true
-  std::cout << "best_match->redirect_uri: " << best_match->redirect_uri << std::endl;
-  if (!best_match->redirect_uri.empty())
-  {
-    DEBUG_MSG("Status", "Redirect found to: " + best_match->redirect_uri);
-    std::cout << "redirecting to: " << best_match->redirect_uri << std::endl;
-    response.status_code = 301;
-    //response.setRedirect(best_match->redirect_uri);
-    std::cout << "response.status_code for redirect: " << response.status_code << std::endl;
-    return true;
-  } */
 
   if (request.headers.find("Connection") != request.headers.end() && request.headers["Connection"] == "close")
     response.close_connection = true;
@@ -229,7 +220,6 @@ void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request
     if (request.is_cgi)
     { // at this point its been routed already and checked if (CGI)extension is allowed
       DEBUG_MSG("Status", "Calling CGI handler");
-      //! CGI PROCESS STARTS
       CGI cgiHandler;
       cgiHandler.handleCGIRequest(fd, request, response);
     }
@@ -310,7 +300,6 @@ void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpR
     std::string full_path = request.path + "/" + name;
     if (stat(full_path.c_str(), &file_stat) == 0)
     {
-      // Convert size to string using stringstream
       std::ostringstream ss;
       ss << file_stat.st_size << " bytes";
       std::string size = ss.str();
@@ -336,7 +325,6 @@ void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpR
   response.reason_phrase = "OK";
   response.setHeader("Content-Type", "text/html");
 
-  // Convert content length to string
   std::ostringstream length_ss;
   length_ss << html.length();
   response.setHeader("Content-Length", length_ss.str());
@@ -364,20 +352,6 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
     //   response.status_code = 403;  // Forbidden if no file is found and listing is off or Not Found
     // }
   } */
-
-  //! DIRECTORY
-  /* if (request.is_directory) {
-    std::cout << "removing index.html from path for directory checks" << std::endl;
-    // Remove index.html from path for directory checks
-    size_t pos = request.path.find("/index.html");
-    if (pos != std::string::npos) {
-        request.path = request.path.substr(0, pos);
-    }
-    // Remove double slashes
-    while (request.path.find("//") != std::string::npos) {
-        request.path.replace(request.path.find("//"), 2, "/");
-    }
-  } */
   ResponseHandler::setFullPath(request);
 
   // Move directory redirect check here, before any file operations
@@ -398,9 +372,13 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
     // autoindex in nginx is by default disabled for POST and DELETE
     if (request.method == "POST" || request.method == "DELETE")
     {
-      response.status_code = 405; // Method Not Allowed
+      response.status_code = 405;
       response.reason_phrase = "Method Not Allowed";
-      response.setHeader("Allow", "GET"); // Indicate which methods are allowed
+      response.setHeader("Allow", "GET");
+      response.setHeader("Content-Length", "0");
+      response.setHeader("Connection", "close");
+      response.body = "";
+      response.close_connection = true;
       return;
     }
 
@@ -550,25 +528,6 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
 {
   struct stat path_stat;
 
-  // // Sanitize path to avoid traversal issues (implement a sanitization function as needed)
-  // if (!sanitizePath(request.path)) {
-  //     response.status_code = 400; // Bad Request or similar for unsafe path
-  //     return false;
-  // }
-  // if (access(request.path.c_str(), F_OK) == 0) {
-  /*   if (stat(request.path.c_str(), &path_stat) == 0 && (!request.is_directory && S_ISREG(path_stat.st_mode)))
-    {
-      DEBUG_MSG("File status", "File exists and accessible");
-      if (request.method == "POST")
-      {
-        DEBUG_MSG("File status", "File already exists");
-        response.status_code = 409;
-      }
-      return true;
-    } */
-
-  // std::cout << "Working directory: " << getcwd(NULL, 0) << std::endl;
-  //! DIRECTORY
   // First check if path exists
   if (stat(request.path.c_str(), &path_stat) == 0)
   {
@@ -604,10 +563,6 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
   return false;
 }
 
-// // simple sanitization function (not exhaustive)
-// bool ResponseHandler::sanitizePath(const std::string &path) {
-//     return (path.find("..") == std::string::npos); // Example check to block directory traversal
-// }
 
 void ResponseHandler::constructFullPath(HttpRequest &request, HttpResponse &response)
 {
@@ -615,7 +570,6 @@ void ResponseHandler::constructFullPath(HttpRequest &request, HttpResponse &resp
   //(where the server is running, if we execute from inside src for ex ../werbserv, the root dir is src and it won't work)
   // std::string full_path = request.route->path; // Assuming route_path is the matched route's path
   request.path = request.route->path;
-  std::cout << "request.path in constructFullPath: " << request.path << std::endl;
 
   // Check if file_name contains subdirectories (e.g., "subdir/filename.txt")
   size_t last_slash_pos = request.file_name.find_last_of('/');
@@ -640,7 +594,6 @@ void ResponseHandler::finalizeFullPath(HttpRequest &request, size_t &last_slash_
   }
 
   request.path += "/" + request.file_name;
-  std::cout << "request.path in finalizeFullPath: " << request.path << std::endl;
   DEBUG_MSG("Full path to content", request.path);
 
   return;
@@ -863,9 +816,8 @@ void ResponseHandler::responseBuilder(HttpResponse &response)
   response.version = "HTTP/1.1";
   // 4xx or 5xx -> has a body with error message
   DEBUG_MSG_2("ResponseHandler::responseBuilder", "response.status_code");
-  //! ANDY commented this out since I don't want to serve error pages for cgi requests, not sure if needed for non cgi requests but technically this is the correct way
   if (response.status_code >= 400)
-    serveErrorPage(response); //! Todo: adjust this in a way that server error page is not created for cgi requests  
+    serveErrorPage(response);  
   // 200/201 -> has a body with content + content type header already filled in readFile
   //  else       -> has no body or optional (POST, DELETE)???
   DEBUG_MSG_2("ResponseHandler::responseBuilder", "serveErrorPage(response);");
@@ -1016,46 +968,3 @@ std::string ResponseHandler::getStatusMessage(int code)
     return "Unknown";
   }
 }
-
-// not needed bc we will have the custom html error pages ready to serve
-//  void ResponseHandler::createHtmlBody(HttpResponse &response) {
-//      //request correct and content to return
-//      response.body = "<html><body><h1>";
-//      response.body += "Error ";
-//      std::ostringstream oss;
-//      oss << response.status_code;
-//      response.body += oss.str();
-//      response.body += " ";
-//      response.body += response.reason_phrase;
-//      response.body += "</h1></body></html>";
-//  }
-
-// ----------------
-
-// add to parser!!!
-
-// URI Path Validation: If you haven't already, ensure that the URI path is validated early on (for malicious paths like ../ or symbols that could attempt directory traversal)
-//  bool RequestParser::validatePath(HttpRequest &request) {
-//      // Check for empty URI or starting character
-//      if (request.uri.empty() || request.uri[0] != '/') {
-//          request.error_code = 400; // 400 BAD_REQUEST
-//          return false; // Invalid format
-//      }
-//      if (request.uri.find("..") != std::string::npos || // Directory traversal
-//          request.uri.find("//") != std::string::npos)  // Double slashes
-//      {
-//          request.error_code = 400; // 400 BAD_REQUEST
-//          return false; // Invalid path
-//      }
-//      // Check for invalid characters and patterns
-//      const std::string forbidden_chars = "~$:*?#[{]}>|;`'\"\\ "; // "*?|<>:\"\\"
-//      if (path.find_first_of(forbidden_chars) != std::string::npos) {
-//        request.error_code = 400; // 400 BAD_REQUEST
-//        return false; // Invalid character found}
-//      }
-//      if (path.length() > MAX_PATH_LENGTH)) {
-//        request.error_code = 414; // 414 URI_TOO_LONG}
-//        return false; // Path too long
-//      }
-//      return true; // URI is valid
-//  }
