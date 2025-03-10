@@ -44,7 +44,9 @@ void MimeTypeMapper::extractFileExtension(HttpRequest &request)
         if (pos != std::string::npos)
         {
             request.file_extension = request.uri.substr(pos + 1);
+           /*  std::cout << "request.file_extension in extractFileExtension: " << request.file_extension << std::endl;
             request.is_cgi = isCGIRequest(request.file_extension);
+            std::cout << "request.is_cgi in extractFileExtension: " << request.is_cgi << std::endl; */
             DEBUG_MSG("Extracted file extension", request.file_extension);
             return;
         }
@@ -109,6 +111,7 @@ bool MimeTypeMapper::isCGIRequest(const std::string &extension)
 bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &response)
 {
     bool is_valid = false;
+    //!
     extractFileExtension(request);
     findContentType(request);
 

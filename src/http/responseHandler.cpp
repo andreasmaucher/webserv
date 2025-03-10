@@ -55,60 +55,70 @@ void ResponseHandler::prepareCGIErrorResponse(HttpResponse &response,
   If not, it prepares a CGI error response and finalizes it.
 */
 bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &request, HttpResponse &response) {
-
-  (void)config;
-   if (request.uri.find("/cgi-bin") != 0) {
-        return true;
+    (void)config;
+    
+    // First check if this is a potential CGI request by looking for /cgi-bin/ in the URI
+    if (request.uri.find("/cgi-bin/") == std::string::npos) {
+        return true; // Not a CGI request, continue normal processing
     }
+    
+    // Check if method is allowed for CGI
     if (request.method != "GET" && request.method != "POST" && request.method != "DELETE") {
-        std::cout << "within CGI error check 2" << std::endl;
+        DEBUG_MSG("CGI error", "Method not allowed for CGI");
         prepareCGIErrorResponse(response, 405, "Method Not Allowed", 
             "Method Not Allowed for CGI requests", "GET, POST, DELETE");
         finalizeCGIErrorResponse(fd, request, response);
         return false;
     }
-    if (CGI::isCGIRequest(request.uri)) {
-        response.is_cgi_response = true; // used to differentiate between cgi and static error pages
-    }
-    // Check for valid CGI file extension first (sends error whenever the file is not a .py)
+    
+    // Validate the file extension (must be .py)
     if (!CGI::isCGIRequest(request.uri)) {
-      std::cout << "within CGI error check 1" << std::endl;
+        DEBUG_MSG("CGI error", "Invalid CGI file type");
         prepareCGIErrorResponse(response, 400, "Bad Request", 
-          "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
+            "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
         finalizeCGIErrorResponse(fd, request, response);
         return false;
     }
-    // Check if script exists
-    try {
-        CGI::resolveCGIPath(request.uri);
+    
+    // Mark this as a CGI response for proper handling later
+    response.is_cgi_response = true;
+    
+  /*   try {
+        // Try to resolve the CGI path and validate the script
+        request.path = CGI::resolveCGIPath(request.uri);
+        DEBUG_MSG("CGI path resolved", request.path);
     } catch (const std::runtime_error& e) {
+        DEBUG_MSG("CGI error", e.what());
         prepareCGIErrorResponse(response, 404, "Not Found", 
-            std::string("Script not found: ") + e.what(), "");
+            std::string("CGI error: ") + e.what(), "");
         finalizeCGIErrorResponse(fd, request, response);
         return false;
-    }
-    // Check if there's a path parameter (file reference)
-    std::string pathInfo;
-    if (!pathInfo.empty())
-    {
-        // Check if the referenced file exists in uploads directory
-        std::string filePath = "www/uploads/" + pathInfo;
-        if (access(filePath.c_str(), F_OK) == -1)
-        {
+    } */
+    
+    // Extract path info (optional file reference after script name)
+    request.queryString = CGI::extractPathInfo(request.uri);
+    
+    // If path info exists, validate the referenced file
+    if (!request.queryString.empty()) {
+        std::string filePath = "www/uploads/" + request.queryString;
+        if (access(filePath.c_str(), F_OK) == -1) {
+            DEBUG_MSG("CGI error", "Referenced file not found: " + request.queryString);
             prepareCGIErrorResponse(response, 404, "Not Found", 
-            std::string("Referenced file not found: ") + pathInfo, "");
+                std::string("Referenced file not found: ") + request.queryString, "");
             finalizeCGIErrorResponse(fd, request, response);
             return false;
         }
     }
+    
     return true;
 }
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
-{
+{ 
+  //! I need to move this to the handleCGIErrors function and return false if it fails  
   if (!handleCGIErrors(fd, config, request, response)) {
         return;
-    }
+  }
   if (!findMatchingRoute(config, request, response))
   {
     DEBUG_MSG("Route status", "No matching route found");
@@ -126,6 +136,15 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
     DEBUG_MSG_1("Request status", "Handling CGI request");
     try
     {
+      if (request.uri.find("/cgi-bin/") != std::string::npos) {
+        // If "/cgi-bin/" is found but not at the beginning of the path
+        if (request.uri.find("/cgi-bin/") != 0) {
+            response.status_code = 404;
+            response.reason_phrase = "Not Found";
+            response.body = "Invalid CGI path: /cgi-bin/ must be at the beginning of the URI xxx";
+            return;
+        }
+      }
       CGI cgi;
       cgi.handleCGIRequest(fd, request, response);
       
@@ -217,8 +236,14 @@ void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
   if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response))
   {
+    // check if the route is a CGI route, ensuring that there are no other directories before cgi-bin
+    // if there is anything before cgi-bin, it will set request.is_cgi to false and run the static content handler
+    request.is_cgi = CGI::isCGIRequest(request.file_extension);
+    //! directory check, but where does it go to after?
     if (request.is_cgi)
-    { // at this point its been routed already and checked if (CGI)extension is allowed
+    {
+      //! delelte test message
+      std::cout << "is this ever being called for CGI? would be double cgihandler issue" << std::endl;
       DEBUG_MSG("Status", "Calling CGI handler");
       CGI cgiHandler;
       cgiHandler.handleCGIRequest(fd, request, response);

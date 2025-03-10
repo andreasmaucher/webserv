@@ -11,6 +11,10 @@ CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requ
 // Returns true if the path contains "/cgi-bin/", ".py", or ".cgi"
 bool CGI::isCGIRequest(const std::string &path)
 {
+    // Check if path starts with "/cgi-bin/" -> make sure no random or invalid directories are before cgi-bin
+    if (path.find("/cgi-bin/") != 0) {
+        return false; // Not a valid CGI path - cgi-bin is not at the beginning
+    }
     size_t start = path.find("/cgi-bin/") + 9; // +9 to skip "/cgi-bin/"
     size_t end = path.find('/', start);        // Find next '/' or end of string
     if (end == std::string::npos)
@@ -36,6 +40,13 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     }
     std::string projectRoot = std::string(buffer);
 
+    ///! delete
+   /*  // Check if cgi-bin is at the beginning of the path
+    if (uri.find("/cgi-bin/") != 0)
+    {
+        throw std::runtime_error("Invalid CGI path: /cgi-bin/ must be at the beginning of the URI");
+    } */
+
     // Find where the script name ends (at .py)
     size_t scriptEnd = uri.find(".py");
     if (scriptEnd == std::string::npos)
@@ -57,10 +68,13 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     DEBUG_MSG("Script URI", scriptUri);
     DEBUG_MSG("Full resolved path", fullPath);
 
+    std::cout << "Full path: " << fullPath << std::endl;
+
     // Check if script exists
     if (access(fullPath.c_str(), F_OK) == -1)
     {
-        throw std::runtime_error("Script not found: " + fullPath);
+        //! wrong implementation as this closes the server!!!
+        //throw std::runtime_error("Script not found: " + fullPath);
     }
 
     return fullPath;

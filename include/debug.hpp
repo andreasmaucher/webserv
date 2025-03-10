@@ -20,7 +20,7 @@
 #define DEBUG_MSG_1(msg, var) ((void)0)
 #endif
 
-#define DEBUG_2 ON
+//#define DEBUG_2 ON
 
 #ifdef DEBUG_2
 #define DEBUG_MSG_2(msg, var) (std::cerr << "[DEBUG_3] " << msg << ": " << var << std::endl);
