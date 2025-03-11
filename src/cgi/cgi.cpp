@@ -42,6 +42,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 
     // Find where the script name ends (at .py)
     size_t scriptEnd = uri.find(".py");
+
     scriptEnd += 3; // include the ".py"
 
     // Extract just the script part (without PATH_INFO)

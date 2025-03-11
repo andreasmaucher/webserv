@@ -7,6 +7,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <sys/stat.h>
+#include <unistd.h> 
 #include "httpRequest.hpp"
 #include "server.hpp"
 
@@ -16,6 +18,7 @@ class RequestParser {
     static void parseRawRequest(HttpRequest &request);
   private:
     static void tokenizeRequestLine(HttpRequest &request);
+    static void checkForDirectory(HttpRequest &request);
     static void tokenizeHeaders(HttpRequest &request);
     static void parseBody(HttpRequest &request);
     static void saveChunkedBody(HttpRequest &request);

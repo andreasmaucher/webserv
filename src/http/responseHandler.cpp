@@ -72,7 +72,7 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
     }
     
     // Validate the file extension (must be .py)
-    if (!CGI::isCGIRequest(request.uri)) {
+    if (request.uri.find(".py") == std::string::npos && request.is_directory == false) {
         DEBUG_MSG("CGI error", "Invalid CGI file type");
         prepareCGIErrorResponse(response, 400, "Bad Request", 
             "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
@@ -218,6 +218,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
 
 void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
+  (void)fd;
   DEBUG_MSG("Status", "Routing request");
   MimeTypeMapper mapper;
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
@@ -226,20 +227,8 @@ void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request
     // check if the route is a CGI route, ensuring that there are no other directories before cgi-bin
     // if there is anything before cgi-bin, it will set request.is_cgi to false and run the static content handler
     request.is_cgi = CGI::isCGIRequest(request.file_extension);
-    //! directory check, but where does it go to after?
-    if (request.is_cgi)
-    {
-      //! delelte test message
-      std::cout << "is this ever being called for CGI? would be double cgihandler issue" << std::endl;
-      DEBUG_MSG("Status", "Calling CGI handler");
-      CGI cgiHandler;
-      cgiHandler.handleCGIRequest(fd, request, response);
-    }
-    else
-    {
-      DEBUG_MSG("Status", "Calling static content handler");
-      staticContentHandler(request, response);
-    }
+    DEBUG_MSG("Status", "Calling static content handler");
+    staticContentHandler(request, response);
   }
 }
 
@@ -396,6 +385,7 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
 
     // Try index.html first
     std::string original_path = request.path;
+    //! here needs to be a check if the directory is valid otherwise it should throw an error
     request.file_name = "index.html";
     ResponseHandler::setFullPath(request);
 
@@ -407,7 +397,6 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
 
     // Restore path for directory listing
     request.path = original_path;
-    request.is_directory = true;
 
     if (request.route->autoindex)
     {

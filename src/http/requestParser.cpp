@@ -1,6 +1,40 @@
 #include "../../include/requestParser.hpp"
 #include "../../include/debug.hpp"
 
+// this function determines if the request is for a directory and sets the is_directory flag accordingly
+void RequestParser::checkForDirectory(HttpRequest &request)
+{
+    request.is_directory = false;
+    std::string fullPath;
+    if (request.route) {
+        fullPath = request.route->path + request.uri;
+    } else {
+        fullPath = "./www" + request.uri;
+    }
+    
+    // Check if the path exists
+    struct stat path_stat;
+    if (stat(fullPath.c_str(), &path_stat) != 0) {
+        return;
+    }
+    
+    // Check if it's actually a directory
+    if (S_ISDIR(path_stat.st_mode) ) 
+    {
+        request.is_directory = true;
+        
+        if (!request.uri.empty() && request.uri[request.uri.length() - 1] != '/') {
+            request.uri += '/';
+        }
+        return;
+    }
+    
+    // Handle the edge case of URIs that end with a slash but are files
+    if (!request.uri.empty() && request.uri[request.uri.length() - 1] == '/' && !request.is_directory) {
+        return;
+    }
+}
+
 void RequestParser::parseRawRequest(HttpRequest &request)
 {
   try
@@ -21,8 +55,9 @@ void RequestParser::parseRawRequest(HttpRequest &request)
 
       RequestParser::tokenizeRequestLine(request);
       DEBUG_MSG("Request Line parsed: request.method ", request.method);
-
       DEBUG_MSG("Request.version ", request.version);
+
+      RequestParser::checkForDirectory(request);
 
       RequestParser::tokenizeHeaders(request);
       DEBUG_MSG("Headers parsed.....................................", "");
@@ -307,14 +342,6 @@ void RequestParser::tokenizeRequestLine(HttpRequest &request)
   {
     request.error_code = 400;
     throw std::runtime_error("Bad request line");
-  }
-  if (!request.uri.empty() && request.uri[request.uri.length() - 1] == '/')
-  {
-    request.is_directory = true;
-  }
-  else
-  {
-    request.is_directory = false;
   }
 }
 
