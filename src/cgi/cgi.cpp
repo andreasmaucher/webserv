@@ -40,19 +40,8 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     }
     std::string projectRoot = std::string(buffer);
 
-    ///! delete
-   /*  // Check if cgi-bin is at the beginning of the path
-    if (uri.find("/cgi-bin/") != 0)
-    {
-        throw std::runtime_error("Invalid CGI path: /cgi-bin/ must be at the beginning of the URI");
-    } */
-
     // Find where the script name ends (at .py)
     size_t scriptEnd = uri.find(".py");
-    if (scriptEnd == std::string::npos)
-    {
-        throw std::runtime_error("No .py script found in URI");
-    }
     scriptEnd += 3; // include the ".py"
 
     // Extract just the script part (without PATH_INFO)
@@ -67,15 +56,6 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     DEBUG_MSG("URI", uri);
     DEBUG_MSG("Script URI", scriptUri);
     DEBUG_MSG("Full resolved path", fullPath);
-
-    std::cout << "Full path: " << fullPath << std::endl;
-
-    // Check if script exists
-    if (access(fullPath.c_str(), F_OK) == -1)
-    {
-        //! wrong implementation as this closes the server!!!
-        //throw std::runtime_error("Script not found: " + fullPath);
-    }
 
     return fullPath;
 }

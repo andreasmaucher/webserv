@@ -83,18 +83,6 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
     // Mark this as a CGI response for proper handling later
     response.is_cgi_response = true;
     
-  /*   try {
-        // Try to resolve the CGI path and validate the script
-        request.path = CGI::resolveCGIPath(request.uri);
-        DEBUG_MSG("CGI path resolved", request.path);
-    } catch (const std::runtime_error& e) {
-        DEBUG_MSG("CGI error", e.what());
-        prepareCGIErrorResponse(response, 404, "Not Found", 
-            std::string("CGI error: ") + e.what(), "");
-        finalizeCGIErrorResponse(fd, request, response);
-        return false;
-    } */
-    
     // Extract path info (optional file reference after script name)
     request.queryString = CGI::extractPathInfo(request.uri);
     
@@ -109,13 +97,12 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
             return false;
         }
     }
-    
     return true;
 }
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
-{ 
-  //! I need to move this to the handleCGIErrors function and return false if it fails  
+{
+  response.is_cgi_response = false; // initialize to mute valgrind warning
   if (!handleCGIErrors(fd, config, request, response)) {
         return;
   }
@@ -141,7 +128,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
         if (request.uri.find("/cgi-bin/") != 0) {
             response.status_code = 404;
             response.reason_phrase = "Not Found";
-            response.body = "Invalid CGI path: /cgi-bin/ must be at the beginning of the URI xxx";
+            response.body = "Invalid CGI path: /cgi-bin/ must be at the beginning of the URI";
             return;
         }
       }
