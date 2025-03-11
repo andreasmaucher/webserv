@@ -87,7 +87,8 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
     request.queryString = CGI::extractPathInfo(request.uri);
     
     // If path info exists, validate the referenced file
-    if (!request.queryString.empty()) {
+   /*  if (!request.queryString.empty()) {
+      std::cout << "request.queryString: " << request.queryString << std::endl;
         std::string filePath = "www/uploads/" + request.queryString;
         if (access(filePath.c_str(), F_OK) == -1) {
             DEBUG_MSG("CGI error", "Referenced file not found: " + request.queryString);
@@ -96,7 +97,7 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
             finalizeCGIErrorResponse(fd, request, response);
             return false;
         }
-    }
+    } */
     return true;
 }
 
