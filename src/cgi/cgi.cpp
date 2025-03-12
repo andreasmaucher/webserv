@@ -475,36 +475,17 @@ void CGI::readFromCGI(pid_t pid, CGIProcess &proc)
     }
     else if (bytes_read == -1)
     {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-        {
-            DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() errno == EAGAIN || errno == EWOULDBLOCK", errno);
+        DEBUG_MSG_2("CGI: Read error on pipe", proc.output_pipe);
+        // Mark the process as finished with an error.
+        proc.process_finished = true;
+        proc.finished_success = false;
 
-            return;
-        }
-        if (errno == ECHILD)
-        {
-            proc.process_finished = true;
-            proc.finished_success = true;
-            proc.response->complete = true;
-        }
-        else
-        {
-            DEBUG_MSG_2("Read error: ", strerror(errno));
-            proc.response->complete = true;
-            proc.response->status_code = 500;
-            proc.finished_success = false;
-
-            proc.process_finished = true;
-        }
-        if (close(proc.output_pipe) != 0)
-        {
-            DEBUG_MSG_2("-----------> Webservice::CGI::checkRunningProcesses() proc.response_fd pipe could not be closed  ", proc.output_pipe);
-        }
-        else
-        {
-            DEBUG_MSG_2("-----------> Webservice::CGI::checkRunningProcesses() proc.response_fd closed  ", proc.output_pipe);
-        }
+        // Close the pipe and remove it from your poll vector.
+        close(proc.output_pipe);
         WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+        proc.output_pipe = -1;
+
+        return; // Indicate that the read is complete (with error).
     }
     else if (bytes_read == 0)
     {
