@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/10 19:43:11 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/03/13 03:00:10 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -297,56 +297,56 @@ std::string toString(int value)
     return ss.str();
 }
 
-void CGI::checkAllCGIProcesses()
-{
-    time_t now = time(NULL);
+// void CGI::checkAllCGIProcesses()
+// {
+//     time_t now = time(NULL);
 
-    // Iterate through all running CGI processes.
-    // (Assuming running_processes is a map keyed by PID or some unique ID.)
-    for (std::map<pid_t, CGI::CGIProcess>::iterator it = CGI::running_processes.begin();
-         it != CGI::running_processes.end();
-         /* no increment */)
-    {
-        pid_t pid = it->first;
+//     // Iterate through all running CGI processes.
+//     // (Assuming running_processes is a map keyed by PID or some unique ID.)
+//     for (std::map<pid_t, CGI::CGIProcess>::iterator it = CGI::running_processes.begin();
+//          it != CGI::running_processes.end();
+//          /* no increment */)
+//     {
+//         pid_t pid = it->first;
 
-        CGI::CGIProcess &proc = it->second;
-        if ((now - proc.start_time) > CGI_TIMEOUT)
-        {
-            DEBUG_MSG_2("CGI timeout reached for pid", pid);
+//         CGI::CGIProcess &proc = it->second;
+//         if ((now - proc.last_update_time) > CGI_TIMEOUT)
+//         {
+//             DEBUG_MSG_2("CGI timeout reached for pid", pid);
 
-            // Force kill the process, mark as finished and unsuccessful:
-            kill(pid, SIGKILL);
-            proc.process_finished = true;
-            proc.finished_success = false;
+//             // Force kill the process, mark as finished and unsuccessful:
+//             kill(pid, SIGKILL);
+//             proc.process_finished = true;
+//             proc.finished_success = false;
 
-            // Mark response as complete so that cleanup logic proceeds:
-            proc.response->complete = true;
+//             // Mark response as complete so that cleanup logic proceeds:
+//             proc.response->complete = true;
 
-            // Send a timeout response:
-            proc.response->body = constructErrorResponse(504, "Gateway timeout");
-            proc.response->status_code = 504;
-            proc.response->reason_phrase = "Gateway timeout";
-            proc.response->close_connection = true;
-            sendCGIResponse(proc);
+//             // Send a timeout response:
+//             proc.response->body = constructErrorResponse(504, "Gateway timeout");
+//             proc.response->status_code = 504;
+//             proc.response->reason_phrase = "Gateway timeout";
+//             proc.response->close_connection = true;
+//             sendCGIResponse(proc);
 
-            // Remove from any mappings and clean up FDs
-            WebService::cgi_fd_to_http_response.erase(proc.output_pipe);
-            WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
-            WebService::deleteFromPfdsVecForCGI(proc.response_fd);
-            WebService::fd_to_server.erase(proc.response_fd);
-            proc.output_pipe = -1; // Mark as invalid
+//             // Remove from any mappings and clean up FDs
+//             WebService::cgi_fd_to_http_response.erase(proc.output_pipe);
+//             WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+//             WebService::deleteFromPfdsVecForCGI(proc.response_fd);
+//             WebService::fd_to_server.erase(proc.response_fd);
+//             proc.output_pipe = -1; // Mark as invalid
 
-            // Erase this CGI process from the running_processes map.
-            std::map<pid_t, CGI::CGIProcess>::iterator current = it;
-            ++it;
-            CGI::running_processes.erase(current);
-            delete proc.response;
+//             // Erase this CGI process from the running_processes map.
+//             std::map<pid_t, CGI::CGIProcess>::iterator current = it;
+//             ++it;
+//             CGI::running_processes.erase(current);
+//             delete proc.response;
 
-            continue;
-        }
-        ++it; // Only increment if no timeout occurred
-    }
-}
+//             continue;
+//         }
+//         ++it; // Only increment if no timeout occurred
+//     }
+// }
 
 int WebService::start()
 {
@@ -359,19 +359,20 @@ int WebService::start()
     {
         // skip_to_next_poll = false; // Flag to control outer loop skip
 
+        if (!CGI::running_processes.empty())
+        {
+            CGI::checkAllCGIProcesses();
+            // printPollFds();
+        }
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
         if (poll_count == -1)
         {
             DEBUG_MSG_1("Poll error", strerror(errno));
             continue;
         }
+        // sleep(1);
         DEBUG_MSG_3("----------------------------------> Webservice::start() PASSED POLL ", "");
-
-        if (!CGI::running_processes.empty())
-        {
-            CGI::checkAllCGIProcesses();
-            // printPollFds();
-        }
+        // CGI::printRunningProcesses();
 
         // Check CGI processes for timeouts
 
@@ -379,6 +380,8 @@ int WebService::start()
         // Iterate backwards to handle removals safely
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
+            CGI::printRunningProcesses();
+
             // sleep(1);
             // sleep(1);
             DEBUG_MSG_2("-----------> Webservice::start() pfds_vec.size() ", pfds_vec.size());
@@ -398,14 +401,18 @@ int WebService::start()
                 DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec[i].revents == 0 is true", "");
                 continue;
             }
-            if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end() && (pfds_vec[i].revents & POLLIN || pfds_vec[i].revents & POLLOUT || pfds_vec[i].revents & POLLHUP || pfds_vec[i].revents & POLLERR || pfds_vec[i].revents & POLLNVAL))
+            printPollFdStatus(findPollFd(pfds_vec[i].fd));
+            if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end() &&
+                (pfds_vec[i].revents & (POLLIN | POLLOUT | POLLHUP | POLLERR | POLLNVAL)))
             {
                 DEBUG_MSG_2("Detected CGI FD, entering CGI::checkRunningProcesses(pfds_vec[i].fd);fd ", pfds_vec[i].fd);
                 //  sleep(1);
+                CGI::checkCGIProcess(pfds_vec[i].fd);
+                // continue;
 
-                CGI::checkRunningProcesses(pfds_vec[i].fd);
+                // CGI::checkRunningProcesses(pfds_vec[i].fd);
 
-                // i--;
+                i--;
             }
             else
             {
@@ -497,6 +504,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         DEBUG_MSG_3("RECV done at receiveRequest", fd);
 
         DEBUG_MSG_3("Bytes received", nbytes);
+        DEBUG_MSG_3("Read :", buf + '\0');
 
         if (nbytes == 0)
         {
@@ -574,8 +582,9 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         handler.processRequest(fd, server, request, *response);
         DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
-         // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
-        if (request.route == NULL) {
+        // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
+        if (request.route == NULL)
+        {
             // Handle invalid CGI or other requests without routes
             pfds_vec[i].events = POLLOUT;
             std::string responseStr = response->generateRawResponseStr();
@@ -648,8 +657,10 @@ void WebService::setPollfdEventsToOut(int fd)
     {
         if (WebService::pfds_vec[i].fd == fd)
         {
+            DEBUG_MSG_3("SET FD TO POLLOUT", fd);
+
             WebService::pfds_vec[i].events = POLLOUT;
-            WebService::pfds_vec[i].revents = 0;
+            // WebService::pfds_vec[i].revents = 0;
             break; // Exit once found
         }
     }
@@ -661,6 +672,8 @@ void WebService::setPollfdEventsToIn(int fd)
     {
         if (WebService::pfds_vec[i].fd == fd)
         {
+            DEBUG_MSG_3("SET FD TO POLLIN", fd);
+
             WebService::pfds_vec[i].events = POLLIN;
             WebService::pfds_vec[i].revents = 0;
             break; // Exit once found
