@@ -682,6 +682,7 @@ void CGI::checkCGIProcess(int pfds_fd)
          it != running_processes.end(); ++it)
     {
         pid_t current_pid = it->first;
+        (void)current_pid;
         CGIProcess &current_proc = it->second;
 
         DEBUG_MSG_2("CGI::checkCGIProcess checking process PID", current_pid);
