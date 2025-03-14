@@ -194,45 +194,38 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
 
 void CGI::postRequest(int pipe_in[2])
 {
-    //     if (method == "POST")
-    // {
-    //     if (!requestBody.empty())
-    //     {
-    //         std::cerr << "CGI POST: Starting to write POST data" << std::endl;
-    //         std::cerr << "POST data length: " << requestBody.length() << std::endl;
-
-    //         const size_t CHUNK_SIZE = 4096;
-    //         size_t total_written = 0;
-    //         const char *data = requestBody.c_str();
-    //         size_t remaining = requestBody.length();
-
-    //         while (remaining > 0)
-    //         {
-    //             size_t to_write = std::min(CHUNK_SIZE, remaining);
-    //             ssize_t written = write(pipe_in[1], data + total_written, to_write);
-
-    //             if (written == -1)
-    //             {
-    //                 std::cerr << "Write error: " << strerror(errno) << std::endl;
-    //                 close(pipe_in[1]);
-    //                 throw std::runtime_error("Failed to write to CGI input pipe");
-    //             }
-
-    //             total_written += written;
-    //             remaining -= written;
-
-    //             std::cerr << "Written " << written << " bytes, total " << total_written
-    //                       << " of " << requestBody.length() << std::endl;
-    //         }
-
-    //         std::cerr << "CGI POST: Finished writing POST data" << std::endl;
-    //     }
-    //     close(pipe_in[1]); // Close write end after writing
-    // }
-    // else
+    if (method == "POST" && !requestBody.empty())
     {
-        close(pipe_in[1]); // Close write end immediately for non-POST requests
+        std::cerr << "CGI POST: Starting to write POST data" << std::endl;
+        std::cerr << "POST data length: " << requestBody.length() << std::endl;
+
+        const size_t CHUNK_SIZE = 4096;
+        size_t total_written = 0;
+        const char *data = requestBody.c_str();
+        size_t remaining = requestBody.length();
+
+        while (remaining > 0)
+        {
+            size_t to_write = std::min(CHUNK_SIZE, remaining);
+            ssize_t written = write(pipe_in[1], data + total_written, to_write);
+
+            if (written == -1)
+            {
+                std::cerr << "Write error: " << strerror(errno) << std::endl;
+                close(pipe_in[1]);
+                throw std::runtime_error("Failed to write to CGI input pipe");
+            }
+
+            total_written += written;
+            remaining -= written;
+
+            std::cerr << "Written " << written << " bytes, total " << total_written
+                        << " of " << requestBody.length() << std::endl;
+        } 
+
+        std::cerr << "CGI POST: Finished writing POST data" << std::endl;
     }
+        close(pipe_in[1]); // Close write end immediately for non-POST requests
 }
 
 pid_t CGI::runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request)
@@ -336,8 +329,11 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
         // Close unused file descriptors in parent
         close(pipe_in[0]);  // Close read end of input pipe
         close(pipe_out[1]); // Close write end of output pipe
-        if (request.method != "POST")
+        if (request.method == "POST") {
+            postRequest(pipe_in);
+        } else {
             close(pipe_in[1]); // Close write end immediately for non-POST requests
+        }
 
         // Parent process
         // Add process to tracking map right after fork
@@ -375,8 +371,7 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
     }
 
     // If POST request, write the request body to the CGI's stdin
-    // postRequest(pipe_in);
-    close(pipe_in[1]); // Close write end immediately for non-POST requests
+    // close(pipe_in[1]); // Close write end immediately for non-POST requests
 
     // waitpid(-1, &status, WNOHANG);
 }

@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   webService.cpp                                     :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/14 03:04:49 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/03/14 21:09:22 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -504,7 +504,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         DEBUG_MSG_3("RECV done at receiveRequest", fd);
 
         DEBUG_MSG_3("Bytes received", nbytes);
-        DEBUG_MSG_3("Read :", buf + '\0');
+        DEBUG_MSG_3("Read :", buf);
 
         if (nbytes == 0)
         {
