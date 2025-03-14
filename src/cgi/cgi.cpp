@@ -355,6 +355,8 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
 
         WebService::addToPfdsVector(pipe_out[0], true);
         WebService::setPollfdEventsToIn(pipe_out[0]);
+        WebService::setPollfdEventsToOut(fd);
+
         WebService::fd_to_server.erase(pipe_out[0]);
 
         DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", pipe_out[0]);
@@ -482,7 +484,7 @@ void CGI::readCGI(pid_t pid, CGIProcess &proc)
     WebService::printPollFdStatus(WebService::findPollFd(proc.output_pipe));
 
     DEBUG_MSG_3("READ started at readFromCGI", proc.output_pipe);
-
+    // sleep(1);
     if ((bytes_read = read(proc.output_pipe, buffer, sizeof(buffer))) > 0)
     {
         proc.last_update_time = time(NULL);
@@ -499,6 +501,19 @@ void CGI::readCGI(pid_t pid, CGIProcess &proc)
         // Mark the process as finished with an error.
         proc.process_finished = true;
         proc.finished_success = false;
+        if (errno == ECHILD)
+        {
+            proc.last_update_time = time(NULL);
+            proc.process_finished = true;
+            proc.finished_success = true;
+            proc.response->complete = true;
+            proc.response->status_code = 200;
+            proc.response->version = "HTTP/1.1";
+            proc.response->reason_phrase = "OK";
+            DEBUG_MSG_2("readCGI() read : ", proc.response->body);
+
+            DEBUG_MSG_2("Webservice::CGI::checkRunningProcesses() Child finished, End of file reached", "");
+        }
 
         // Close the pipe and remove it from your poll vector.
         close(proc.output_pipe);
@@ -663,62 +678,65 @@ void CGI::printRunningProcesses()
 // 3. If the process if response_fd - then send response. Then cleanup. Return to main loop
 void CGI::checkCGIProcess(int pfds_fd)
 {
-    // sleep(1);
     if (running_processes.empty())
         return;
+
     DEBUG_MSG_2("entered CGI::checkCGIProcess(int pfds_fd)  ", pfds_fd);
     printRunningProcesses();
 
+    // Find the matching process
+    std::map<pid_t, CGIProcess>::iterator matching_it = running_processes.end();
     bool found_cgi = false;
-    // printRunningProcesses(); // Add this line to see the map contents
-    std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
-    pid_t pid = it->first;
-    (void)pid;
-    CGIProcess &proc = it->second;
-    while (it != running_processes.end())
+
+    for (std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
+         it != running_processes.end(); ++it)
     {
-        WebService::printPollFdStatus(WebService::findPollFd(pfds_fd));
+        pid_t current_pid = it->first;
+        CGIProcess &current_proc = it->second;
 
-        // sleep(1);
-        pid_t pid = it->first;
-        (void)pid;
-        CGIProcess &proc = it->second;
-        DEBUG_MSG_2("CGI::checkCGIProcess(int pfds_fd) checking running_processes ", pfds_fd);
-        DEBUG_MSG_2("CGI::checkRunningProcesses: proc.output_pipe is   ", proc.output_pipe);
-        DEBUG_MSG_2("CGI::checkRunningProcesses: proc.response_fd is   ", proc.response_fd);
+        DEBUG_MSG_2("CGI::checkCGIProcess checking process PID", current_pid);
+        DEBUG_MSG_2("CGI::checkRunningProcesses: proc.output_pipe is   ", current_proc.output_pipe);
+        DEBUG_MSG_2("CGI::checkRunningProcesses: proc.response_fd is   ", current_proc.response_fd);
 
-        if (pfds_fd == proc.output_pipe || pfds_fd == proc.response_fd)
+        if (pfds_fd == current_proc.output_pipe || pfds_fd == current_proc.response_fd)
         {
+            matching_it = it;
             found_cgi = true;
-            DEBUG_MSG_2("CGI::checkRunningProcesses: found CGI process  ", pfds_fd);
-            DEBUG_MSG_2("CGI::checkRunningProcesses: CGI process is writing to pipe ", pfds_fd);
+            DEBUG_MSG_2("CGI::checkRunningProcesses: FOUND CGI process which wants to write to pipe or reply ", pfds_fd);
             break;
         }
-        ++it;
     }
-    // If found cgi process with output_pipe, read from it one time. Repeat until read() == 0; Mark process as finished and cleanup
+
+    // If no match was found, return
+    if (!found_cgi || matching_it == running_processes.end())
+    {
+        DEBUG_MSG_2("CGI::checkCGIProcess No matching process found for fd", pfds_fd);
+        return;
+    }
+
+    // Now use the correct iterator
+    pid_t pid = matching_it->first;
+    CGIProcess &proc = matching_it->second;
+
+    // Rest of your existing code using the correct proc reference
     if (pfds_fd == proc.output_pipe && found_cgi)
     {
         DEBUG_MSG_2("CGI::checkRunningProcesses: will try to read from CGI proceses  ", pfds_fd);
-        readCGI(pid, proc);
+        killCGI(pid, proc);
+        if (!proc.process_finished)
+            readCGI(pid, proc);
         return;
     }
     if (pfds_fd == proc.response_fd && found_cgi && proc.finished_success)
     {
         DEBUG_MSG_2("CGI::checkRunningProcesses: will try to send CGI response ", pfds_fd);
-
         sendCGIResponse(proc);
         WebService::deleteFromPfdsVecForCGI(proc.response_fd);
-        DEBUG_MSG_3("------->WebService::cgi_fd_to_http_response.erase(proc.response_fd);", proc.response_fd);
-
         WebService::cgi_fd_to_http_response.erase(proc.response_fd);
         delete proc.response;
-
-        running_processes.erase(it);
-
+        running_processes.erase(matching_it);
         return;
     }
-    (void)found_cgi;
 }
 
 // void CGI::checkRunningProcesses(int pfds_fd)

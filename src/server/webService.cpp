@@ -6,7 +6,7 @@
 /*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/13 03:00:10 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/03/14 03:04:49 by mrizhakov        ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -359,11 +359,11 @@ int WebService::start()
     {
         // skip_to_next_poll = false; // Flag to control outer loop skip
 
-        if (!CGI::running_processes.empty())
-        {
-            CGI::checkAllCGIProcesses();
-            // printPollFds();
-        }
+        // if (!CGI::running_processes.empty())
+        // {
+        //     CGI::checkAllCGIProcesses();
+        //     // printPollFds();
+        // }
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
         if (poll_count == -1)
         {
@@ -401,7 +401,7 @@ int WebService::start()
                 DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec[i].revents == 0 is true", "");
                 continue;
             }
-            printPollFdStatus(findPollFd(pfds_vec[i].fd));
+            // printPollFdStatus(findPollFd(pfds_vec[i].fd));
             if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end() &&
                 (pfds_vec[i].revents & (POLLIN | POLLOUT | POLLHUP | POLLERR | POLLNVAL)))
             {
