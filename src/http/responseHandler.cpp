@@ -86,18 +86,6 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
     // Extract path info (optional file reference after script name)
     request.queryString = CGI::extractPathInfo(request.uri);
     
-    // If path info exists, validate the referenced file
-   /*  if (!request.queryString.empty()) {
-      std::cout << "request.queryString: " << request.queryString << std::endl;
-        std::string filePath = "www/uploads/" + request.queryString;
-        if (access(filePath.c_str(), F_OK) == -1) {
-            DEBUG_MSG("CGI error", "Referenced file not found: " + request.queryString);
-            prepareCGIErrorResponse(response, 404, "Not Found", 
-                std::string("Referenced file not found: ") + request.queryString, "");
-            finalizeCGIErrorResponse(fd, request, response);
-            return false;
-        }
-    } */
     return true;
 }
 
@@ -336,24 +324,6 @@ void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpR
 void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &response)
 {
   DEBUG_MSG("Status", "Serving static file");
-  // handle directory listing first, since the next block sets response error codes
-  //  Default Index File: If directory listing is off, the server typically looks for a default index file, like index.html or index.php, in the requested directory. If found, it serves that file. If not found, it may return a 403 Forbidden or 404 Not Found response, depending on server configuration.
-  //  Directory Listing Enabled: If directory listing is enabled, and no default index file exists, the server will dynamically generate a page showing the contents of the directory, so the user can browse the files.
-  //! ANDY: setting is_directory to false here makes no sense and breaks autoindex. needs new logic
-  /* if (request.is_directory)
-  {
-    request.file_name = DEFAULT_FILE; // index of all server directories
-    request.is_directory = false;     // to avoid the fileExists directory check //! DIRECTORY WE CAN NOT DO THIS?!
-    // if (config.routes[request.uri].directory_listing) {
-    //   DEBUG_MSG("Implement directory listing" << std::endl;
-    //   //search for & serve default index file or generate dynamically
-    //   // Generate directory listing
-    // }
-    // else {
-    //   //search for & serve default index file or return error
-    //   response.status_code = 403;  // Forbidden if no file is found and listing is off or Not Found
-    // }
-  } */
   ResponseHandler::setFullPath(request);
 
   // Move directory redirect check here, before any file operations
@@ -386,7 +356,6 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
 
     // Try index.html first
     std::string original_path = request.path;
-    //! here needs to be a check if the directory is valid otherwise it should throw an error
     request.file_name = "index.html";
     ResponseHandler::setFullPath(request);
 
