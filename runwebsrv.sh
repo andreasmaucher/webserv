@@ -6,6 +6,8 @@ set -x  # Enable DEBUG mode to see what's happening
 #docker run -it --rm -v "$(pwd)":/home/root webserv-img
 
 ## Use this option for exposing the port:
-docker run -it --rm --name webserv -p 8080:8080 -v "$(pwd)":/home/root webserv-img sh -c "cd /home/root && make re && valgrind ./webserv tomldb.config"
+docker run -it --rm --name webserv -p 8080:8080 -v "$(pwd)":/home/root webserv-img sh -c "cd /home/root && make re && valgrind  --track-fds=yes ./webserv tomldb.config"
 # The --network host approach is being replaced with proper port mapping (-p 8080:8080)
 # pfds_vec.reserve(pfds_vec.capacity() * 2 + 1);
+
+# docker run -it --rm --name webserv -p 8080:8080 -v "$(pwd)":/home/root webserv-img sh -c "cd /home/root && make re && valgrind valgrind --tool=helgrind --read-var-info=yes ./webserv tomldb.config"
