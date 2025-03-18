@@ -1,13 +1,49 @@
 #include "../../include/requestParser.hpp"
 #include "../../include/debug.hpp"
 
+// this function determines if the request is for a directory and sets the is_directory flag accordingly
+void RequestParser::checkForDirectory(HttpRequest &request)
+{
+    request.is_directory = false;
+    std::string fullPath;
+    if (request.route) {
+        fullPath = request.route->path + request.uri;
+    } else {
+        fullPath = "./www" + request.uri;
+    }
+    
+    // Check if the path exists
+    struct stat path_stat;
+    if (stat(fullPath.c_str(), &path_stat) != 0) {
+        return;
+    }
+    
+    // Check if it's actually a directory
+    if (S_ISDIR(path_stat.st_mode) ) 
+    {
+        request.is_directory = true;
+        
+        if (!request.uri.empty() && request.uri[request.uri.length() - 1] != '/') {
+            request.uri += '/';
+        }
+        return;
+    }
+    
+    // Handle the edge case of URIs that end with a slash but are files
+    if (!request.uri.empty() && request.uri[request.uri.length() - 1] == '/' && !request.is_directory) {
+        return;
+    }
+}
+
 void RequestParser::parseRawRequest(HttpRequest &request)
 {
+  std::cout << "beginning function parseRawRequest" << std::endl;
   try
   {
     // Check if we have a complete request (headers end with \r\n\r\n)
     if (request.raw_request.find("\r\n\r\n") == std::string::npos)
     {
+      std::cout << "request incomplete, waiting for more data..." << std::endl;
       DEBUG_MSG("Request incomplete, waiting for more data...", "");
       return; // Wait for more data
     }
@@ -15,25 +51,28 @@ void RequestParser::parseRawRequest(HttpRequest &request)
     // parse until headers only in 1st iteration
     if (request.headers_parsed == false)
     {
+      std::cout << "headers_parsed is false" << std::endl;
       DEBUG_MSG("Complete request received, parsing...", +"");
       DEBUG_MSG("Raw request:\n[", request.raw_request);
       DEBUG_MSG("]", "");
 
       RequestParser::tokenizeRequestLine(request);
       DEBUG_MSG("Request Line parsed: request.method ", request.method);
-
       DEBUG_MSG("Request.version ", request.version);
+
+      RequestParser::checkForDirectory(request);
 
       RequestParser::tokenizeHeaders(request);
       DEBUG_MSG("Headers parsed.....................................", "");
     }
 
     DEBUG_MSG("Parsing body...", "");
-
+    std::cout << "before parseBody called" << std::endl;
     return RequestParser::parseBody(request);
   }
   catch (std::exception &e)
   {
+    std::cout << "error in parseRawRequest" << std::endl;
     DEBUG_MSG("Error: ", e.what());
     DEBUG_MSG("HTTP Error Code: ", request.error_code);
 
@@ -102,12 +141,176 @@ bool RequestParser::mandatoryHeadersPresent(HttpRequest &request)
   return true;
 }
 
+// Add this new function after the parseBody function
+bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
+{
+    std::cout << "Start Multipart Request Function" << std::endl;
+    // First check if it's a multipart request
+    std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Type");
+    if (it == request.headers.end() || it->second.find("multipart/form-data") == std::string::npos) {
+        // Not a multipart request
+        return false;
+    }
+    
+    // Extract the boundary
+    size_t boundaryPos = it->second.find("boundary=");
+    if (boundaryPos == std::string::npos) {
+        std::cout << "No boundary found in Content-Type: " << it->second << std::endl;
+        return false;
+    }
+    
+    std::string boundary = it->second.substr(boundaryPos + 9);
+    // Remove quotes if present
+    if (!boundary.empty() && boundary[0] == '"') {
+        size_t endQuote = boundary.find('"', 1);
+        if (endQuote != std::string::npos) {
+            boundary = boundary.substr(1, endQuote - 1);
+        }
+    }
+    
+    // Get Content-Length if available
+    size_t contentLength = 0;
+    std::map<std::string, std::string>::const_iterator cl_it = request.headers.find("Content-Length");
+    if (cl_it != request.headers.end()) {
+        std::istringstream(cl_it->second) >> contentLength;
+    }
+    
+    static int checkCount = 0;
+    static std::string lastRequestId;
+    
+    // Create a unique ID for this request to track retries
+    std::string currentRequestId = request.raw_request.substr(0, std::min(30, (int)request.raw_request.size()));
+    if (lastRequestId != currentRequestId) {
+        checkCount = 0;
+        lastRequestId = currentRequestId;
+    }
+    
+    checkCount++;
+    
+    std::cout << "Checking for final boundary variants" << std::endl;
+    std::cout << "Check #" << checkCount << ": Body size=" << request.body.size() 
+              << ", Content-Length=" << contentLength << std::endl;
+    
+    // Check for the end boundary in different formats
+    std::string endBoundary1 = "--" + boundary + "--";
+    std::string endBoundary2 = "\r\n--" + boundary + "--";
+    std::string endBoundary3 = "\n--" + boundary + "--";
+    
+    if (request.body.find(endBoundary1) != std::string::npos ||
+        request.body.find(endBoundary2) != std::string::npos ||
+        request.body.find(endBoundary3) != std::string::npos) {
+        std::cout << "Final boundary found" << std::endl;
+        checkCount = 0;
+        return true;
+    }
+    
+    std::cout << "Final boundary not found" << std::endl;
+    
+    // IMPORTANT: Only force completion when we have nearly all the data
+    if (contentLength > 0) {
+        double percentReceived = (static_cast<double>(request.body.size()) / contentLength) * 100.0;
+        std::cout << "Received " << percentReceived << "% of expected data" << std::endl;
+        
+        // We consider the request complete only if we've received at least 95% of the data
+        if (percentReceived >= 95.0) {
+            std::cout << "Received at least 95% of Content-Length, forcing completion" << std::endl;
+            checkCount = 0;
+            return true;
+        }
+    }
+    
+    // Additional safety limit - if we've run for too many iterations AND received a significant portion
+    if (checkCount > 100 && contentLength > 0) {
+        double percentReceived = (static_cast<double>(request.body.size()) / contentLength) * 100.0;
+        if (percentReceived >= 90.0) {
+            std::cout << "Check count exceeded 100 with 90% data, forcing completion" << std::endl;
+            checkCount = 0;
+            return true;
+        }
+    }
+    
+    // Extreme safety valve - prevent infinite loops for malformed requests
+    // but ONLY after we've received at least 50% of the data
+    if (checkCount > 200 && contentLength > 0) {
+        double percentReceived = (static_cast<double>(request.body.size()) / contentLength) * 100.0;
+        if (percentReceived >= 50.0) {
+            std::cout << "Emergency completion after 200 checks with 50% data" << std::endl;
+            checkCount = 0;
+            return true;
+        }
+    }
+    
+    // Print detailed info for debugging
+    std::cout << "multipart body incomplete 2" << std::endl;
+    std::cout << "End Multipart Request Function" << std::endl;
+    return false;
+}
+
 // define MAX_BODY_SIZE in requestParser.hpp or in config file? 1MB in NGINX
 void RequestParser::parseBody(HttpRequest &request)
 {
-    DEBUG_MSG("Parsing body...", "");
-    
+  DEBUG_MSG("Parsing body...", "");
     // If we expect a body (based on headers)
+    std::cout << "parsing body" << std::endl;
+    if (isBodyExpected(request))
+    {
+        std::cout << "isBodyExpected true within parseBody" << std::endl;
+        size_t content_length = 0;
+        std::istringstream(request.headers["Content-Length"]) >> content_length;
+        
+        DEBUG_MSG("Expected Content-Length", content_length);
+        DEBUG_MSG("Current body size", request.body.size());
+        
+        // Calculate remaining data after headers
+        size_t headers_end = request.raw_request.find("\r\n\r\n");
+        if (headers_end != std::string::npos)
+        {
+            headers_end += 4; // Move past \r\n\r\n
+            std::string body_data = request.raw_request.substr(headers_end);
+            request.body = body_data;
+            
+            // Special handling for multipart/form-data (used by file uploads)
+            std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Type");
+            if (it != request.headers.end() && it->second.find("multipart/form-data") != std::string::npos) {
+                DEBUG_MSG("Multipart form data detected", it->second);
+                
+                // Check if we have received the final boundary
+                if (isMultipartRequestComplete(request)) {
+                    request.complete = true;
+                    std::cout << "multipart body complete" << std::endl;
+                    DEBUG_MSG("Multipart request complete", "");
+                }else {
+                    DEBUG_MSG("Multipart request incomplete", "Waiting for final boundary");
+                    std::cout << "multipart body incomplete in parseBody" << std::endl;
+                    request.complete = false;
+                }
+                return; // Return early for multipart requests
+            }
+            
+            // Normal Content-Length check for non-multipart requests
+            if (request.body.length() >= content_length) // Changed from == to >=
+            {
+                request.complete = true;
+                std::cout << "body complete" << std::endl;
+                DEBUG_MSG("Body complete", "");
+            }
+            else
+            {
+              DEBUG_MSG("Body incomplete", "Waiting for more data");
+                std::cout << "body incomplete" << std::endl;
+                request.complete = false;
+            }
+        }
+    }
+    else
+    {
+        request.complete = true;
+        DEBUG_MSG("No body expected", "");
+    }
+  //! ANDY edit to allow .png uploads
+    /* DEBUG_MSG("Parsing body...", "");
+    // If we expect a body (based on headers)
+    std::cout << "parsing body" << std::endl;
     if (isBodyExpected(request))
     {
         size_t content_length = 0;
@@ -128,11 +331,13 @@ void RequestParser::parseBody(HttpRequest &request)
             if (request.body.length() == content_length)
             {
                 request.complete = true;
+                std::cout << "body complete" << std::endl;
                 DEBUG_MSG("Body complete", "");
             }
             else
             {
                 DEBUG_MSG("Body incomplete", "Waiting for more data");
+                std::cout << "body incomplete" << std::endl;
                 request.complete = false;
             }
         }
@@ -141,7 +346,7 @@ void RequestParser::parseBody(HttpRequest &request)
     {
         request.complete = true;
         DEBUG_MSG("No body expected", "");
-    }
+    } */
 }
 
 void RequestParser::saveChunkedBody(HttpRequest &request)
@@ -222,7 +427,6 @@ void RequestParser::saveContentLengthBody(HttpRequest &request)
         request.body.append(request.raw_request, request.position, bytes_to_append);
         request.position += bytes_to_append;
     }
-
     // Check if we have the complete body
     if (request.body.size() == content_length)
     {
@@ -307,14 +511,6 @@ void RequestParser::tokenizeRequestLine(HttpRequest &request)
   {
     request.error_code = 400;
     throw std::runtime_error("Bad request line");
-  }
-  if (!request.uri.empty() && request.uri[request.uri.length() - 1] == '/')
-  {
-    request.is_directory = true;
-  }
-  else
-  {
-    request.is_directory = false;
   }
 }
 

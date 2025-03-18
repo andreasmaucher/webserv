@@ -23,7 +23,7 @@
 
 #define DEFAULT_CONFIG "./server/default.conf"
 #define MAX_BACKLOG_UNACCEPTED_CON 20
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 1000
 // #define PORT "8080"
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"

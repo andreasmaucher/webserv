@@ -11,6 +11,10 @@ CGI::CGI() : clientSocket(-1), scriptPath(""), method(""), queryString(""), requ
 // Returns true if the path contains "/cgi-bin/", ".py", or ".cgi"
 bool CGI::isCGIRequest(const std::string &path)
 {
+    // Check if path starts with "/cgi-bin/" -> make sure no random or invalid directories are before cgi-bin
+    if (path.find("/cgi-bin/") != 0) {
+        return false; // Not a valid CGI path - cgi-bin is not at the beginning
+    }
     size_t start = path.find("/cgi-bin/") + 9; // +9 to skip "/cgi-bin/"
     size_t end = path.find('/', start);        // Find next '/' or end of string
     if (end == std::string::npos)
@@ -38,10 +42,7 @@ std::string CGI::resolveCGIPath(const std::string &uri)
 
     // Find where the script name ends (at .py)
     size_t scriptEnd = uri.find(".py");
-    if (scriptEnd == std::string::npos)
-    {
-        throw std::runtime_error("No .py script found in URI");
-    }
+
     scriptEnd += 3; // include the ".py"
 
     // Extract just the script part (without PATH_INFO)
@@ -56,12 +57,6 @@ std::string CGI::resolveCGIPath(const std::string &uri)
     DEBUG_MSG("URI", uri);
     DEBUG_MSG("Script URI", scriptUri);
     DEBUG_MSG("Full resolved path", fullPath);
-
-    // Check if script exists
-    if (access(fullPath.c_str(), F_OK) == -1)
-    {
-        throw std::runtime_error("Script not found: " + fullPath);
-    }
 
     return fullPath;
 }
@@ -224,8 +219,12 @@ void CGI::postRequest(int pipe_in[2])
         } 
 
         std::cerr << "CGI POST: Finished writing POST data" << std::endl;
-    }
         close(pipe_in[1]); // Close write end immediately for non-POST requests
+    }
+       else
+    {
+        close(pipe_in[1]); // Close write end immediately for non-POST requests
+    }
 }
 
 pid_t CGI::runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request)
@@ -329,6 +328,7 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
         // Close unused file descriptors in parent
         close(pipe_in[0]);  // Close read end of input pipe
         close(pipe_out[1]); // Close write end of output pipe
+        std::cout << "request.method before postRequest: " << request.method << std::endl;
         if (request.method == "POST") {
             postRequest(pipe_in);
         } else {
@@ -687,6 +687,7 @@ void CGI::checkCGIProcess(int pfds_fd)
          it != running_processes.end(); ++it)
     {
         pid_t current_pid = it->first;
+        (void)current_pid;
         CGIProcess &current_proc = it->second;
 
         DEBUG_MSG_2("CGI::checkCGIProcess checking process PID", current_pid);

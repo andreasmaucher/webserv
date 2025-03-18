@@ -7,6 +7,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <sys/stat.h>
+#include <unistd.h> 
 #include "httpRequest.hpp"
 #include "server.hpp"
 
@@ -16,6 +18,7 @@ class RequestParser {
     static void parseRawRequest(HttpRequest &request);
   private:
     static void tokenizeRequestLine(HttpRequest &request);
+    static void checkForDirectory(HttpRequest &request);
     static void tokenizeHeaders(HttpRequest &request);
     static void parseBody(HttpRequest &request);
     static void saveChunkedBody(HttpRequest &request);
@@ -28,6 +31,7 @@ class RequestParser {
     static bool validPathFormat(HttpRequest &request);
     static bool validHttpVersion(HttpRequest &request);
     static bool validHeaderFormat(std::map<std::string, std::string> &headers, const std::string &current_line, size_t colon_pos);
+    static bool isMultipartRequestComplete(const HttpRequest &request);
 };
 
 #endif

@@ -44,12 +44,10 @@ void MimeTypeMapper::extractFileExtension(HttpRequest &request)
         if (pos != std::string::npos)
         {
             request.file_extension = request.uri.substr(pos + 1);
-            request.is_cgi = isCGIRequest(request.file_extension);
             DEBUG_MSG("Extracted file extension", request.file_extension);
             return;
         }
     }
-    request.is_directory = true;
 }
 
 void MimeTypeMapper::extractFileName(HttpRequest &request)
@@ -109,28 +107,9 @@ bool MimeTypeMapper::isCGIRequest(const std::string &extension)
 bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &response)
 {
     bool is_valid = false;
+
     extractFileExtension(request);
     findContentType(request);
-
-    // Add this new condition at the start
-    //! DIRECTORY
-    if (request.is_directory)
-    {
-        if (request.is_directory && request.method == "GET" && request.route->autoindex)
-        {
-            // Always allow GET requests to directories with autoindex enabled
-            return true;
-        }
-        // delete and post are not allowed for autoindex directory requests
-        else if (request.method != "GET")
-        {
-            response.status_code = 405;  // Method Not Allowed
-            response.reason_phrase = "Method Not Allowed";
-            response.setHeader("Allow", "GET");
-            return false;
-        }
-        return true;  // Allow GET even if autoindex is off (might have index.html)
-    }
 
     if (request.is_directory)
     {

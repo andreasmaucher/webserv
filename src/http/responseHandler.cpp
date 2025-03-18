@@ -55,60 +55,47 @@ void ResponseHandler::prepareCGIErrorResponse(HttpResponse &response,
   If not, it prepares a CGI error response and finalizes it.
 */
 bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &request, HttpResponse &response) {
-
-  (void)config;
-   if (request.uri.find("/cgi-bin") != 0) {
-        return true;
+    (void)config;
+    
+    // First check if this is a potential CGI request by looking for /cgi-bin/ in the URI
+    if (request.uri.find("/cgi-bin/") == std::string::npos) {
+        return true; // Not a CGI request, continue normal processing
     }
+    
+    // Check if method is allowed for CGI
     if (request.method != "GET" && request.method != "POST" && request.method != "DELETE") {
-        std::cout << "within CGI error check 2" << std::endl;
+        DEBUG_MSG("CGI error", "Method not allowed for CGI");
         prepareCGIErrorResponse(response, 405, "Method Not Allowed", 
             "Method Not Allowed for CGI requests", "GET, POST, DELETE");
         finalizeCGIErrorResponse(fd, request, response);
         return false;
     }
-    if (CGI::isCGIRequest(request.uri)) {
-        response.is_cgi_response = true; // used to differentiate between cgi and static error pages
-    }
-    // Check for valid CGI file extension first (sends error whenever the file is not a .py)
-    if (!CGI::isCGIRequest(request.uri)) {
-      std::cout << "within CGI error check 1" << std::endl;
+    
+    // Validate the file extension (must be .py)
+    if (request.uri.find(".py") == std::string::npos && request.is_directory == false) {
+        DEBUG_MSG("CGI error", "Invalid CGI file type");
         prepareCGIErrorResponse(response, 400, "Bad Request", 
-          "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
+            "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
         finalizeCGIErrorResponse(fd, request, response);
         return false;
     }
-    // Check if script exists
-    try {
-        CGI::resolveCGIPath(request.uri);
-    } catch (const std::runtime_error& e) {
-        prepareCGIErrorResponse(response, 404, "Not Found", 
-            std::string("Script not found: ") + e.what(), "");
-        finalizeCGIErrorResponse(fd, request, response);
-        return false;
-    }
-    // Check if there's a path parameter (file reference)
-    std::string pathInfo;
-    if (!pathInfo.empty())
-    {
-        // Check if the referenced file exists in uploads directory
-        std::string filePath = "www/uploads/" + pathInfo;
-        if (access(filePath.c_str(), F_OK) == -1)
-        {
-            prepareCGIErrorResponse(response, 404, "Not Found", 
-            std::string("Referenced file not found: ") + pathInfo, "");
-            finalizeCGIErrorResponse(fd, request, response);
-            return false;
-        }
-    }
+    
+    // Mark this as a CGI response for proper handling later
+    response.is_cgi_response = true;
+    
+    // Extract path info (optional file reference after script name)
+    request.queryString = CGI::extractPathInfo(request.uri);
+    
     return true;
 }
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
+  std::cout << "Processing request" << std::endl;
+  response.is_cgi_response = false; // initialize to mute valgrind warning
   if (!handleCGIErrors(fd, config, request, response)) {
         return;
-    }
+  }
   if (!findMatchingRoute(config, request, response))
   {
     DEBUG_MSG("Route status", "No matching route found");
@@ -120,12 +107,22 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
  
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
-  
+  std::cout << "route->is_cgi: " << route->is_cgi << std::endl;
   if (route->is_cgi)
   {
+    std::cout << "Processing CGI request is cgi request is true" << std::endl;
     DEBUG_MSG_1("Request status", "Handling CGI request");
     try
     {
+      if (request.uri.find("/cgi-bin/") != std::string::npos) {
+        // If "/cgi-bin/" is found but not at the beginning of the path
+        if (request.uri.find("/cgi-bin/") != 0) {
+            response.status_code = 404;
+            response.reason_phrase = "Not Found";
+            response.body = "Invalid CGI path: /cgi-bin/ must be at the beginning of the URI";
+            return;
+        }
+      }
       CGI cgi;
       cgi.handleCGIRequest(fd, request, response);
       
@@ -212,22 +209,17 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
 
 void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
+  (void)fd;
   DEBUG_MSG("Status", "Routing request");
   MimeTypeMapper mapper;
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
   if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response))
   {
-    if (request.is_cgi)
-    { // at this point its been routed already and checked if (CGI)extension is allowed
-      DEBUG_MSG("Status", "Calling CGI handler");
-      CGI cgiHandler;
-      cgiHandler.handleCGIRequest(fd, request, response);
-    }
-    else
-    {
-      DEBUG_MSG("Status", "Calling static content handler");
-      staticContentHandler(request, response);
-    }
+    // check if the route is a CGI route, ensuring that there are no other directories before cgi-bin
+    // if there is anything before cgi-bin, it will set request.is_cgi to false and run the static content handler
+    request.is_cgi = CGI::isCGIRequest(request.file_extension);
+    DEBUG_MSG("Status", "Calling static content handler");
+    staticContentHandler(request, response);
   }
 }
 
@@ -334,24 +326,6 @@ void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpR
 void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &response)
 {
   DEBUG_MSG("Status", "Serving static file");
-  // handle directory listing first, since the next block sets response error codes
-  //  Default Index File: If directory listing is off, the server typically looks for a default index file, like index.html or index.php, in the requested directory. If found, it serves that file. If not found, it may return a 403 Forbidden or 404 Not Found response, depending on server configuration.
-  //  Directory Listing Enabled: If directory listing is enabled, and no default index file exists, the server will dynamically generate a page showing the contents of the directory, so the user can browse the files.
-  //! ANDY: setting is_directory to false here makes no sense and breaks autoindex. needs new logic
-  /* if (request.is_directory)
-  {
-    request.file_name = DEFAULT_FILE; // index of all server directories
-    request.is_directory = false;     // to avoid the fileExists directory check //! DIRECTORY WE CAN NOT DO THIS?!
-    // if (config.routes[request.uri].directory_listing) {
-    //   DEBUG_MSG("Implement directory listing" << std::endl;
-    //   //search for & serve default index file or generate dynamically
-    //   // Generate directory listing
-    // }
-    // else {
-    //   //search for & serve default index file or return error
-    //   response.status_code = 403;  // Forbidden if no file is found and listing is off or Not Found
-    // }
-  } */
   ResponseHandler::setFullPath(request);
 
   // Move directory redirect check here, before any file operations
@@ -395,7 +369,6 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
 
     // Restore path for directory listing
     request.path = original_path;
-    request.is_directory = true;
 
     if (request.route->autoindex)
     {
@@ -756,6 +729,7 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
   DEBUG_MSG("Status", "Best matching route: [" + best_match->uri + "] CGI: " + (best_match->is_cgi ? "Yes" : "No"));
   request.route = best_match;
   request.is_cgi = best_match->is_cgi;
+  std::cout << "request.is_cgi in findMatchingRoute: " << request.is_cgi << std::endl;
   return true;
 }
 

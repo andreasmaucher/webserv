@@ -27,6 +27,7 @@ struct Route
     bool directory_listing_enabled;
     bool is_cgi;
     bool autoindex;
+    std::string root_directory;
 
     Route() : directory_listing_enabled(false), is_cgi(false), autoindex(false) {}
 };

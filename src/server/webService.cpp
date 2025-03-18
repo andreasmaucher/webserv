@@ -371,7 +371,7 @@ int WebService::start()
             continue;
         }
         // sleep(1);
-        DEBUG_MSG_3("----------------------------------> Webservice::start() PASSED POLL ", "");
+       // DEBUG_MSG_3("----------------------------------> Webservice::start() PASSED POLL ", "");
         // CGI::printRunningProcesses();
 
         // Check CGI processes for timeouts
@@ -500,7 +500,9 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
     {
         WebService::printPollFdStatus(WebService::findPollFd(fd));
         DEBUG_MSG_3("RECV started at receiveRequest", fd);
+        std::cout << "RECV started at receiveRequest" << std::endl;
         int nbytes = recv(fd, buf, sizeof buf, 0);
+        std::cout << "nbytes: " << nbytes << std::endl;
         DEBUG_MSG_3("RECV done at receiveRequest", fd);
 
         DEBUG_MSG_3("Bytes received", nbytes);
