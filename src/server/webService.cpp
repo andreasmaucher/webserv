@@ -496,6 +496,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         setPollfdEventsToOut(fd);
         DEBUG_MSG_3("Switching FD to POLLOUT since request complete:", fd);
     }
+    std::cout << "complete before receivece Request: " << server.getRequestObject(fd).complete << std::endl;
     if (!server.getRequestObject(fd).complete)
     {
         WebService::printPollFdStatus(WebService::findPollFd(fd));
@@ -511,7 +512,26 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         if (nbytes == 0)
         {
             DEBUG_MSG_2("WebService::receiveRequest Receive closed succesfully", nbytes);
-            closeConnection(fd, i, server);
+            // Client closed connection - THIS IS IMPORTANT FOR BINARY FILES
+            DEBUG_MSG_2("Client closed connection", fd);
+            HttpRequest &request = server.getRequestObject(fd);
+            request.client_closed_connection = true;
+            
+            // Don't close the connection yet - let the parser decide if we have enough data
+            // Try to parse what we have
+            try {
+                RequestParser::parseRawRequest(server.getRequestObject(fd));
+                
+                // If we have a substantial amount of data and client closed connection,
+                // this might be a complete binary upload
+                if (server.getRequestObject(fd).body.size() > 1000) {
+                    // Skip closing connection for now, process what we have
+                    return;
+                }
+            } catch (const std::exception &e) {
+                // Only close if parsing really fails
+                closeConnection(fd, i, server);
+            }
         }
         else if (nbytes < 0)
         {
@@ -533,6 +553,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
                 DEBUG_MSG("Request Status", "Parsing headers");
                 try
                 {
+                    std::cout << "parseRawRequest in receiveRequest" << std::endl;
                     RequestParser::parseRawRequest(server.getRequestObject(fd));
                 }
                 catch (const std::exception &e)

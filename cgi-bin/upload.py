@@ -4,6 +4,8 @@ import sys
 import cgi
 import json
 import traceback
+import re
+import io
 from datetime import datetime
 
 #FOR TESTING UPLOAD FUNCTIONALITY: http://localhost:8080/static/upload.html
@@ -17,10 +19,117 @@ def debug_log(message):
         f.write(f"[{timestamp}] {message}\n")
     sys.stderr.write(f"{message}\n")
 
-# PNG signature verification
+# File signature verification functions
 def is_valid_png(data):
     png_signature = b'\x89PNG\r\n\x1a\n'
     return data.startswith(png_signature)
+
+def is_valid_jpeg(data):
+    # JPEG files start with FF D8 and end with FF D9
+    return data.startswith(b'\xff\xd8') and (len(data) > 4)
+
+def is_valid_gif(data):
+    # GIF files start with either "GIF87a" or "GIF89a"
+    return data.startswith(b'GIF87a') or data.startswith(b'GIF89a')
+
+def validate_binary_file(filename, data):
+    """Validate binary file based on its extension and content"""
+    ext = os.path.splitext(filename.lower())[1]
+    
+    # Check if we have enough data to validate
+    if len(data) < 8:
+        debug_log(f"WARNING: File too small ({len(data)} bytes) to validate properly")
+        return False
+    
+    # Validate based on file type
+    if ext == '.png':
+        valid = is_valid_png(data)
+        debug_log(f"PNG validation result: {valid}")
+        return valid
+    elif ext in ('.jpg', '.jpeg'):
+        valid = is_valid_jpeg(data)
+        debug_log(f"JPEG validation result: {valid}")
+        return valid
+    elif ext == '.gif':
+        valid = is_valid_gif(data)
+        debug_log(f"GIF validation result: {valid}")
+        return valid
+    
+    # For other binary formats, just check that we have data
+    return len(data) > 0
+
+def extract_file_from_multipart(environ):
+    """Low-level extraction of file from multipart/form-data without cgi module"""
+    try:
+        # This is a fallback method if cgi.FieldStorage fails
+        content_type = environ.get('CONTENT_TYPE', '')
+        if not content_type.startswith('multipart/form-data'):
+            debug_log("Not a multipart/form-data request")
+            return None, None
+        
+        # Extract boundary
+        boundary_match = re.search(r'boundary=([^;]+)', content_type)
+        if not boundary_match:
+            debug_log("No boundary found in Content-Type")
+            return None, None
+        
+        boundary = boundary_match.group(1).strip()
+        if boundary.startswith('"') and boundary.endswith('"'):
+            boundary = boundary[1:-1]
+        
+        boundary = f'--{boundary}'
+        debug_log(f"Using boundary: {boundary}")
+        
+        # Read raw POST data
+        content_length = int(environ.get('CONTENT_LENGTH', 0))
+        post_data = sys.stdin.buffer.read(content_length)
+        debug_log(f"Read {len(post_data)} bytes of raw POST data")
+        
+        # Split by boundary
+        parts = post_data.split(boundary.encode('utf-8'))
+        
+        # Look for file part
+        filename = None
+        file_data = None
+        
+        for part in parts:
+            # Skip empty parts and final boundary
+            if not part or part.strip() == b'--':
+                continue
+            
+            # Split headers and content
+            try:
+                headers_end = part.find(b'\r\n\r\n')
+                if headers_end == -1:
+                    continue
+                
+                headers = part[:headers_end].decode('utf-8', errors='ignore')
+                content = part[headers_end+4:]
+                
+                # Check if this part is a file
+                if 'filename=' in headers:
+                    # Extract filename
+                    filename_match = re.search(r'filename="([^"]+)"', headers)
+                    if filename_match:
+                        filename = filename_match.group(1)
+                        debug_log(f"Found file part with filename: {filename}")
+                        
+                        # Last 2 bytes might be \r\n, remove them if present
+                        if content.endswith(b'\r\n'):
+                            content = content[:-2]
+                        
+                        file_data = content
+                        break
+            except Exception as e:
+                debug_log(f"Error processing part: {str(e)}")
+                continue
+        
+        return filename, file_data
+    
+    except Exception as e:
+        debug_log(f"Error in extract_file_from_multipart: {str(e)}")
+        debug_log(traceback.format_exc())
+        return None, None
 
 # Log script start
 debug_log("=== UPLOAD.PY STARTING ===")
@@ -29,9 +138,6 @@ debug_log(f"CONTENT_TYPE: {os.environ.get('CONTENT_TYPE', 'Not set')}")
 debug_log(f"CONTENT_LENGTH: {os.environ.get('CONTENT_LENGTH', 'Not set')}")
 
 try:
-    # Configure cgi to handle larger uploads and disable field storage limits
-    cgi.maxlen = 20 * 1024 * 1024  # 20MB max
-    
     # Get the server's root directory from environment or use current directory
     server_root = os.environ.get('DOCUMENT_ROOT', os.getcwd())
     upload_dir = os.path.join(server_root, "www", "uploads")
@@ -55,106 +161,161 @@ try:
         }))
         sys.exit(0)
 
-    # Parse the multipart form data with proper configuration
-    debug_log("About to parse form data...")
-    form = cgi.FieldStorage(
-        keep_blank_values=True,
-        strict_parsing=False,
-        encoding='utf-8'
-    )
-    
-    debug_log(f"Form parsed. Fields: {list(form.keys())}")
-    
     response = {
         "status": "success",
         "files": []
     }
 
-    # Handle file upload
-    if "file" in form:
-        fileitem = form["file"]
-        debug_log(f"File item type: {type(fileitem)}")
-        debug_log(f"Has filename: {hasattr(fileitem, 'filename')}")
+    # Try standard cgi.FieldStorage first
+    debug_log("Attempting to parse form data with cgi.FieldStorage...")
+    try:
+        form = cgi.FieldStorage(
+            keep_blank_values=True,
+            strict_parsing=False,
+            encoding='utf-8'
+        )
         
-        if hasattr(fileitem, 'filename') and fileitem.filename:
-            # Get the filename
-            filename = os.path.basename(fileitem.filename)
-            filepath = os.path.join(upload_dir, filename)
+        debug_log(f"Form parsed. Fields: {list(form.keys())}")
+        
+        if "file" in form:
+            fileitem = form["file"]
+            debug_log(f"File item type: {type(fileitem)}")
+            debug_log(f"Has filename: {hasattr(fileitem, 'filename')}")
             
-            debug_log(f"Filename: {filename}")
-            debug_log(f"Saving file to: {filepath}")
-            
-            # Read the file data completely before writing
-            try:
-                # IMPORTANT: Read binary data in binary mode
+            if hasattr(fileitem, 'filename') and fileitem.filename:
+                # Get the filename
+                filename = os.path.basename(fileitem.filename)
+                filepath = os.path.join(upload_dir, filename)
+                
+                debug_log(f"Filename: {filename}")
+                debug_log(f"Saving file to: {filepath}")
+                
+                # Detect if this is a binary file
+                ext = os.path.splitext(filename.lower())[1]
+                is_binary = ext in ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.pdf', '.zip', '.mp3', '.mp4')
+                debug_log(f"File type: {'binary' if is_binary else 'text'}")
+                
+                # Read the file data completely before writing
                 file_data = fileitem.file.read()
                 debug_log(f"Read {len(file_data)} bytes from uploaded file")
                 
-                # For PNG files, verify the signature
-                if filename.lower().endswith('.png'):
-                    debug_log(f"PNG file detected. Checking signature...")
-                    if len(file_data) >= 8:
-                        if is_valid_png(file_data):
-                            debug_log("Valid PNG signature detected")
-                        else:
-                            debug_log("WARNING: Invalid PNG signature!")
-                            debug_log(f"First 16 bytes: {file_data[:16].hex()}")
-                            
-                            # Reject the upload if it's not a valid PNG
-                            debug_log("Rejecting invalid PNG file")
-                            print(json.dumps({
-                                "status": "error",
-                                "message": "Invalid PNG file detected. The uploaded file does not have a valid PNG signature."
-                            }))
-                            sys.exit(0)
-                    else:
-                        debug_log("WARNING: File too small to be a valid PNG")
-                        print(json.dumps({
-                            "status": "error",
-                            "message": "File too small to be a valid PNG"
-                        }))
-                        sys.exit(0)
+                # Validate binary files
+                if is_binary and not validate_binary_file(filename, file_data):
+                    debug_log("Binary file validation failed")
+                    print(json.dumps({
+                        "status": "error",
+                        "message": f"Invalid {ext[1:].upper()} file. The uploaded file does not have a valid signature."
+                    }))
+                    sys.exit(0)
                 
-                # CRITICAL: Write in binary mode with 'wb'
+                # Save file in the appropriate mode
                 with open(filepath, 'wb') as f:
                     f.write(file_data)
                 
                 file_size = os.path.getsize(filepath)
                 debug_log(f"File saved. Size on disk: {file_size} bytes")
                 
-                # For PNG files, verify the saved file
-                if filename.lower().endswith('.png'):
-                    with open(filepath, 'rb') as f:
-                        check_data = f.read(8)
-                        if is_valid_png(check_data):
-                            debug_log("Written PNG file verified successfully")
-                        else:
-                            debug_log("ERROR: Written PNG file is corrupted!")
-                            os.remove(filepath)  # Remove corrupted file
-                            print(json.dumps({
-                                "status": "error",
-                                "message": "PNG file was corrupted during upload. Please try again."
-                            }))
-                            sys.exit(0)
-                
                 response["files"].append({
                     "name": filename,
                     "size": file_size,
                     "path": f"/uploads/{filename}"
                 })
-            except Exception as file_error:
-                debug_log(f"Error processing file: {str(file_error)}")
-                debug_log(traceback.format_exc())
-                response["status"] = "error"
-                response["message"] = f"File processing error: {str(file_error)}"
+            else:
+                debug_log("File item has no filename")
+                
+                # Fall back to manual extraction
+                debug_log("Trying manual multipart extraction...")
+                filename, file_data = extract_file_from_multipart(os.environ)
+                
+                if filename and file_data:
+                    debug_log(f"Manual extraction successful: {filename} ({len(file_data)} bytes)")
+                    
+                    filepath = os.path.join(upload_dir, os.path.basename(filename))
+                    
+                    # Detect if this is a binary file
+                    ext = os.path.splitext(filename.lower())[1]
+                    is_binary = ext in ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.pdf', '.zip', '.mp3', '.mp4')
+                    
+                    # Validate binary files if possible
+                    if is_binary and not validate_binary_file(filename, file_data):
+                        debug_log("Binary file validation failed during manual extraction")
+                        print(json.dumps({
+                            "status": "error",
+                            "message": f"Invalid {ext[1:].upper()} file. The uploaded file does not have a valid signature."
+                        }))
+                        sys.exit(0)
+                    
+                    # Write file
+                    with open(filepath, 'wb') as f:
+                        f.write(file_data)
+                    
+                    file_size = os.path.getsize(filepath)
+                    debug_log(f"File saved via manual extraction. Size on disk: {file_size} bytes")
+                    
+                    response["files"].append({
+                        "name": os.path.basename(filename),
+                        "size": file_size,
+                        "path": f"/uploads/{os.path.basename(filename)}"
+                    })
+                else:
+                    response["status"] = "error"
+                    response["message"] = "No valid file found in form data"
         else:
-            debug_log("File item has no filename")
+            debug_log("No 'file' field in form data")
+            
+            # Try manual extraction as a fallback
+            debug_log("Trying manual multipart extraction...")
+            filename, file_data = extract_file_from_multipart(os.environ)
+            
+            if filename and file_data:
+                debug_log(f"Manual extraction successful: {filename} ({len(file_data)} bytes)")
+                
+                filepath = os.path.join(upload_dir, os.path.basename(filename))
+                
+                # Save file
+                with open(filepath, 'wb') as f:
+                    f.write(file_data)
+                
+                file_size = os.path.getsize(filepath)
+                debug_log(f"File saved via manual extraction. Size on disk: {file_size} bytes")
+                
+                response["files"].append({
+                    "name": os.path.basename(filename),
+                    "size": file_size,
+                    "path": f"/uploads/{os.path.basename(filename)}"
+                })
+            else:
+                response["status"] = "error"
+                response["message"] = "No file field found in form data"
+    
+    except Exception as form_error:
+        debug_log(f"Error with standard form processing: {str(form_error)}")
+        debug_log(traceback.format_exc())
+        
+        # Fall back to manual extraction
+        debug_log("Trying manual multipart extraction after standard form processing failed...")
+        filename, file_data = extract_file_from_multipart(os.environ)
+        
+        if filename and file_data:
+            debug_log(f"Manual extraction successful: {filename} ({len(file_data)} bytes)")
+            
+            filepath = os.path.join(upload_dir, os.path.basename(filename))
+            
+            # Save file
+            with open(filepath, 'wb') as f:
+                f.write(file_data)
+            
+            file_size = os.path.getsize(filepath)
+            debug_log(f"File saved via manual extraction. Size on disk: {file_size} bytes")
+            
+            response["files"].append({
+                "name": os.path.basename(filename),
+                "size": file_size,
+                "path": f"/uploads/{os.path.basename(filename)}"
+            })
+        else:
             response["status"] = "error"
-            response["message"] = "No filename provided"
-    else:
-        debug_log("No 'file' field in form data")
-        response["status"] = "error"
-        response["message"] = "No file field found in form data"
+            response["message"] = f"Form processing error: {str(form_error)}"
 
     # Output the JSON response
     print(json.dumps(response, indent=2))

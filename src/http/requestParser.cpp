@@ -144,11 +144,9 @@ bool RequestParser::mandatoryHeadersPresent(HttpRequest &request)
 // Add this new function after the parseBody function
 bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
 {
-    std::cout << "Start Multipart Request Function" << std::endl;
     // First check if it's a multipart request
     std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Type");
     if (it == request.headers.end() || it->second.find("multipart/form-data") == std::string::npos) {
-        // Not a multipart request
         return false;
     }
     
@@ -176,29 +174,25 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     }
     
     static int checkCount = 0;
-    static std::string lastRequestId;
-    
-    // Create a unique ID for this request to track retries
-    std::string currentRequestId = request.raw_request.substr(0, std::min(30, (int)request.raw_request.size()));
-    if (lastRequestId != currentRequestId) {
-        checkCount = 0;
-        lastRequestId = currentRequestId;
-    }
-    
     checkCount++;
     
     std::cout << "Checking for final boundary variants" << std::endl;
     std::cout << "Check #" << checkCount << ": Body size=" << request.body.size() 
               << ", Content-Length=" << contentLength << std::endl;
     
-    // Check for the end boundary in different formats
-    std::string endBoundary1 = "--" + boundary + "--";
-    std::string endBoundary2 = "\r\n--" + boundary + "--";
-    std::string endBoundary3 = "\n--" + boundary + "--";
+    // Check for final boundary in a binary-safe way
+    std::string endBoundary = "--" + boundary + "--";
     
-    if (request.body.find(endBoundary1) != std::string::npos ||
-        request.body.find(endBoundary2) != std::string::npos ||
-        request.body.find(endBoundary3) != std::string::npos) {
+    // Search from the end of the body, as the final boundary should be at the end
+    // Start search from last 100 bytes or so for efficiency
+    size_t searchStart = 0;
+    if (request.body.size() > 100) {
+        searchStart = request.body.size() - 100;
+    }
+    
+    // Look for the boundary marker
+    size_t pos = request.body.find(endBoundary, searchStart);
+    if (pos != std::string::npos) {
         std::cout << "Final boundary found" << std::endl;
         checkCount = 0;
         return true;
@@ -206,43 +200,38 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     
     std::cout << "Final boundary not found" << std::endl;
     
-    // IMPORTANT: Only force completion when we have nearly all the data
+    // IMPORTANT: Check if client closed connection (detected in receiveRequest)
+    // You'll need to add this property to HttpRequest class
+    if (request.client_closed_connection) {
+        std::cout << "Client closed connection, considering request complete" << std::endl;
+        checkCount = 0;
+        return true;
+    }
+    
+    // Content-Length based completion check
     if (contentLength > 0) {
         double percentReceived = (static_cast<double>(request.body.size()) / contentLength) * 100.0;
         std::cout << "Received " << percentReceived << "% of expected data" << std::endl;
         
-        // We consider the request complete only if we've received at least 95% of the data
+        // If we've received at least 95% of the expected data, consider it complete
         if (percentReceived >= 95.0) {
-            std::cout << "Received at least 95% of Content-Length, forcing completion" << std::endl;
+            std::cout << "Received at least 95% of Content-Length, considering request complete" << std::endl;
             checkCount = 0;
             return true;
         }
     }
     
-    // Additional safety limit - if we've run for too many iterations AND received a significant portion
-    if (checkCount > 100 && contentLength > 0) {
+    // Emergency detection for binary files when client closes connection
+    if (checkCount > 20 && contentLength > 0) {
         double percentReceived = (static_cast<double>(request.body.size()) / contentLength) * 100.0;
-        if (percentReceived >= 90.0) {
-            std::cout << "Check count exceeded 100 with 90% data, forcing completion" << std::endl;
+        if (percentReceived > 50.0) {
+            std::cout << "Multiple checks with substantial data, forcing completion" << std::endl;
             checkCount = 0;
             return true;
         }
     }
     
-    // Extreme safety valve - prevent infinite loops for malformed requests
-    // but ONLY after we've received at least 50% of the data
-    if (checkCount > 200 && contentLength > 0) {
-        double percentReceived = (static_cast<double>(request.body.size()) / contentLength) * 100.0;
-        if (percentReceived >= 50.0) {
-            std::cout << "Emergency completion after 200 checks with 50% data" << std::endl;
-            checkCount = 0;
-            return true;
-        }
-    }
-    
-    // Print detailed info for debugging
     std::cout << "multipart body incomplete 2" << std::endl;
-    std::cout << "End Multipart Request Function" << std::endl;
     return false;
 }
 
@@ -284,6 +273,7 @@ void RequestParser::parseBody(HttpRequest &request)
                     std::cout << "multipart body incomplete in parseBody" << std::endl;
                     request.complete = false;
                 }
+                std::cout << "end of parseBody" << std::endl;
                 return; // Return early for multipart requests
             }
             

@@ -99,6 +99,7 @@ public:
   bool headers_parsed;
   ChunkState chunk_state;
   int clientSocket;
+  bool client_closed_connection; // Set to true when recv() returns 0
 };
 
 #endif
