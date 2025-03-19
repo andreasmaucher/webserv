@@ -460,7 +460,8 @@ void CGI::killCGI(pid_t pid, CGIProcess &proc)
     if ((now - proc.last_update_time) > CGI_TIMEOUT)
     {
         DEBUG_MSG_2("CGI timeout reached for pid", pid);
-
+        close(proc.output_pipe);
+        WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
         // Kill the process
         kill(pid, SIGKILL);
         // Wait for it to be reaped
@@ -855,128 +856,35 @@ bool CGI::isfdOpen(int fd)
 
 void CGI::checkAllCGIProcesses()
 {
-    for (std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
-         it != running_processes.end();
-         /* no increment */)
-    {
+    time_t current_time = time(NULL);
+    
+    std::map<pid_t, CGIProcess>::iterator it = running_processes.begin();
+    while (it != running_processes.end()) {
         pid_t pid = it->first;
         CGIProcess &proc = it->second;
-        bool shouldErase = false;
+        
+        if ((current_time - proc.last_update_time) > CGI_TIMEOUT) {
+            DEBUG_MSG("CGI timeout detected for pid", pid);
+            
+            // Force kill the process
+            kill(pid, SIGKILL);
+            waitpid(pid, NULL, 0);
+            
+            // Close file descriptors
+            if (proc.output_pipe > 0) close(proc.output_pipe);
+            if (proc.response_fd > 0) close(proc.response_fd);
+            if (proc.response) delete proc.response;
 
-        // First check if process has terminated
-        int status;
-        pid_t waitResult = waitpid(pid, &status, WNOHANG);
-
-        if (waitResult > 0)
-        {
-            // Process has terminated
-            DEBUG_MSG_2("CGI process terminated, pid", pid);
-            proc.process_finished = true;
-
-            if (WIFEXITED(status))
-            {
-                proc.finished_success = (WEXITSTATUS(status) == 0);
-                DEBUG_MSG_2("CGI process exit code", WEXITSTATUS(status));
-            }
-            else
-            {
-                proc.finished_success = false;
-            }
-
-            // Need to read any remaining data from the pipe
-            if (proc.output_pipe >= 0)
-            {
-                // Read any remaining data
-                readCGI(pid, proc);
-
-                // Close and remove from poll set
-                close(proc.output_pipe);
-                WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
-                WebService::cgi_fd_to_http_response.erase(proc.output_pipe);
-                // proc.output_pipe = -1;
-            }
-
-            // Send response if needed
-            if (!proc.response->complete)
-            {
-                sendCGIResponse(proc);
-                proc.response->complete = true;
-            }
-
-            // Clean up response fd
-            if (proc.response_fd >= 0)
-            {
-                WebService::deleteFromPfdsVecForCGI(proc.response_fd);
-                // WebService::fd_to_server.erase(proc.response_fd);
-                // proc.response_fd = -1;
-            }
-
-            shouldErase = true;
-        }
-        else if (waitResult < 0 && errno != ECHILD)
-        {
-            // Error occurred with waitpid
-            DEBUG_MSG_2("waitpid error", strerror(errno));
-        }
-
-        // Check for timeout (processes running too long)
-        time_t now = time(NULL);
-        if (!proc.process_finished && (now - proc.last_update_time) > CGI_TIMEOUT)
-        {
-            DEBUG_MSG_2("CGI timeout for pid", pid);
-
-            // Kill the process
-            if (kill(pid, SIGKILL) == 0)
-            {
-                // Successfully sent kill signal, now wait for it
-                waitpid(pid, NULL, 0);
-            }
-
-            // Set up error response
-            proc.process_finished = true;
-            proc.finished_success = false;
-
-            // Send error response if needed
-            if (!proc.response->complete)
-            {
-                proc.response->status_code = 504;
-                proc.response->reason_phrase = "Gateway Timeout";
-                sendCGIResponse(proc);
-                proc.response->complete = true;
-            }
-
-            // Clean up fds
-            if (proc.output_pipe >= 0)
-            {
-                close(proc.output_pipe);
-                WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
-                WebService::cgi_fd_to_http_response.erase(proc.output_pipe);
-                proc.output_pipe = -1;
-            }
-
-            if (proc.response_fd >= 0)
-            {
-                WebService::deleteFromPfdsVecForCGI(proc.response_fd);
-                WebService::fd_to_server.erase(proc.response_fd);
-                proc.response_fd = -1;
-            }
-
-            shouldErase = true;
-        }
-
-        // Now handle iterator - erase or increment
-        if (shouldErase)
-        {
-            // Free memory
-            delete proc.response;
-
-            // Remove from map
-            std::map<pid_t, CGIProcess>::iterator current = it;
+            
+            // Remove from tracking structures
+            WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+            WebService::deleteFromPfdsVecForCGI(proc.response_fd);
+            
+            // In C++98, erase() returns void, not an iterator
+            std::map<pid_t, CGIProcess>::iterator temp = it;
             ++it;
-            running_processes.erase(current);
-        }
-        else
-        {
+            running_processes.erase(temp);
+        } else {
             ++it;
         }
     }
