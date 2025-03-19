@@ -71,14 +71,23 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
         return false;
     }
     
-    // Validate the file extension (must be .py)
-    if (request.uri.find(".py") == std::string::npos && request.is_directory == false) {
-        DEBUG_MSG("CGI error", "Invalid CGI file type");
-        prepareCGIErrorResponse(response, 400, "Bad Request", 
-            "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
-        finalizeCGIErrorResponse(fd, request, response);
-        return false;
-    }
+    // Validate that the file extension is ".py"
+    if (!request.is_directory) {
+      std::string extension;
+      size_t dotPos = request.uri.find_last_of('.');
+      
+      if (dotPos != std::string::npos) {
+          extension = request.uri.substr(dotPos);
+      }
+
+      if (extension != ".py") {
+          DEBUG_MSG("CGI error", "Invalid CGI file type");
+          prepareCGIErrorResponse(response, 400, "Bad Request", 
+              "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
+          finalizeCGIErrorResponse(fd, request, response);
+          return false;
+      }
+}
     
     // Mark this as a CGI response for proper handling later
     response.is_cgi_response = true;
