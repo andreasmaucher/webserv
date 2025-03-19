@@ -462,10 +462,15 @@ void CGI::killCGI(pid_t pid, CGIProcess &proc)
         DEBUG_MSG_2("CGI timeout reached for pid", pid);
         close(proc.output_pipe);
         WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
+        
+        // Send timeout response to client before closing
+        
+        
         // Kill the process
         kill(pid, SIGKILL);
         // Wait for it to be reaped
         waitpid(pid, NULL, 0);
+        // exit(1);
 
         // Same cleanup as above
         proc.process_finished = true;
@@ -872,6 +877,17 @@ void CGI::checkAllCGIProcesses()
             
             // Close file descriptors
             if (proc.output_pipe > 0) close(proc.output_pipe);
+            if (proc.response_fd > 0 && isfdOpen(proc.response_fd)) {
+            std::string timeout_response = constructErrorResponse(504, "CGI Process Timeout - Process exceeded maximum allowed execution time");
+            
+            // Send the response directly to the client
+            ssize_t bytes_sent = send(proc.response_fd, timeout_response.c_str(), timeout_response.size(), 0);
+            if (bytes_sent == -1) {
+                DEBUG_MSG("Error sending timeout response", strerror(errno));
+            } else {
+                DEBUG_MSG_2("Sent timeout response, bytes:", bytes_sent);
+            }
+        }
             if (proc.response_fd > 0) close(proc.response_fd);
             if (proc.response) delete proc.response;
 
