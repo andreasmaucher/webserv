@@ -32,6 +32,7 @@ class RequestParser {
     static bool validHttpVersion(HttpRequest &request);
     static bool validHeaderFormat(std::map<std::string, std::string> &headers, const std::string &current_line, size_t colon_pos);
     static bool isMultipartRequestComplete(const HttpRequest &request);
+    static bool processMultipartRequest(HttpRequest &request);
 };
 
 #endif

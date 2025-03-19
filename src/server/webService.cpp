@@ -484,7 +484,7 @@ int WebService::start()
         // }
     }
 }
-
+/* 
 // implement timeout for recv()?
 void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
@@ -585,6 +585,130 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
                 DEBUG_MSG_3("Request complete", "Ready to process");
                 setPollfdEventsToOut(fd);
                 DEBUG_MSG_3("Request is complete? ", server.getRequestObject(fd).complete);
+            }
+        }
+    }
+} */
+
+//! ANDY new for binary files
+void WebService::receiveRequest(int &fd, size_t &i, Server &server)
+{
+    HttpRequest &request = server.getRequestObject(fd);
+    
+    // Check if we're handling a binary upload 
+    bool is_binary_upload = false;
+    if (request.headers_parsed && 
+        request.headers.find("Content-Type") != request.headers.end() && 
+        request.headers["Content-Type"].find("multipart/form-data") != std::string::npos) {
+        is_binary_upload = true;
+    }
+    
+    if (request.complete)
+    {
+        // Request is complete, so switch event monitoring to POLLOUT.
+        setPollfdEventsToOut(fd);
+        return;
+    }
+    
+    std::cout << "complete before receivece Request: " << request.complete << std::endl;
+    if (!request.complete)
+    {
+        WebService::printPollFdStatus(WebService::findPollFd(fd));
+        DEBUG_MSG_3("RECV started at receiveRequest", fd);
+        std::cout << "RECV started at receiveRequest" << std::endl;
+        
+        // For binary uploads, use a larger buffer for better performance
+        char* recv_buffer = buf;
+        size_t buffer_size = sizeof(buf);
+        
+        // Use a larger buffer for binary uploads
+        char large_buffer[65536]; // 64KB buffer for binary data
+        if (is_binary_upload) {
+            recv_buffer = large_buffer;
+            buffer_size = sizeof(large_buffer);
+        }
+        
+        int nbytes = recv(fd, recv_buffer, buffer_size, 0);
+        std::cout << "nbytes: " << nbytes << std::endl;
+        DEBUG_MSG_3("RECV done at receiveRequest", fd);
+        DEBUG_MSG_3("Bytes received", nbytes);
+        
+        if (nbytes <= 0)
+        {
+            if (nbytes == 0) {
+                DEBUG_MSG_2("Client closed connection", fd);
+                request.client_closed_connection = true;
+                
+                // For binary uploads, we need to be more careful
+                if (is_binary_upload) {
+                    // If we've received a substantial amount of data, try to process it
+                    if (request.body.size() > 1000) {
+                        try {
+                            RequestParser::parseRawRequest(request);
+                            // Don't close the connection yet - let the parser mark it complete
+                            return;
+                        } catch (const std::exception &e) {
+                            // Only close if parsing really fails
+                            closeConnection(fd, i, server);
+                        }
+                    } else {
+                        closeConnection(fd, i, server);
+                    }
+                } else {
+                    closeConnection(fd, i, server);
+                }
+            } else {
+                DEBUG_MSG_2("Receive failed, error", strerror(errno));
+                closeConnection(fd, i, server);
+            }
+        }
+        else
+        {
+            // For binary uploads, we need to be careful with null bytes
+            // Append using data() and size() instead of string methods
+            request.raw_request.append(recv_buffer, nbytes);
+            
+            DEBUG_MSG("Received data from fd", fd);
+            
+            // Try to parse headers if we haven't yet
+            if (!request.headers_parsed &&
+                request.raw_request.find("\r\n\r\n") != std::string::npos)
+            {
+                DEBUG_MSG("Request Status", "Parsing headers");
+                try
+                {
+                    std::cout << "parseRawRequest in receiveRequest" << std::endl;
+                    RequestParser::parseRawRequest(request);
+                }
+                catch (const std::exception &e)
+                {
+                    DEBUG_MSG_2("Error parsing request", e.what());
+                    closeConnection(fd, i, server);
+                    return;
+                }
+            }
+
+            // If headers are parsed, try to parse body
+            if (request.headers_parsed)
+            {
+                try
+                {
+                    RequestParser::parseRawRequest(request);
+                }
+                catch (const std::exception &e)
+                {
+                    DEBUG_MSG_2("Error parsing body", e.what());
+                    closeConnection(fd, i, server);
+                    return;
+                }
+            }
+
+            DEBUG_MSG_3("Current body size", request.body.size());
+            if (request.complete)
+            {
+                DEBUG_MSG_3("Request complete", "Ready to process");
+                setPollfdEventsToOut(fd);
+                DEBUG_MSG_3("Request is complete? ", request.complete);
             }
         }
     }

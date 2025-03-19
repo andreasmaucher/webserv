@@ -329,3 +329,36 @@ except Exception as e:
     }, indent=2))
 
 debug_log("Upload script ending...")
+
+# Add this function to debug binary content
+def debug_binary_content(data, filename):
+    """Log information about the binary content"""
+    debug_log(f"Binary content length: {len(data)} bytes")
+    
+    # Check first few bytes
+    if len(data) > 16:
+        hex_bytes = ' '.join(f'{b:02x}' for b in data[:16])
+        debug_log(f"First 16 bytes: {hex_bytes}")
+    
+    # Check for common image signatures
+    if filename.lower().endswith('.png'):
+        png_signature = b'\x89PNG\r\n\x1a\n'
+        if data.startswith(png_signature):
+            debug_log("PNG signature detected: Valid")
+        else:
+            debug_log("PNG signature missing: INVALID")
+            hex_bytes = ' '.join(f'{b:02x}' for b in data[:8])
+            debug_log(f"Expected: 89 50 4E 47 0D 0A 1A 0A, Got: {hex_bytes}")
+    
+    elif filename.lower().endswith(('.jpg', '.jpeg')):
+        if data.startswith(b'\xff\xd8'):
+            debug_log("JPEG signature detected: Valid")
+        else:
+            debug_log("JPEG signature missing: INVALID")
+    
+    # Add file size check
+    if request.headers.get('Content-Length'):
+        expected_size = int(request.headers.get('Content-Length'))
+        actual_size = len(data)
+        percent_received = (actual_size / expected_size) * 100
+        debug_log(f"Received {actual_size} of {expected_size} bytes ({percent_received:.1f}%)")

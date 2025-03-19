@@ -141,10 +141,9 @@ bool RequestParser::mandatoryHeadersPresent(HttpRequest &request)
   return true;
 }
 
-// Add this new function after the parseBody function
 bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
 {
-    // First check if it's a multipart request
+    // check if it's a multipart request
     std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Type");
     if (it == request.headers.end() || it->second.find("multipart/form-data") == std::string::npos) {
         return false;
@@ -180,163 +179,140 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     std::cout << "Check #" << checkCount << ": Body size=" << request.body.size() 
               << ", Content-Length=" << contentLength << std::endl;
     
-    // Check for final boundary in a binary-safe way
-    std::string endBoundary = "--" + boundary + "--";
-    
-    // Search from the end of the body, as the final boundary should be at the end
-    // Start search from last 100 bytes or so for efficiency
-    size_t searchStart = 0;
-    if (request.body.size() > 100) {
-        searchStart = request.body.size() - 100;
-    }
-    
-    // Look for the boundary marker
-    size_t pos = request.body.find(endBoundary, searchStart);
-    if (pos != std::string::npos) {
-        std::cout << "Final boundary found" << std::endl;
+    // Check if the Content-Length has been fully received
+    if (contentLength > 0 && request.body.size() >= contentLength) {
+        std::cout << "Full Content-Length received, marking as complete" << std::endl;
         checkCount = 0;
         return true;
     }
     
-    std::cout << "Final boundary not found" << std::endl;
+    // Check for various forms of the boundary to handle different line endings
+    std::vector<std::string> possibleBoundaries;
+    possibleBoundaries.push_back("--" + boundary + "--\r\n");     // Standard final boundary
+    possibleBoundaries.push_back("--" + boundary + "--");         // Final boundary without newline
+    possibleBoundaries.push_back("\r\n--" + boundary + "--\r\n"); // With preceding newline
+    possibleBoundaries.push_back("\r\n--" + boundary + "--");     // Partial variant
     
-    // IMPORTANT: Check if client closed connection (detected in receiveRequest)
-    // You'll need to add this property to HttpRequest class
-    if (request.client_closed_connection) {
-        std::cout << "Client closed connection, considering request complete" << std::endl;
-        checkCount = 0;
-        return true;
+    // For binary-safe search, we'll check the last part of the body
+    // Binary data might contain sequences that look like boundaries
+    const size_t SEARCH_LENGTH = 256; // Look in the last 256 bytes
+    std::string lastPart;
+    
+    if (request.body.size() > SEARCH_LENGTH) {
+        lastPart = request.body.substr(request.body.size() - SEARCH_LENGTH);
+    } else {
+        lastPart = request.body;
     }
     
-    // Content-Length based completion check
-    if (contentLength > 0) {
-        double percentReceived = (static_cast<double>(request.body.size()) / contentLength) * 100.0;
-        std::cout << "Received " << percentReceived << "% of expected data" << std::endl;
-        
-        // If we've received at least 95% of the expected data, consider it complete
-        if (percentReceived >= 95.0) {
-            std::cout << "Received at least 95% of Content-Length, considering request complete" << std::endl;
+    // Check each possible boundary variant
+    for (size_t i = 0; i < possibleBoundaries.size(); i++) {
+        if (lastPart.find(possibleBoundaries[i]) != std::string::npos) {
+            std::cout << "Found final boundary variant #" << i << std::endl;
             checkCount = 0;
             return true;
         }
     }
     
-    // Emergency detection for binary files when client closes connection
-    if (checkCount > 20 && contentLength > 0) {
-        double percentReceived = (static_cast<double>(request.body.size()) / contentLength) * 100.0;
-        if (percentReceived > 50.0) {
-            std::cout << "Multiple checks with substantial data, forcing completion" << std::endl;
-            checkCount = 0;
-            return true;
-        }
+    // Safety check: If we've checked many times, assume it's complete
+    // This prevents hanging on large files
+    if (checkCount > 100 || (request.client_closed_connection && request.body.size() > 1000)) {
+        std::cout << "Forcing completion after " << checkCount << " checks" << std::endl;
+        checkCount = 0;
+        return true;
     }
     
-    std::cout << "multipart body incomplete 2" << std::endl;
     return false;
 }
 
-// define MAX_BODY_SIZE in requestParser.hpp or in config file? 1MB in NGINX
+//! NEW to handle binary data properly
+// First, modify parseBody to handle binary data properly
 void RequestParser::parseBody(HttpRequest &request)
 {
-  DEBUG_MSG("Parsing body...", "");
-    // If we expect a body (based on headers)
+    DEBUG_MSG("Parsing body...", "");
+    
     std::cout << "parsing body" << std::endl;
-    if (isBodyExpected(request))
-    {
-        std::cout << "isBodyExpected true within parseBody" << std::endl;
-        size_t content_length = 0;
-        std::istringstream(request.headers["Content-Length"]) >> content_length;
-        
-        DEBUG_MSG("Expected Content-Length", content_length);
-        DEBUG_MSG("Current body size", request.body.size());
-        
-        // Calculate remaining data after headers
-        size_t headers_end = request.raw_request.find("\r\n\r\n");
-        if (headers_end != std::string::npos)
-        {
-            headers_end += 4; // Move past \r\n\r\n
-            std::string body_data = request.raw_request.substr(headers_end);
-            request.body = body_data;
-            
-            // Special handling for multipart/form-data (used by file uploads)
-            std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Type");
-            if (it != request.headers.end() && it->second.find("multipart/form-data") != std::string::npos) {
-                DEBUG_MSG("Multipart form data detected", it->second);
-                
-                // Check if we have received the final boundary
-                if (isMultipartRequestComplete(request)) {
-                    request.complete = true;
-                    std::cout << "multipart body complete" << std::endl;
-                    DEBUG_MSG("Multipart request complete", "");
-                }else {
-                    DEBUG_MSG("Multipart request incomplete", "Waiting for final boundary");
-                    std::cout << "multipart body incomplete in parseBody" << std::endl;
-                    request.complete = false;
-                }
-                std::cout << "end of parseBody" << std::endl;
-                return; // Return early for multipart requests
-            }
-            
-            // Normal Content-Length check for non-multipart requests
-            if (request.body.length() >= content_length) // Changed from == to >=
-            {
-                request.complete = true;
-                std::cout << "body complete" << std::endl;
-                DEBUG_MSG("Body complete", "");
-            }
-            else
-            {
-              DEBUG_MSG("Body incomplete", "Waiting for more data");
-                std::cout << "body incomplete" << std::endl;
-                request.complete = false;
-            }
-        }
-    }
-    else
+    if (!isBodyExpected(request))
     {
         request.complete = true;
         DEBUG_MSG("No body expected", "");
+        return;
     }
-  //! ANDY edit to allow .png uploads
-    /* DEBUG_MSG("Parsing body...", "");
-    // If we expect a body (based on headers)
-    std::cout << "parsing body" << std::endl;
-    if (isBodyExpected(request))
-    {
-        size_t content_length = 0;
+    
+    // Get content length
+    size_t content_length = 0;
+    if (request.headers.find("Content-Length") != request.headers.end()) {
         std::istringstream(request.headers["Content-Length"]) >> content_length;
+    }
+    
+    DEBUG_MSG("Expected Content-Length", content_length);
+    DEBUG_MSG("Current body size", request.body.size());
+    
+    // Check if this is a multipart form upload
+    bool is_multipart = false;
+    std::map<std::string, std::string>::const_iterator it = request.headers.find("Content-Type");
+    if (it != request.headers.end() && it->second.find("multipart/form-data") != std::string::npos) {
+        is_multipart = true;
+        DEBUG_MSG("Multipart form data detected", it->second);
+    }
+    
+    // Extract body data from raw_request and APPEND to existing body
+    size_t headers_end = request.raw_request.find("\r\n\r\n");
+    if (headers_end != std::string::npos) {
+        headers_end += 4; // Move past \r\n\r\n
         
-        DEBUG_MSG("Expected Content-Length", content_length);
-        DEBUG_MSG("Current body size", request.body.size());
+        // Calculate how much new data we have
+        if (request.position < headers_end) {
+            request.position = headers_end; // Skip the headers if not already skipped
+        }
         
-        // Calculate remaining data after headers
-        size_t headers_end = request.raw_request.find("\r\n\r\n");
-        if (headers_end != std::string::npos)
-        {
-            headers_end += 4; // Move past \r\n\r\n
-            std::string body_data = request.raw_request.substr(headers_end);
-            request.body = body_data;
+        // Append the new data to the existing body
+        if (request.position < request.raw_request.size()) {
+            size_t new_data_size = request.raw_request.size() - request.position;
+            std::cout << "Appending " << new_data_size << " bytes to body" << std::endl;
             
-            // Check if we have received all the data
-            if (request.body.length() == content_length)
-            {
+            // Append the new data to the body
+            request.body.append(request.raw_request.data() + request.position, new_data_size);
+            request.position = request.raw_request.size();
+        }
+        
+        std::cout << "Body size now: " << request.body.size() << " of " << content_length << std::endl;
+        
+        // For multipart requests, check if complete
+        if (is_multipart) {
+            bool is_complete = isMultipartRequestComplete(request);
+            request.complete = is_complete;
+            if (is_complete) {
+                std::cout << "multipart body complete" << std::endl;
+                DEBUG_MSG("Multipart request complete", "");
+            } else {
+                std::cout << "multipart body incomplete" << std::endl;
+                DEBUG_MSG("Multipart request incomplete", "");
+            }
+            return;
+        }
+        
+        // For regular requests, check content-length
+        if (content_length > 0) {
+            if (request.body.size() >= content_length) {
                 request.complete = true;
                 std::cout << "body complete" << std::endl;
                 DEBUG_MSG("Body complete", "");
-            }
-            else
-            {
+            } else {
                 DEBUG_MSG("Body incomplete", "Waiting for more data");
                 std::cout << "body incomplete" << std::endl;
                 request.complete = false;
             }
+        } else {
+            // No content-length but we have a body, assume it's complete
+            request.complete = true;
         }
     }
-    else
-    {
-        request.complete = true;
-        DEBUG_MSG("No body expected", "");
-    } */
+}
+
+// new method to properly handle multipart data
+bool RequestParser::processMultipartRequest(HttpRequest &request)
+{
+    return isMultipartRequestComplete(request);
 }
 
 void RequestParser::saveChunkedBody(HttpRequest &request)
