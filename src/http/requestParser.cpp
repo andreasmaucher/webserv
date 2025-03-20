@@ -37,13 +37,11 @@ void RequestParser::checkForDirectory(HttpRequest &request)
 
 void RequestParser::parseRawRequest(HttpRequest &request)
 {
-  std::cout << "beginning function parseRawRequest" << std::endl;
   try
   {
     // Check if we have a complete request (headers end with \r\n\r\n)
     if (request.raw_request.find("\r\n\r\n") == std::string::npos)
     {
-      std::cout << "request incomplete, waiting for more data..." << std::endl;
       DEBUG_MSG("Request incomplete, waiting for more data...", "");
       return; // Wait for more data
     }
@@ -51,7 +49,6 @@ void RequestParser::parseRawRequest(HttpRequest &request)
     // parse until headers only in 1st iteration
     if (request.headers_parsed == false)
     {
-      std::cout << "headers_parsed is false" << std::endl;
       DEBUG_MSG("Complete request received, parsing...", +"");
       DEBUG_MSG("Raw request:\n[", request.raw_request);
       DEBUG_MSG("]", "");
@@ -67,12 +64,10 @@ void RequestParser::parseRawRequest(HttpRequest &request)
     }
 
     DEBUG_MSG("Parsing body...", "");
-    std::cout << "before parseBody called" << std::endl;
     return RequestParser::parseBody(request);
   }
   catch (std::exception &e)
   {
-    std::cout << "error in parseRawRequest" << std::endl;
     DEBUG_MSG("Error: ", e.what());
     DEBUG_MSG("HTTP Error Code: ", request.error_code);
 
@@ -230,7 +225,6 @@ void RequestParser::parseBody(HttpRequest &request)
 {
     DEBUG_MSG("Parsing body...", "");
     
-    std::cout << "parsing body" << std::endl;
     if (!isBodyExpected(request))
     {
         request.complete = true;

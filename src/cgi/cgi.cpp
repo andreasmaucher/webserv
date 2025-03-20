@@ -328,7 +328,6 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
         // Close unused file descriptors in parent
         close(pipe_in[0]);  // Close read end of input pipe
         close(pipe_out[1]); // Close write end of output pipe
-        std::cout << "request.method before postRequest: " << request.method << std::endl;
         if (request.method == "POST") {
             postRequest(pipe_in);
         } else {

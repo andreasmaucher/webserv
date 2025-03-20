@@ -100,14 +100,12 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
 
 void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "Processing request" << std::endl;
   response.is_cgi_response = false; // initialize to mute valgrind warning
   if (!handleCGIErrors(fd, config, request, response)) {
         return;
   }
   if (!findMatchingRoute(config, request, response))
   {
-    std::cout << "No matching route found AAAAAAA" << std::endl;
     DEBUG_MSG("Route status", "No matching route found");
     response.status_code = 404;
     return;
@@ -117,10 +115,8 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
  
   DEBUG_MSG("Route found", route->uri);
   DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
-  std::cout << "route->is_cgi: " << route->is_cgi << std::endl;
   if (route->is_cgi)
   {
-    std::cout << "Processing CGI request is cgi request is true" << std::endl;
     DEBUG_MSG_1("Request status", "Handling CGI request");
     try
     {
@@ -739,7 +735,6 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
   DEBUG_MSG("Status", "Best matching route: [" + best_match->uri + "] CGI: " + (best_match->is_cgi ? "Yes" : "No"));
   request.route = best_match;
   request.is_cgi = best_match->is_cgi;
-  std::cout << "request.is_cgi in findMatchingRoute: " << request.is_cgi << std::endl;
   return true;
 }
 

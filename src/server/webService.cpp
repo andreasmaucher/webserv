@@ -611,12 +611,10 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         return;
     }
     
-    std::cout << "complete before receivece Request: " << request.complete << std::endl;
     if (!request.complete)
     {
         WebService::printPollFdStatus(WebService::findPollFd(fd));
         DEBUG_MSG_3("RECV started at receiveRequest", fd);
-        std::cout << "RECV started at receiveRequest" << std::endl;
         
         // For binary uploads, use a larger buffer for better performance
         char* recv_buffer = buf;
@@ -630,7 +628,6 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         }
         
         int nbytes = recv(fd, recv_buffer, buffer_size, 0);
-        std::cout << "nbytes: " << nbytes << std::endl;
         DEBUG_MSG_3("RECV done at receiveRequest", fd);
         DEBUG_MSG_3("Bytes received", nbytes);
         
@@ -678,7 +675,6 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
                 DEBUG_MSG("Request Status", "Parsing headers");
                 try
                 {
-                    std::cout << "parseRawRequest in receiveRequest" << std::endl;
                     RequestParser::parseRawRequest(request);
                 }
                 catch (const std::exception &e)
