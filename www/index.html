@@ -46,7 +46,7 @@
             backdrop-filter: blur(10px);
             border-radius: 15px;
             padding: 20px;
-            width: 200px;
+            width: 250px;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             border: 2px solid rgba(255, 255, 255, 0.2);
         }
@@ -57,20 +57,43 @@
         }
 
         .icon {
-            font-size: 3em;
-            margin-bottom: 10px;
+            font-size: 4em;
+            margin-bottom: 15px;
         }
 
         a {
             color: white;
             text-decoration: none;
-            font-size: 1.2em;
+            font-size: 1.5em;
             font-weight: bold;
         }
 
         a:hover {
             text-decoration: underline;
             color: #ffff00;
+        }
+        
+        .card-description {
+            margin-top: 10px;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .sparkle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: white;
+            pointer-events: none;
+            opacity: 0;
+            animation: sparkle 2s ease-in-out infinite;
+        }
+        
+        @keyframes sparkle {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(0); opacity: 0; }
         }
     </style>
 </head>
@@ -81,19 +104,13 @@
         <div class="directory-card">
             <div class="icon">📸</div>
             <a href="/images">Images</a>
-            <p>Your magical collection of visuals</p>
-        </div>
-
-        <div class="directory-card">
-            <div class="icon">📁</div>
-            <a href="/static">Static</a>
-            <p>Stable reality anchors</p>
+            <p class="card-description">Your magical collection of visuals and photographs</p>
         </div>
 
         <div class="directory-card">
             <div class="icon">⬆️</div>
-            <a href="/uploads">Uploads</a>
-            <p>Portal to new dimensions</p>
+            <a href="/uploads">File Portal</a>
+            <p class="card-description">Portal to upload and download your cosmic files</p>
         </div>
     </div>
 
@@ -107,6 +124,20 @@
                 card.style.transform = `perspective(1000px) rotateY(${x/20}deg) rotateX(${-y/20}deg)`;
             });
         });
+        
+        function createSparkles() {
+            const container = document.querySelector('.directory-container');
+            for (let i = 0; i < 20; i++) {
+                const sparkle = document.createElement('div');
+                sparkle.classList.add('sparkle');
+                sparkle.style.left = Math.random() * 100 + '%';
+                sparkle.style.top = Math.random() * 100 + '%';
+                sparkle.style.animationDelay = Math.random() * 2 + 's';
+                container.appendChild(sparkle);
+            }
+        }
+        
+        window.addEventListener('load', createSparkles);
     </script>
 </body>
 </html>
