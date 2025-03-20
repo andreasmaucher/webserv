@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/14 21:09:22 by mrizakov         ###   ########.fr       */
+/*   Updated: 2025/03/19 23:30:24 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,6 +39,7 @@ void WebService::cleanup()
     for (size_t i = 0; i < pfds_vec.size(); i++)
     {
         close(pfds_vec[i].fd);
+        deleteFromPfdsVecForCGI(pfds_vec[i].fd);
     }
     pfds_vec.clear();
 
@@ -359,11 +360,11 @@ int WebService::start()
     {
         // skip_to_next_poll = false; // Flag to control outer loop skip
 
-        // if (!CGI::running_processes.empty())
-        // {
-        //     CGI::checkAllCGIProcesses();
-        //     // printPollFds();
-        // }
+        if (!CGI::running_processes.empty())
+        {
+            CGI::checkAllCGIProcesses();
+            // printPollFds();
+        }
         int poll_count = poll(pfds_vec.data(), pfds_vec.size(), POLL_TIMEOUT);
         if (poll_count == -1)
         {
