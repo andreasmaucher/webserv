@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/19 23:30:24 by mrizakov         ###   ########.fr       */
+/*   Updated: 2025/03/20 23:49:23 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -130,12 +130,14 @@ int WebService::get_listener_socket(const std::string &port)
     return listener_fd;
 }
 
-void WebService::addToPfdsVector(int new_fd, bool isCGIOutput)
+int WebService::addToPfdsVector(int new_fd, bool isCGIOutput)
 {
     // Reserve extra space if needed...
-    if (pfds_vec.size() == pfds_vec.capacity())
+    if (pfds_vec.size() >= pfds_vec.capacity())
     {
-        pfds_vec.reserve(pfds_vec.capacity() * 2 + 1);
+        size_t new_capacity = pfds_vec.capacity() * 2 + 1;
+        pfds_vec.reserve(new_capacity);
+        DEBUG_MSG_1("Increased vector capacity to", new_capacity);
     }
 
     struct pollfd new_pollfd;
@@ -154,6 +156,9 @@ void WebService::addToPfdsVector(int new_fd, bool isCGIOutput)
     pfds_vec.push_back(new_pollfd);
     DEBUG_MSG_1("Added new fd to pfds_vec", new_fd);
     DEBUG_MSG_1("Current pfds_vec size", pfds_vec.size());
+    
+    // Return the index of the newly added element
+    return pfds_vec.size() - 1;
 }
 
 void WebService::deleteFromPfdsVec(int &fd, size_t &i)
