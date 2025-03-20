@@ -107,6 +107,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   }
   if (!findMatchingRoute(config, request, response))
   {
+    std::cout << "No matching route found AAAAAAA" << std::endl;
     DEBUG_MSG("Route status", "No matching route found");
     response.status_code = 404;
     return;

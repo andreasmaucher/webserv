@@ -193,27 +193,30 @@
     <div class="portal-container">
         <div class="portal">
             <h2>⭐ Upload Files</h2>
-            <div class="upload-zone" id="dropZone">
-                <label for="fileInput" class="custom-file-upload">
-                    Choose Files ⬆️
-                </label>
-                <input type="file" id="fileInput" multiple>
-                <p>or drag files here</p>
-            </div>
-            <div class="selected-files" id="selectedFiles"></div>
-            <button class="action-btn" id="uploadBtn" disabled>Upload to Space ⬆️</button>
+            <form action="/cgi-bin/upload.py" method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="upload-zone" id="dropZone">
+                    <label for="fileInput" class="custom-file-upload">
+                        Choose Files ⬆️
+                    </label>
+                    <input type="file" id="fileInput" name="file" multiple>
+                    <p>or drag files here</p>
+                </div>
+                <div class="selected-files" id="selectedFiles"></div>
+                <button type="submit" class="action-btn" id="uploadBtn" disabled>Upload to Space ⬆️</button>
+            </form>
         </div>
 
         <div class="portal">
             <h2>💫 Download Files</h2>
             <div class="files-list" id="filesList">
                 <!-- Files will be populated here -->
+                <div class="selected-file">Loading files...</div>
             </div>
             <div class="upload-zone">
-                <label class="custom-file-upload" onclick="toggleFileSelection()">
-                    Choose Files ⬇️
+                <label class="custom-file-upload" onclick="toggleSelectionMode()" id="selectModeButton">
+                    ✓ Enable Selection Mode
                 </label>
-                <p>click files to select</p>
+                <p id="selectionInstructions">Click the button above, then click on files to select them for download</p>
             </div>
             <div class="selected-files" id="selectedDownloadFiles"></div>
             <button class="action-btn" id="downloadSelectedBtn" disabled>Download from Space ⬇️</button>
@@ -237,6 +240,7 @@
         const uploadBtn = document.getElementById('uploadBtn');
         const dropZone = document.getElementById('dropZone');
         const filesList = document.getElementById('filesList');
+        const uploadForm = document.getElementById('uploadForm');
 
         fileInput.addEventListener('change', (e) => {
             filesToUpload = Array.from(e.target.files);
@@ -255,29 +259,6 @@
                 `).join('');
         }
 
-        uploadBtn.addEventListener('click', () => {
-            if (filesToUpload.length > 0) {
-                filesToUpload.forEach(file => {
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    fetch('/uploads', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        updateFilesList();
-                        fileInput.value = '';
-                        filesToUpload = [];
-                        showSelectedFiles([]);
-                        uploadBtn.disabled = true;
-                    })
-                    .catch(error => console.error('Error:', error));
-                });
-            }
-        });
-
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('dragover');
@@ -290,12 +271,90 @@
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('dragover');
-            filesToUpload = Array.from(e.dataTransfer.files);
+            
+            // For browsers that support DataTransfer
+            if (typeof DataTransfer !== 'undefined') {
+                try {
+                    const dt = new DataTransfer();
+                    Array.from(e.dataTransfer.files).forEach(file => dt.items.add(file));
+                    fileInput.files = dt.files;
+                } catch (err) {
+                    console.error("DataTransfer error:", err);
+                    // Fallback - just use the files directly
+                    fileInput.files = e.dataTransfer.files;
+                }
+            } else {
+                // Older browsers without DataTransfer support
+                fileInput.files = e.dataTransfer.files;
+            }
+            
+            filesToUpload = Array.from(fileInput.files);
             showSelectedFiles(filesToUpload);
             uploadBtn.disabled = filesToUpload.length === 0;
         });
 
+        // Initialize selection mode
+        let selectionMode = false;
+
+        // Function to toggle selection mode
+        function toggleSelectionMode() {
+            selectionMode = !selectionMode;
+            const fileItems = document.querySelectorAll('.file-item');
+            const selectButton = document.getElementById('selectModeButton');
+            const instructions = document.getElementById('selectionInstructions');
+            
+            if (selectionMode) {
+                // Selection mode is ON
+                selectButton.textContent = '⛔ Cancel Selection';
+                selectButton.style.background = 'linear-gradient(45deg, #ff0000, #ff6600)';
+                instructions.innerHTML = '<strong>Now click on files to select them</strong>';
+                
+                fileItems.forEach(item => {
+                    item.classList.add('selectable');
+                    item.style.cursor = 'pointer';
+                    item.style.border = '2px dashed #00ffff';
+                });
+                
+                // Add visual instruction
+                const filesList = document.getElementById('filesList');
+                if (!document.querySelector('.selection-instruction')) {
+                    const instruction = document.createElement('div');
+                    instruction.className = 'selected-file selection-instruction';
+                    instruction.style.background = 'rgba(0, 255, 255, 0.3)';
+                    instruction.style.color = 'white';
+                    instruction.style.fontWeight = 'bold';
+                    instruction.innerHTML = '👉 Files are selectable! Click to select/deselect them';
+                    filesList.insertAdjacentElement('afterbegin', instruction);
+                }
+            } else {
+                // Selection mode is OFF
+                selectButton.textContent = '✓ Enable Selection Mode';
+                selectButton.style.background = 'linear-gradient(45deg, #ff00ff, #00ffff)';
+                instructions.innerHTML = 'Click the button above, then click on files to select them for download';
+                
+                fileItems.forEach(item => {
+                    item.classList.remove('selectable');
+                    item.classList.remove('selected');
+                    item.style.cursor = '';
+                    item.style.border = '';
+                });
+                
+                // Remove instruction
+                const instruction = document.querySelector('.selection-instruction');
+                if (instruction) instruction.remove();
+                
+                // Clear selections
+                selectedFiles.clear();
+                updateSelectedDownloadFiles();
+                document.getElementById('downloadSelectedBtn').disabled = true;
+            }
+        }
+
         function toggleFileSelection(filename, element) {
+            if (!selectionMode) {
+                toggleSelectionMode(); // Enable selection mode if not already active
+            }
+            
             element.classList.toggle('selected');
             if (selectedFiles.has(filename)) {
                 selectedFiles.delete(filename);
@@ -317,18 +376,55 @@
         }
 
         function updateFilesList() {
-            fetch('/uploads')
-                .then(response => response.json())
-                .then(files => {
-                    filesList.innerHTML = files.map(file => `
-                        <div class="file-item" onclick="toggleFileSelection('${file}', this)">
-                            <span>${file}</span>
-                        </div>
-                    `).join('');
+            // Show loading state
+            filesList.innerHTML = '<div class="selected-file">Loading files...</div>';
+            
+            // Fetch the file list from our CGI script
+            fetch('/cgi-bin/list_files.py')
+                .then(response => {
+                    // Debug - log the response
+                    console.log("Response status:", response.status);
+                    return response.text().then(text => {
+                        console.log("Raw response:", text);
+                        try {
+                            const json = JSON.parse(text);
+                            if (json && Array.isArray(json) && json.length > 0) {
+                                filesList.innerHTML = json.map(file => `
+                                    <div class="file-item" onclick="toggleFileSelection('${file}', this)">
+                                        <span>${file}</span>
+                                    </div>
+                                `).join('');
+                            } else {
+                                filesList.innerHTML = '<div class="selected-file">No files found in uploads folder</div>';
+                            }
+                        } catch (e) {
+                            console.error("JSON parse error:", e);
+                            filesList.innerHTML = `
+                                <div class="selected-file">
+                                    Error parsing response: ${e.message}<br>
+                                    Raw response: ${text.substring(0, 100)}...<br>
+                                    <button onclick="updateFilesList()" class="action-btn" style="padding: 5px 10px; font-size: 12px; margin-top: 10px;">
+                                        Try Again
+                                    </button>
+                                </div>`;
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    filesList.innerHTML = `
+                        <div class="selected-file">
+                            Network error: ${error.message}<br>
+                            <button onclick="updateFilesList()" class="action-btn" style="padding: 5px 10px; font-size: 12px; margin-top: 10px;">
+                                Try Again
+                            </button>
+                        </div>`;
                 });
         }
 
         document.getElementById('downloadSelectedBtn').addEventListener('click', () => {
+            if (selectedFiles.size === 0) return;
+            
             selectedFiles.forEach(filename => {
                 const link = document.createElement('a');
                 link.href = `/uploads/${filename}`;
@@ -337,12 +433,17 @@
                 link.click();
                 document.body.removeChild(link);
             });
+            
+            // Reset selection state
             selectedFiles.clear();
             document.querySelectorAll('.file-item.selected').forEach(item => {
                 item.classList.remove('selected');
             });
             updateSelectedDownloadFiles();
             document.getElementById('downloadSelectedBtn').disabled = true;
+            
+            // Exit selection mode
+            toggleSelectionMode();
         });
 
         // Add 3D effect to portals
