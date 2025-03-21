@@ -346,7 +346,6 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
       response.close_connection = true;
       return;
   }
-  
   if (request.is_directory)
   {
     // autoindex in nginx is by default disabled for POST and DELETE
@@ -361,32 +360,45 @@ void ResponseHandler::serveStaticFile(HttpRequest &request, HttpResponse &respon
       response.close_connection = true;
       return;
     }
-
-    // Try index.html first
     std::string original_path = request.path;
+    bool original_is_directory = request.is_directory;
     request.file_name = "index.html";
+    // Remove trailing slash from request.path before setting full path
+    std::string fixed_path = request.path;
+    if (!fixed_path.empty() && fixed_path[fixed_path.length() - 1] == '/') {
+        fixed_path = fixed_path.substr(0, fixed_path.length() - 1);  // Remove trailing slash
+    }
+    request.path = fixed_path;
     ResponseHandler::setFullPath(request);
-
-    if (fileExists(request, response) && hasReadPermission(request.path, response))
+    // After path is set, check for double slashes
+    size_t pos = 0;
+    while ((pos = request.path.find("//", pos)) != std::string::npos) {
+        request.path.replace(pos, 2, "/");
+    }
+    // Direct check if file exists
+    struct stat buffer;
+    bool directExists = (stat(request.path.c_str(), &buffer) == 0);
+    std::string fixedFullPath = request.path;
+    // Bypass fileExists function if the direct check shows the file exists
+    if (directExists && S_ISREG(buffer.st_mode) && hasReadPermission(request.path, response))
     {
       readFile(request, response);
+      request.path = original_path;
+      request.is_directory = original_is_directory;
       return;
     }
-
-    // Restore path for directory listing
     request.path = original_path;
-
+    request.is_directory = original_is_directory;
     if (request.route->autoindex)
     {
       generateDirectoryListing(request, response);
     }
     else
     {
-      response.status_code = 403; // Directory listing disabled
+      response.status_code = 404;
     }
     return;
   }
-
   // Regular file handling
   ResponseHandler::setFullPath(request);
   if (ResponseHandler::fileExists(request, response) &&
