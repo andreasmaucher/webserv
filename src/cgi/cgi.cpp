@@ -346,25 +346,26 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
         // // Add this line to remove the FD from the poll vector too
         // WebService::deleteFromPfdsVecForCGI(fd);
 
-        DEBUG_MSG_3("WebService::addToPfdsVector(pipe_out[0], true); ", pipe_out[0]);
+        int output_pipe = pipe_out[0];  // Store a copy of the value
+        int client_fd = fd;
 
-        WebService::addToPfdsVector(pipe_out[0], true);
-        WebService::setPollfdEventsToIn(pipe_out[0]);
-        WebService::setPollfdEventsToOut(fd);
+        WebService::addToPfdsVector(output_pipe, true);
+        WebService::setPollfdEventsToIn(output_pipe);
+        WebService::setPollfdEventsToOut(client_fd);
 
-        WebService::fd_to_server.erase(pipe_out[0]);
+        WebService::fd_to_server.erase(output_pipe);
 
-        DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", pipe_out[0]);
-        WebService::cgi_fd_to_http_response[pipe_out[0]] = &response;
-        WebService::cgi_fd_to_http_response[fd] = &response;
+        DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", output_pipe);
+        WebService::cgi_fd_to_http_response[output_pipe] = &response;
+        WebService::cgi_fd_to_http_response[client_fd] = &response;
 
         DEBUG_MSG_3("CGI: WebService:: added new process at response_fd ", fd);
 
-        DEBUG_MSG_3("CGI: WebService:: same proces  at output_pipe fd ", pipe_out[0]);
+        DEBUG_MSG_3("CGI: WebService:: same proces  at output_pipe fd ", output_pipe);
 
-        WebService::printPollFdStatus(WebService::findPollFd(pipe_out[0]));
+        WebService::printPollFdStatus(WebService::findPollFd(output_pipe));
 
-        DEBUG_MSG_2(" WebService::cgi_fd_to_http_response[pollfd_obj.fd] added fd: ", pipe_out[0]);
+        DEBUG_MSG_2(" WebService::cgi_fd_to_http_response[pollfd_obj.fd] added fd: ", output_pipe);
 
         DEBUG_MSG_1("Waitpid will start, pid : ", pid);
     }
