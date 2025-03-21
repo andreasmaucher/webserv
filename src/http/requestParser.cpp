@@ -262,24 +262,18 @@ void RequestParser::parseBody(HttpRequest &request)
         // Append the new data to the existing body
         if (request.position < request.raw_request.size()) {
             size_t new_data_size = request.raw_request.size() - request.position;
-            std::cout << "Appending " << new_data_size << " bytes to body" << std::endl;
             
             // Append the new data to the body
             request.body.append(request.raw_request.data() + request.position, new_data_size);
             request.position = request.raw_request.size();
         }
-        
-        std::cout << "Body size now: " << request.body.size() << " of " << content_length << std::endl;
-        
         // For multipart requests, check if complete
         if (is_multipart) {
             bool is_complete = isMultipartRequestComplete(request);
             request.complete = is_complete;
             if (is_complete) {
-                std::cout << "multipart body complete" << std::endl;
                 DEBUG_MSG("Multipart request complete", "");
             } else {
-                std::cout << "multipart body incomplete" << std::endl;
                 DEBUG_MSG("Multipart request incomplete", "");
             }
             return;
@@ -289,11 +283,9 @@ void RequestParser::parseBody(HttpRequest &request)
         if (content_length > 0) {
             if (request.body.size() >= content_length) {
                 request.complete = true;
-                std::cout << "body complete" << std::endl;
                 DEBUG_MSG("Body complete", "");
             } else {
                 DEBUG_MSG("Body incomplete", "Waiting for more data");
-                std::cout << "body incomplete" << std::endl;
                 request.complete = false;
             }
         } else {

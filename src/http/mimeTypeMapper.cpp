@@ -167,7 +167,6 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
     if (!is_valid)
     {
         response.status_code = 415;
-        std::cout << "is response.status_code 415 set in isContentTypeAllowed?: " << response.status_code << std::endl;
         DEBUG_MSG("Content type status", "Not allowed (415)");
     }
     return is_valid;
