@@ -1,7 +1,7 @@
 #include "../../include/httpRequest.hpp"
 #include "../../include/debug.hpp"
 
-HttpRequest::HttpRequest() : raw_request(""), method(""), uri(""), path(""), version(""), headers(), body(""), route(NULL), file_name(""), file_extension(""), content_type(""), is_directory(false), is_cgi(false), error_code(0), position(0), complete(false), headers_parsed(false), chunk_state() {}
+HttpRequest::HttpRequest() : raw_request(""), method(""), uri(""), path(""), version(""), headers(), body(""), route(NULL), file_name(""), file_extension(""), content_type(""), is_directory(false), is_cgi(false), error_code(0), position(0), complete(false), headers_parsed(false), chunk_state(), client_closed_connection(false) {}
 
 void HttpRequest::reset()
 {

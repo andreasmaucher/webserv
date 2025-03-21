@@ -1,56 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Simple File Upload</title>
+    <title>Simple Upload Test</title>
 </head>
 <body>
-    <h2>Upload File</h2>
+    <h2>Basic File Upload (No JavaScript)</h2>
     <form action="/cgi-bin/upload.py" method="POST" enctype="multipart/form-data">
-        <input type="file" name="file" required>
+        <input type="file" name="file">
         <input type="submit" value="Upload">
     </form>
-    <div id="response"></div>
-
-    <script>
-        document.querySelector('form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            console.log('Form submitted');  // Debug log
-            
-            const formData = new FormData(e.target);
-            console.log('FormData created');  // Debug log
-            
-            // Show what's in formData
-            for (let pair of formData.entries()) {
-                console.log('Form data:', pair[0], pair[1]);  // Debug log
-            }
-            
-            document.getElementById('response').innerHTML = 'Uploading...';  // Visual feedback
-            
-            try {
-                console.log('Starting fetch request to /cgi-bin/upload.py');  // Debug log
-                const response = await fetch('/cgi-bin/upload.py', {
-                    method: 'POST',
-                    body: formData
-                });
-                console.log('Response status:', response.status);  // Debug log
-                console.log('Response headers:', response.headers);  // Debug log
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const result = await response.json();
-                console.log('Parsed response:', result);  // Debug log
-                
-                document.getElementById('response').innerHTML = 
-                    `<pre>Response: ${JSON.stringify(result, null, 2)}</pre>`;
-            } catch (error) {
-                console.error('Detailed error:', error);  // More detailed error log
-                console.error('Error stack:', error.stack);  // Stack trace
-                document.getElementById('response').innerHTML = 
-                    `<p style="color: red;">Error: ${error.message}</p>`;
-            }
-        });
-    </script>
 </body>
 </html>

@@ -25,7 +25,7 @@
 // this is the path to the python interpreter, needs to be adjusted depening on the users system
 #define PYTHON_PATH "/usr/bin/python3";
 
-#define CGI_TIMEOUT 1000
+#define CGI_TIMEOUT 3
 
 class HttpResponse;
 
@@ -44,14 +44,16 @@ public:
 
     static void checkRunningProcesses(int pfds_fd);
     static void checkAllCGIProcesses();
+    static void checkCGIProcess(int pfds_fd);
 
     static std::string resolveCGIPath(const std::string &uri);
     static std::string extractPathInfo(const std::string &uri);
+    static void printRunningProcesses();
 
     struct CGIProcess
     {
-        time_t start_time; // When the process started
-        int output_pipe;   // Only need output pipe to read data
+        time_t last_update_time; // When the process started
+        int output_pipe;         // Only need output pipe to read data
         int response_fd;
         HttpRequest *request; // To update request status if timeout occurs
         HttpResponse *response;
@@ -60,7 +62,7 @@ public:
         bool ready_to_send;
         int status;
 
-        CGIProcess() : start_time(0), output_pipe(-1), request(NULL), response(NULL), process_finished(false), finished_success(false), ready_to_send(false), status(0) {}
+        CGIProcess() : last_update_time(0), output_pipe(-1), request(NULL), response(NULL), process_finished(false), finished_success(false), ready_to_send(false), status(0) {}
     };
 
     static std::map<pid_t, CGIProcess> running_processes;
@@ -78,7 +80,7 @@ private:
     void sendHttpResponseHeaders(const std::string &contentType) const;
     static std::string constructErrorResponse(int status_code, const std::string &message);
 
-    static void addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest *req, HttpResponse *response);
+    static void addProcess(pid_t pid, int output_pipe, int response_fd, HttpRequest &req, HttpResponse *response);
     static void cleanupProcess(pid_t pid);
     static void readFromCGI(pid_t pid, CGIProcess &proc);
     static void sendCGIResponse(CGIProcess &proc);
@@ -88,9 +90,8 @@ private:
 
     void postRequest(int pipe_in[2]);
     static bool isfdOpen(int fd);
-    static void printRunningProcesses();
-
-    // std::string constructErrorResponse(int status_code, const std::string &message);
+    static void readCGI(pid_t pid, CGIProcess &proc);
+    static void killCGI(pid_t pid, CGIProcess &proc);
 };
 
 #endif
