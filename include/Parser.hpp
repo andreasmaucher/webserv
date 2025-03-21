@@ -24,7 +24,7 @@
 
 #define DEFAULT_CONFIG "./server/default.conf"
 // #define MAX_SIM_CONN 10
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 1000
 // #define PORT "8080"
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"

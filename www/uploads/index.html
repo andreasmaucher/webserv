@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>✨ Cosmic File Portal 🚀</title>
+    <style>
+        body {
+            background: linear-gradient(45deg, #ff00ff, #00ffff, #ff69b4, #4169e1);
+            background-size: 400% 400%;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            text-align: center;
+            animation: gradient 15s ease infinite;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        h1 {
+            font-size: 3.5em;
+            text-shadow: 3px 3px 0 #ff00ff,
+                        6px 6px 0 #00ffff;
+            animation: rainbow 3s linear infinite;
+        }
+
+        @keyframes rainbow {
+            0% { filter: hue-rotate(0deg); }
+            100% { filter: hue-rotate(360deg); }
+        }
+
+        .portal-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin: 50px auto;
+            max-width: 1200px;
+        }
+
+        .portal {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            width: 300px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            transform-style: preserve-3d;
+            transition: all 0.5s ease;
+        }
+
+        .portal:hover {
+            transform: translateY(-10px) rotate3d(1, 1, 0, 15deg);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+        }
+
+        .upload-zone {
+            border: 3px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .upload-zone.dragover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #00ffff;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #ff00ff, #00ffff);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 10px 0;
+        }
+
+        .custom-file-upload:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .selected-files {
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .selected-file {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+
+        .files-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.02);
+        }
+
+        .file-item.selected {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.02);
+        }
+
+        .action-btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #ff00ff, #00ffff);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 10px 0;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .action-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.5;
+        }
+
+        .cosmic-dust {
+            position: fixed;
+            width: 2px;
+            height: 2px;
+            background: white;
+            pointer-events: none;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+            100% { transform: translateY(0px) rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>✨ Cosmic File Portal 🚀</h1>
+    
+    <div class="portal-container">
+        <div class="portal">
+            <h2>⭐ Upload Files</h2>
+            <form action="/cgi-bin/upload.py" method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="upload-zone" id="dropZone">
+                    <label for="fileInput" class="custom-file-upload">
+                        Choose Files ⬆️
+                    </label>
+                    <input type="file" id="fileInput" name="file" multiple>
+                    <p>or drag files here</p>
+                </div>
+                <div class="selected-files" id="selectedFiles"></div>
+                <button type="submit" class="action-btn" id="uploadBtn" disabled>Upload to Space ⬆️</button>
+            </form>
+        </div>
+
+        <div class="portal">
+            <h2>💫 Download Files</h2>
+            <div class="files-list" id="filesList">
+                <!-- Files will be populated here -->
+                <div class="selected-file">Loading files...</div>
+            </div>
+            <div class="upload-zone">
+                <label class="custom-file-upload" onclick="toggleSelectionMode()" id="selectModeButton">
+                    ✓ Enable Selection Mode
+                </label>
+                <p id="selectionInstructions">Click the button above, then click on files to select them for download</p>
+            </div>
+            <div class="selected-files" id="selectedDownloadFiles"></div>
+            <button class="action-btn" id="downloadSelectedBtn" disabled>Download from Space ⬇️</button>
+        </div>
+    </div>
+
+    <script>
+        // Create cosmic dust particles
+        for(let i = 0; i < 50; i++) {
+            const dust = document.createElement('div');
+            dust.className = 'cosmic-dust';
+            dust.style.left = Math.random() * 100 + 'vw';
+            dust.style.top = Math.random() * 100 + 'vh';
+            dust.style.animation = `float ${Math.random() * 5 + 3}s ease-in-out infinite`;
+            document.body.appendChild(dust);
+        }
+
+        let filesToUpload = [];
+        let selectedFiles = new Set();
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const dropZone = document.getElementById('dropZone');
+        const filesList = document.getElementById('filesList');
+        const uploadForm = document.getElementById('uploadForm');
+
+        fileInput.addEventListener('change', (e) => {
+            filesToUpload = Array.from(e.target.files);
+            showSelectedFiles(filesToUpload);
+            uploadBtn.disabled = filesToUpload.length === 0;
+        });
+
+        function showSelectedFiles(files) {
+            const selectedFilesDiv = document.getElementById('selectedFiles');
+            selectedFilesDiv.innerHTML = Array.from(files)
+                .map(file => `
+                    <div class="selected-file">
+                        <span>${file.name}</span>
+                        <span>${(file.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                `).join('');
+        }
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            // For browsers that support DataTransfer
+            if (typeof DataTransfer !== 'undefined') {
+                try {
+                    const dt = new DataTransfer();
+                    Array.from(e.dataTransfer.files).forEach(file => dt.items.add(file));
+                    fileInput.files = dt.files;
+                } catch (err) {
+                    console.error("DataTransfer error:", err);
+                    // Fallback - just use the files directly
+                    fileInput.files = e.dataTransfer.files;
+                }
+            } else {
+                // Older browsers without DataTransfer support
+                fileInput.files = e.dataTransfer.files;
+            }
+            
+            filesToUpload = Array.from(fileInput.files);
+            showSelectedFiles(filesToUpload);
+            uploadBtn.disabled = filesToUpload.length === 0;
+        });
+
+        // Initialize selection mode
+        let selectionMode = false;
+
+        // Function to toggle selection mode
+        function toggleSelectionMode() {
+            selectionMode = !selectionMode;
+            const fileItems = document.querySelectorAll('.file-item');
+            const selectButton = document.getElementById('selectModeButton');
+            const instructions = document.getElementById('selectionInstructions');
+            
+            if (selectionMode) {
+                // Selection mode is ON
+                selectButton.textContent = '⛔ Cancel Selection';
+                selectButton.style.background = 'linear-gradient(45deg, #ff0000, #ff6600)';
+                instructions.innerHTML = '<strong>Now click on files to select them</strong>';
+                
+                fileItems.forEach(item => {
+                    item.classList.add('selectable');
+                    item.style.cursor = 'pointer';
+                    item.style.border = '2px dashed #00ffff';
+                });
+                
+                // Add visual instruction
+                const filesList = document.getElementById('filesList');
+                if (!document.querySelector('.selection-instruction')) {
+                    const instruction = document.createElement('div');
+                    instruction.className = 'selected-file selection-instruction';
+                    instruction.style.background = 'rgba(0, 255, 255, 0.3)';
+                    instruction.style.color = 'white';
+                    instruction.style.fontWeight = 'bold';
+                    instruction.innerHTML = '👉 Files are selectable! Click to select/deselect them';
+                    filesList.insertAdjacentElement('afterbegin', instruction);
+                }
+            } else {
+                // Selection mode is OFF
+                selectButton.textContent = '✓ Enable Selection Mode';
+                selectButton.style.background = 'linear-gradient(45deg, #ff00ff, #00ffff)';
+                instructions.innerHTML = 'Click the button above, then click on files to select them for download';
+                
+                fileItems.forEach(item => {
+                    item.classList.remove('selectable');
+                    item.classList.remove('selected');
+                    item.style.cursor = '';
+                    item.style.border = '';
+                });
+                
+                // Remove instruction
+                const instruction = document.querySelector('.selection-instruction');
+                if (instruction) instruction.remove();
+                
+                // Clear selections
+                selectedFiles.clear();
+                updateSelectedDownloadFiles();
+                document.getElementById('downloadSelectedBtn').disabled = true;
+            }
+        }
+
+        function toggleFileSelection(filename, element) {
+            if (!selectionMode) {
+                toggleSelectionMode(); // Enable selection mode if not already active
+            }
+            
+            element.classList.toggle('selected');
+            if (selectedFiles.has(filename)) {
+                selectedFiles.delete(filename);
+            } else {
+                selectedFiles.add(filename);
+            }
+            updateSelectedDownloadFiles();
+            document.getElementById('downloadSelectedBtn').disabled = selectedFiles.size === 0;
+        }
+
+        function updateSelectedDownloadFiles() {
+            const selectedFilesDiv = document.getElementById('selectedDownloadFiles');
+            selectedFilesDiv.innerHTML = Array.from(selectedFiles)
+                .map(filename => `
+                    <div class="selected-file">
+                        <span>${filename}</span>
+                    </div>
+                `).join('');
+        }
+
+        function updateFilesList() {
+            // Show loading state
+            filesList.innerHTML = '<div class="selected-file">Loading files...</div>';
+            
+            // Fetch the file list from our CGI script
+            fetch('/cgi-bin/list_files.py')
+                .then(response => {
+                    // Debug - log the response
+                    console.log("Response status:", response.status);
+                    return response.text().then(text => {
+                        console.log("Raw response:", text);
+                        try {
+                            const json = JSON.parse(text);
+                            if (json && Array.isArray(json) && json.length > 0) {
+                                filesList.innerHTML = json.map(file => `
+                                    <div class="file-item" onclick="toggleFileSelection('${file}', this)">
+                                        <span>${file}</span>
+                                    </div>
+                                `).join('');
+                            } else {
+                                filesList.innerHTML = '<div class="selected-file">No files found in uploads folder</div>';
+                            }
+                        } catch (e) {
+                            console.error("JSON parse error:", e);
+                            filesList.innerHTML = `
+                                <div class="selected-file">
+                                    Error parsing response: ${e.message}<br>
+                                    Raw response: ${text.substring(0, 100)}...<br>
+                                    <button onclick="updateFilesList()" class="action-btn" style="padding: 5px 10px; font-size: 12px; margin-top: 10px;">
+                                        Try Again
+                                    </button>
+                                </div>`;
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    filesList.innerHTML = `
+                        <div class="selected-file">
+                            Network error: ${error.message}<br>
+                            <button onclick="updateFilesList()" class="action-btn" style="padding: 5px 10px; font-size: 12px; margin-top: 10px;">
+                                Try Again
+                            </button>
+                        </div>`;
+                });
+        }
+
+        document.getElementById('downloadSelectedBtn').addEventListener('click', () => {
+            if (selectedFiles.size === 0) return;
+            
+            selectedFiles.forEach(filename => {
+                const link = document.createElement('a');
+                link.href = `/uploads/${filename}`;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+            
+            // Reset selection state
+            selectedFiles.clear();
+            document.querySelectorAll('.file-item.selected').forEach(item => {
+                item.classList.remove('selected');
+            });
+            updateSelectedDownloadFiles();
+            document.getElementById('downloadSelectedBtn').disabled = true;
+            
+            // Exit selection mode
+            toggleSelectionMode();
+        });
+
+        // Add 3D effect to portals
+        document.addEventListener('mousemove', (e) => {
+            const portals = document.querySelectorAll('.portal');
+            portals.forEach(portal => {
+                const rect = portal.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                portal.style.transform = `
+                    perspective(1000px) 
+                    rotateY(${x/30}deg) 
+                    rotateX(${-y/30}deg)
+                    translateY(-10px)
+                `;
+            });
+        });
+
+        // Initial file list load
+        updateFilesList();
+    </script>
+</body>
+</html>

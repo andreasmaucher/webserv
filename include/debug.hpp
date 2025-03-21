@@ -4,7 +4,7 @@
 #include <iostream>
 #include <ostream>
 
-//#define DEBUG ON
+// #define DEBUG ON
 
 #ifdef DEBUG
 #define DEBUG_MSG(msg, var) (std::cerr << "[DEBUG] " << msg << ": " << var << std::endl);
@@ -28,7 +28,7 @@
 #define DEBUG_MSG_2(msg, var) ((void)0)
 #endif
 
-#define DEBUG_3 ON
+//#define DEBUG_3 ON
 
 #ifdef DEBUG_3
 #define DEBUG_MSG_3(msg, var) (std::cerr << "[DEBUG_3] " << msg << ": " << var << std::endl);

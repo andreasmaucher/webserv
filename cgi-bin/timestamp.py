@@ -1,43 +1,85 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 import os
 import sys
-import time
-from datetime import datetime
 import cgi
+import cgitb
+from datetime import datetime
 
-def main():
-    # Get parameters from both methods
-    path_info = os.environ.get('PATH_INFO', '').lstrip('/')  # Remove leading slash
-    query_params = cgi.FieldStorage()
+# Enable CGI traceback for debugging
+cgitb.enable()
+
+print("Content-Type: text/plain\n")
+
+# Debug: Print environment variables
+print("--- Environment Variables ---")
+print(f"QUERY_STRING: {os.environ.get('QUERY_STRING', 'NOT SET')}")
+print(f"REQUEST_METHOD: {os.environ.get('REQUEST_METHOD', 'NOT SET')}")
+print(f"CONTENT_TYPE: {os.environ.get('CONTENT_TYPE', 'NOT SET')}")
+print(f"PATH_INFO: {os.environ.get('PATH_INFO', 'NOT SET')}")
+print("---------------------------\n")
+
+try:
+    # First try to get filename from query parameter
+    query_string = os.environ.get('QUERY_STRING', '')
+    print("Raw query string: " + query_string)
     
-    # Get filename from either PATH_INFO or query parameter
-    filename = path_info if path_info else query_params.getvalue('filename', '')
+    # Remove leading '?' if present
+    if query_string.startswith('?'):
+        query_string = query_string[1:]
+    print("Cleaned query string: " + query_string)
     
-    # If the file is in uploads directory, prepend the path
-    if filename and not os.path.isabs(filename):
-        filename = os.path.join('www/uploads', filename)
+    # Manual parsing
+    params = {}
+    if query_string:
+        for param in query_string.split('&'):
+            if '=' in param:
+                key, value = param.split('=', 1)
+                params[key] = value
     
-    # Get current timestamp
-    current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = params.get('filename')
     
-    print("Content-Type: text/plain\r\n")
+    # If no filename in query params, check PATH_INFO
+    if not filename:
+        path_info = os.environ.get('PATH_INFO', '')
+        if path_info:
+            # Remove leading slash if present
+            filename = path_info.lstrip('/')
+            print("Filename from PATH_INFO: " + filename)
+    
+    print("Final filename: " + str(filename))
     
     if not filename:
-        print(f"Current timestamp: {current_time}")
-        return
-        
-    if not os.path.exists(filename):
-        print(f"Error: File not found: {filename}")
-        return
-        
-    # Get just the filename without the path for display
-    display_name = os.path.basename(filename)
-    name, ext = os.path.splitext(display_name)
-    new_filename = f"{name}_{current_time}{ext}"
+        print("Error: No filename specified")
+        print("Please use either ?filename=example.txt in the URL or /example.txt after the script name")
+        sys.exit(0)
     
-    print(f"Original filename: {display_name}")
-    print(f"Timestamped filename: {new_filename}")
+    # Check if file exists in uploads directory
+    upload_dir = os.path.join(os.getcwd(), "www", "uploads")
+    file_path = os.path.join(upload_dir, filename)
+    
+    print("Looking for file at: " + file_path)
 
-if __name__ == "__main__":
-    main()
+    if not os.path.exists(file_path):
+        print("Error: File " + filename + " not found in uploads directory")
+        print("Current working directory: " + os.getcwd())
+        print("Files in upload dir: " + str(os.listdir(upload_dir) if os.path.exists(upload_dir) else "directory not found"))
+        sys.exit(0)
+    
+    # Get file timestamps
+    file_creation_time = os.path.getctime(file_path)
+    file_modification_time = os.path.getmtime(file_path)
+    file_size = os.path.getsize(file_path)
+
+    # Convert timestamps to readable format
+    creation_time_str = datetime.fromtimestamp(file_creation_time).strftime("%Y-%m-%d %H:%M:%S")
+    modification_time_str = datetime.fromtimestamp(file_modification_time).strftime("%Y-%m-%d %H:%M:%S")
+
+    # Print the file information
+    print("File: " + filename)
+    print("Size: " + str(file_size) + " bytes")
+    print("Creation timestamp: " + creation_time_str)
+    print("Last modified: " + modification_time_str)
+    
+except Exception as e:
+    print("Error: " + str(e))

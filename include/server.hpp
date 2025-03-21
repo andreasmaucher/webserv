@@ -1,7 +1,7 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#define MAX_BODY_SIZE 1000000000
+#define MAX_BODY_SIZE 20
 #define ROOT_DIR "www"
 #define DEFAULT_FILE "index.html"
 #define ERROR_PATH "/errors/"
@@ -27,6 +27,7 @@ struct Route
     bool directory_listing_enabled;
     bool is_cgi;
     bool autoindex;
+    std::string root_directory;
 
     Route() : directory_listing_enabled(false), is_cgi(false), autoindex(false) {}
 };
