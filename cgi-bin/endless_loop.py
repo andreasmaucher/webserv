@@ -21,5 +21,4 @@ while True:
     # sys.stderr.write("Work, baby work!...\n")
 # Run ls command and capture output
 
-
 sys.stderr.write("Python CGI script ending...\n")
