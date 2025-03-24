@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# TESTING COMMAND: curl http://localhost:8080/cgi-bin/timestamp.py/flames.jpeg
+
 import os
 import sys
 import cgi

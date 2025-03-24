@@ -71,28 +71,33 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
         return false;
     }
     
-    // Validate that the file extension is ".py"
+    // Check that the file extension is ".py"
     if (!request.is_directory) {
-      std::string extension;
-      size_t dotPos = request.uri.find_last_of('.');
-      
-      if (dotPos != std::string::npos) {
-          extension = request.uri.substr(dotPos);
-      }
-
-      if (extension != ".py") {
+      size_t pyPos = request.uri.find(".py");
+      if (pyPos != std::string::npos) {
+          size_t afterPy = pyPos + 3;  // Position right after ".py"
+          bool isValidPyScript = (afterPy == request.uri.length() || 
+                                 request.uri[afterPy] == '/');
+          if (isValidPyScript) {
+              // Continue processing...
+          } else {
+              // .py but followed by something else (not a slash)
+              DEBUG_MSG("CGI error", "Invalid CGI file type");
+              prepareCGIErrorResponse(response, 400, "Bad Request", 
+                  "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
+              finalizeCGIErrorResponse(fd, request, response);
+              return false;
+          }
+      } else {
+          // if .py is not found at all, meaning different script file types
           DEBUG_MSG("CGI error", "Invalid CGI file type");
           prepareCGIErrorResponse(response, 400, "Bad Request", 
               "Bad Request: Invalid CGI file type. Only .py files are allowed.", "");
           finalizeCGIErrorResponse(fd, request, response);
           return false;
       }
-}
-    
-    // Mark this as a CGI response for proper handling later
+    }
     response.is_cgi_response = true;
-    
-    // Extract path info (optional file reference after script name)
     request.queryString = CGI::extractPathInfo(request.uri);
     
     return true;
