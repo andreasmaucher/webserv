@@ -45,6 +45,7 @@ void MimeTypeMapper::extractFileExtension(HttpRequest &request)
         {
             request.file_extension = request.uri.substr(pos + 1);
             DEBUG_MSG("Extracted file extension", request.file_extension);
+            std::cout << "File extension: " << request.file_extension << std::endl;
             return;
         }
     }
@@ -76,6 +77,7 @@ void MimeTypeMapper::extractFileName(HttpRequest &request)
     // {
     //     request.file_name = "";
     // }
+    std::cout << "File name: " << request.file_name << std::endl;
     DEBUG_MSG("MimeTypeMapper: Extracted file name", request.file_name);
 }
 
@@ -87,9 +89,11 @@ void MimeTypeMapper::findContentType(HttpRequest &request)
     {
         request.content_type = it->second;
         DEBUG_MSG("Content type found", it->second);
+        std::cout << "Content type: " << it->second << std::endl;
         return;
     }
     request.content_type = "";
+    std::cout << "Content type not found" << std::endl;
 }
 
 bool MimeTypeMapper::isCGIRequest(const std::string &extension)
@@ -128,6 +132,7 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
     }
     else if (!request.headers["Content-Type"].empty())
     {
+        std::cout << "Content-Type header: " << request.headers["Content-Type"] << std::endl;
         DEBUG_MSG("Checking content type", request.content_type);
         DEBUG_MSG("Request header Content-Type", request.headers["Content-Type"]);
 
@@ -143,26 +148,27 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
              (!request.content_type.empty() &&
               request.route->content_type.find(request.content_type) != request.route->content_type.end()))
     {
+        std::cout << "No Content-Type header but file extension matches route" << std::endl;
         DEBUG_MSG("Content type validation", "No header but file extension matches route (allowed)");
         is_valid = true;
     }
-    // MICHAEL : added this part for files, need to check if logic is correct
-    else if (!request.is_directory)
-    {
-        DEBUG_MSG("URI type", "is a file");
-        if (!request.headers["Content-Type"].empty())
-        {
-            bool header_matches = request.route->content_type.find(request.headers["Content-Type"]) != request.route->content_type.end();
-            DEBUG_MSG("Header content type matches route", header_matches);
-            is_valid = header_matches;
-        }
-        else
-        {
-            DEBUG_MSG("Content type in header", "None (allowed)");
-            is_valid = true;
-        }
-    }
-    // MICHAEL : end of addition
+    // // MICHAEL : added this part for files, need to check if logic is correct
+    // else if (!request.is_directory)
+    // {
+    //     DEBUG_MSG("URI type", "is a file");
+    //     if (!request.headers["Content-Type"].empty())
+    //     {
+    //         bool header_matches = request.route->content_type.find(request.headers["Content-Type"]) != request.route->content_type.end();
+    //         DEBUG_MSG("Header content type matches route", header_matches);
+    //         is_valid = header_matches;
+    //     }
+    //     else
+    //     {
+    //         DEBUG_MSG("Content type in header", "None (allowed)");
+    //         is_valid = true;
+    //     }
+    // }
+    // // MICHAEL : end of addition
 
     if (!is_valid)
     {

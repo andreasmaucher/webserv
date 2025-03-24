@@ -68,6 +68,7 @@ private:
     static std::string read_error_file(std::string &file_path);
     // static void createHtmlBody(HttpResponse &response);
     static void generateDirectoryListing(const HttpRequest &request, HttpResponse &response);
+    static void handleCGI (int &fd, HttpRequest &request, HttpResponse &response);
     static bool handleCGIErrors(int &fd, Server &config, HttpRequest &request, HttpResponse &response);
     static void prepareCGIErrorResponse(HttpResponse &response, int status_code, const std::string &reason, const std::string &body, const std::string &allowed_methods);
     static void finalizeCGIErrorResponse(int &fd, HttpRequest &request, HttpResponse &response);

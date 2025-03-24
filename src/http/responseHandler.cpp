@@ -59,6 +59,7 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
     
     // First check if this is a potential CGI request by looking for /cgi-bin/ in the URI
     if (request.uri.find("/cgi-bin/") == std::string::npos) {
+      std::cout << "Not a CGI request" << std::endl;
         return true; // Not a CGI request, continue normal processing
     }
     
@@ -104,98 +105,112 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   if (!handleCGIErrors(fd, config, request, response)) {
         return;
   }
-  if (!findMatchingRoute(config, request, response))
-  {
-    DEBUG_MSG("Route status", "No matching route found");
-    response.status_code = 404;
-    return;
-  }
+  std::cout << "Processing request..." << std::endl;
+  ///
+  // if (!findMatchingRoute(config, request, response))
+  // {
+  //   DEBUG_MSG("Route status", "No matching route found");
+  //   response.status_code = 404;
+  //   return;
+  // }
   
-  const Route *route = request.route;
+  // const Route *route = request.route;
+  // std::cout << "Route found: " << route->uri << std::endl;
  
-  DEBUG_MSG("Route found", route->uri);
-  DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
-  if (route->is_cgi)
-  {
-    DEBUG_MSG_1("Request status", "Handling CGI request");
-    try
-    {
-      if (request.uri.find("/cgi-bin/") != std::string::npos) {
-        // If "/cgi-bin/" is found but not at the beginning of the path
-        if (request.uri.find("/cgi-bin/") != 0) {
-            response.status_code = 404;
-            response.reason_phrase = "Not Found";
-            response.body = "Invalid CGI path: /cgi-bin/ must be at the beginning of the URI";
-            return;
-        }
-      }
-      CGI cgi;
-      cgi.handleCGIRequest(fd, request, response);
+  // DEBUG_MSG("Route found", route->uri);
+  // DEBUG_MSG("Is CGI route", (route->is_cgi ? "yes" : "no"));
+  // if (route->is_cgi)
+  // {
+  //   DEBUG_MSG_1("Request status", "Handling CGI request");
+  //   try
+  //   {
+  //     if (request.uri.find("/cgi-bin/") != std::string::npos) {
+  //       // If "/cgi-bin/" is found but not at the beginning of the path
+  //       if (request.uri.find("/cgi-bin/") != 0) {
+  //           response.status_code = 404;
+  //           response.reason_phrase = "Not Found";
+  //           response.body = "Invalid CGI path: /cgi-bin/ must be at the beginning of the URI";
+  //           return;
+  //       }
+  //     }
+  //     CGI cgi;
+  //     cgi.handleCGIRequest(fd, request, response);
       
-      size_t headerEnd = request.body.find("\r\n\r\n");
-      if (headerEnd != std::string::npos)
-      {
-        std::string headers = request.body.substr(0, headerEnd);
+  //     size_t headerEnd = request.body.find("\r\n\r\n");
+  //     if (headerEnd != std::string::npos)
+  //     {
+  //       std::string headers = request.body.substr(0, headerEnd);
         
-        response.body = request.body.substr(headerEnd + 4);
-        size_t pos = 0;
-        std::string headerSection = headers;
-        while ((pos = headerSection.find("\r\n")) != std::string::npos)
-        {
-          std::string header = headerSection.substr(0, pos);
-          size_t colonPos = header.find(": ");
-          if (colonPos != std::string::npos)
-          {
-            std::string name = header.substr(0, colonPos);
-            std::string value = header.substr(colonPos + 2);
-            response.setHeader(name, value);
-          }
-          headerSection = headerSection.substr(pos + 2);
-        }
+  //       response.body = request.body.substr(headerEnd + 4);
+  //       size_t pos = 0;
+  //       std::string headerSection = headers;
+  //       while ((pos = headerSection.find("\r\n")) != std::string::npos)
+  //       {
+  //         std::string header = headerSection.substr(0, pos);
+  //         size_t colonPos = header.find(": ");
+  //         if (colonPos != std::string::npos)
+  //         {
+  //           std::string name = header.substr(0, colonPos);
+  //           std::string value = header.substr(colonPos + 2);
+  //           response.setHeader(name, value);
+  //         }
+  //         headerSection = headerSection.substr(pos + 2);
+  //       }
 
-        if (!headerSection.empty())
-        {
-          size_t colonPos = headerSection.find(": ");
-          if (colonPos != std::string::npos)
-          {
-            std::string name = headerSection.substr(0, colonPos);
-            std::string value = headerSection.substr(colonPos + 2);
-            response.setHeader(name, value);
-          }
-        }
-      }
-      response.close_connection = true;
-      DEBUG_MSG("ResponseHandler::processRequest response.close_connection = true", response.close_connection);
-      request.complete = true;
-      return;
-    }
-    catch (const std::exception &e)
-    {
-      DEBUG_MSG("CGI execution failed", e.what());
-      prepareCGIErrorResponse(response, 500, "Internal Server Error", 
-      "Internal Server Error: CGI execution failed", "");
-      finalizeCGIErrorResponse(fd, request, response);
-      return;
-    }
-  }
+  //       if (!headerSection.empty())
+  //       {
+  //         size_t colonPos = headerSection.find(": ");
+  //         if (colonPos != std::string::npos)
+  //         {
+  //           std::string name = headerSection.substr(0, colonPos);
+  //           std::string value = headerSection.substr(colonPos + 2);
+  //           response.setHeader(name, value);
+  //         }
+  //       }
+  //     }
+  //     response.close_connection = true;
+  //     DEBUG_MSG("ResponseHandler::processRequest response.close_connection = true", response.close_connection);
+  //     request.complete = true;
+  //     return;
+  //   }
+  //   catch (const std::exception &e)
+  //   {
+  //     DEBUG_MSG("CGI execution failed", e.what());
+  //     prepareCGIErrorResponse(response, 500, "Internal Server Error", 
+  //     "Internal Server Error: CGI execution failed", "");
+  //     finalizeCGIErrorResponse(fd, request, response);
+  //     return;
+  //   }
+  // }
+  //std::cout << "Processing request for route: " << route->uri << std::endl;
+  ///
 
   /* -- Carinas part starts here -- */
   DEBUG_MSG("Status", "Processing request");
   //  from here on, we will populate & use the response object status code only
   //  response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
   //  find connection header and set close_connection in response object
+  std::cout << "Request error code: " << request.error_code << std::endl;
   if (request.error_code == 0)
   { // Check error_code but don't set response status
     ResponseHandler::routeRequest(fd, config, request, response);
   }
+  if (request.is_cgi || response.is_cgi_response) {
+    std::cout << "CGI request detected. Returning to server loop..." << std::endl;
+    return;
+  }
+  response.status_code = request.error_code;
+  std::cout << "Response status code: " << response.status_code << std::endl;
   if (response.status_code == 0)
   {
     // serve_file, process_api_request & populate response body (content) or error code
     // ResponseHandler::routeRequest(config, request, response);
     response.status_code = 200;
   }
-  if (!request.route->redirect_uri.empty())
+  std::cout << "Request route: " << request.route->uri << std::endl;
+  if (request.route && !request.route->redirect_uri.empty())
   {
+    std::cout << "Redirecting to: " << request.route->redirect_uri << std::endl;
     response.status_code = 301;
     response.setHeader("Location", request.route->redirect_uri);
     response.reason_phrase = "Moved Permanently";
@@ -210,7 +225,70 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   // fill the rest of the response fields to create the final response
   // the ones with error code from parser go directly here
   // to do: (check if in the parser I set some other value like headers etc since here I'm not passing the request object)
+
+  std::cout << "Before calling builder..." << std::endl;
   ResponseHandler::responseBuilder(response);
+}
+
+void ResponseHandler::handleCGI (int &fd, HttpRequest &request, HttpResponse &response) {
+  DEBUG_MSG_1("Request status", "Handling CGI request");
+  try
+  {
+    if (request.uri.find("/cgi-bin/") != std::string::npos) {
+      // If "/cgi-bin/" is found but not at the beginning of the path
+      if (request.uri.find("/cgi-bin/") != 0) {
+          response.status_code = 404;
+          response.reason_phrase = "Not Found";
+          response.body = "Invalid CGI path: /cgi-bin/ must be at the beginning of the URI";
+          return;
+      }
+    }
+    CGI cgi;
+    cgi.handleCGIRequest(fd, request, response);
+    
+    size_t headerEnd = request.body.find("\r\n\r\n");
+    if (headerEnd != std::string::npos)
+    {
+      std::string headers = request.body.substr(0, headerEnd);
+      
+      response.body = request.body.substr(headerEnd + 4);
+      size_t pos = 0;
+      std::string headerSection = headers;
+      while ((pos = headerSection.find("\r\n")) != std::string::npos)
+      {
+        std::string header = headerSection.substr(0, pos);
+        size_t colonPos = header.find(": ");
+        if (colonPos != std::string::npos)
+        {
+          std::string name = header.substr(0, colonPos);
+          std::string value = header.substr(colonPos + 2);
+          response.setHeader(name, value);
+        }
+        headerSection = headerSection.substr(pos + 2);
+      }
+
+      if (!headerSection.empty())
+      {
+        size_t colonPos = headerSection.find(": ");
+        if (colonPos != std::string::npos)
+        {
+          std::string name = headerSection.substr(0, colonPos);
+          std::string value = headerSection.substr(colonPos + 2);
+          response.setHeader(name, value);
+        }
+      }
+    }
+    response.close_connection = true;
+    DEBUG_MSG("ResponseHandler::processRequest response.close_connection = true", response.close_connection);
+    request.complete = true;
+  }
+  catch (const std::exception &e)
+  {
+    DEBUG_MSG("CGI execution failed", e.what());
+    prepareCGIErrorResponse(response, 500, "Internal Server Error", 
+    "Internal Server Error: CGI execution failed", "");
+    finalizeCGIErrorResponse(fd, request, response);
+  }
 }
 
 void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response)
@@ -219,18 +297,37 @@ void ResponseHandler::routeRequest(int &fd, Server &config, HttpRequest &request
   DEBUG_MSG("Status", "Routing request");
   MimeTypeMapper mapper;
   // Find matching route in server, verify the requested method is allowed in that route and if the requested type content is allowed
+  std::cout << "hola?" << std::endl;
   if (findMatchingRoute(config, request, response) && isMethodAllowed(request, response) && mapper.isContentTypeAllowed(request, response))
   {
     // check if the route is a CGI route, ensuring that there are no other directories before cgi-bin
     // if there is anything before cgi-bin, it will set request.is_cgi to false and run the static content handler
     request.is_cgi = CGI::isCGIRequest(request.file_extension);
-    DEBUG_MSG("Status", "Calling static content handler");
-    staticContentHandler(request, response);
+    DEBUG_MSG("Is CGI route", (request.route->is_cgi ? "yes" : "no"));
+    if (request.route->is_cgi && request.is_cgi)
+    {
+      DEBUG_MSG("Status", "Calling CGI handler");
+      handleCGI(fd, request, response);
+    }
+    else if (request.is_cgi && !request.route->is_cgi)
+    {
+      DEBUG_MSG("Status", "Not a CGI route");
+      response.status_code = 404;
+      response.reason_phrase = "Not Found";
+      response.body = "Invalid CGI path";
+    }
+    else
+    {
+      std::cout << "Processing static content for route: " << request.route->uri << std::endl;
+      DEBUG_MSG("Status", "Calling static content handler");
+      staticContentHandler(request, response);
+    }
   }
 }
 
 void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &response)
 {
+  std::cout << "Method: " << request.method << std::endl;
   if (request.method == "GET")
   {
     ResponseHandler::serveStaticFile(request, response);
@@ -489,6 +586,7 @@ void ResponseHandler::processFileDeletion(HttpRequest &request, HttpResponse &re
   DEBUG_MSG("Status", "Processing file deletion");
   constructFullPath(request, response);
 
+  std::cout << "Processing file deletion for: " << request.path << std::endl;
   // Check if the file exists at the location. Permission check??
   if (fileExists(request, response))
   {
@@ -522,6 +620,7 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
   // First check if path exists
   if (stat(request.path.c_str(), &path_stat) == 0)
   {
+    std::cout << "File exists" << std::endl;
     // If it's a directory and GET request with autoindex, allow it
     if (request.is_directory && request.method == "GET" && request.route->autoindex)
     {
@@ -529,17 +628,15 @@ bool ResponseHandler::fileExists(HttpRequest &request, HttpResponse &response)
     }
 
     // Original check for regular files
-    if (!request.is_directory && S_ISREG(path_stat.st_mode))
+    if (!request.is_directory && S_ISREG(path_stat.st_mode) && request.method == "POST")
     {
-      DEBUG_MSG("File status", "File exists and accessible");
-      if (request.method == "POST")
-      {
+        std::cout << "Trying to post already existing file" << std::endl;
         DEBUG_MSG("File status", "File already exists");
         response.status_code = 409;
-      }
-      return true;
+        return true;
     }
   }
+  std::cout << "File does not exist" << std::endl;
   if (request.method == "GET" || (request.method == "DELETE" && !request.is_directory))
   {
     DEBUG_MSG("File status", "File does not exist");
@@ -586,6 +683,7 @@ void ResponseHandler::finalizeFullPath(HttpRequest &request, size_t &last_slash_
 
   request.path += "/" + request.file_name;
   DEBUG_MSG("Full path to content", request.path);
+  std::cout << "Full path to content: " << request.path << std::endl;
 
   return;
 }
@@ -746,6 +844,8 @@ bool ResponseHandler::findMatchingRoute(Server &server, HttpRequest &request, Ht
 
   DEBUG_MSG("Status", "Best matching route: [" + best_match->uri + "] CGI: " + (best_match->is_cgi ? "Yes" : "No"));
   request.route = best_match;
+  std::cout << "Best matching route: " << best_match->uri << std::endl;
+  std::cout << "Best matching route CGI: " << (best_match->is_cgi ? "Yes" : "No") << std::endl;
   request.is_cgi = best_match->is_cgi;
   return true;
 }
@@ -754,8 +854,15 @@ bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &
 {
   DEBUG_MSG("Status", "Checking if method " + request.method + " is allowed");
   //  Verify the requested method is allowed in that route searching in the set
+  std::cout << "methods in route: " << request.route->methods.size() << std::endl;
+  for (std::set<std::string>::const_iterator it = request.route->methods.begin(); it != request.route->methods.end(); ++it)
+  {
+    std::cout << "method in route: " << *it << std::endl;
+  }
+
   if (request.route->methods.find(request.method) == request.route->methods.end())
   {
+    std::cout << "Method not allowed: " << request.method << std::endl;
     DEBUG_MSG("Status", "Method not allowed in route");
     response.status_code = 405;
     std::string header_key = "Allow";
@@ -764,6 +871,7 @@ bool ResponseHandler::isMethodAllowed(const HttpRequest &request, HttpResponse &
     return false;
   }
   DEBUG_MSG("Status", "Method allowed in route");
+  std::cout << "Method allowed: " << request.method << std::endl;
   return true;
 }
 
@@ -799,10 +907,11 @@ std::string ResponseHandler::createAllowedMethodsStr(const std::set<std::string>
 // Populates the response object. The formatted response function is in the response class
 void ResponseHandler::responseBuilder(HttpResponse &response)
 {
+  std::cout << "Building response..." << std::endl;
   DEBUG_MSG_2("Status", "Building response");
-  std::ostringstream oss;
-  oss << response.status_code;
-  DEBUG_MSG_2("Status", "Status code: " + oss.str());
+  std::ostringstream oss_status;
+  oss_status << response.status_code;
+  DEBUG_MSG_2("Status", "Status code: " + oss_status.str());
 
   response.version = "HTTP/1.1";
   // 4xx or 5xx -> has a body with error message
