@@ -85,7 +85,7 @@ private:
     bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value);
     bool checkValidSquareBrackets(const std::string &line);
     bool checkMaxBodySize(const std::string &value);
-
+    int checkForDuplicates(std::vector<Server> &servers_vector);
     // bool parseErrorBlock(std::istream &config_file, Server server);
 
     // bool parseConfigFile(const std::string &config_filename);
@@ -100,7 +100,7 @@ public:
     std::string port;
     std::string host;
     std::string name;
-    std::string client_max_body_size;
+    unsigned int client_max_body_size;
     std::string index;
     bool server_block_ok, error_block_ok, location_bloc_ok, new_server_found;
 

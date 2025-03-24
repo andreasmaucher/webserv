@@ -121,7 +121,7 @@ std::string CGI::extractPathInfo(const std::string &uri)
 4. execute cgi (creates pipe, forks a process and executes the script)
 5. response: store script output in request body and mark request as complete
 */
-void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response)
+void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response, Server &config)
 {
     DEBUG_MSG("Starting CGI Request", request.uri);
     DEBUG_MSG_2("CGI::handleCGIRequest receiving FD is  ", fd);
@@ -135,7 +135,7 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
     method = request.method;
     requestBody = request.body;
 
-    executeCGI(fd, response, request);
+    executeCGI(fd, response, request, config);
 }
 
 /*
@@ -187,10 +187,12 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     return env_array;
 }
 
-void CGI::postRequest(int pipe_in[2])
+void CGI::postRequest(int pipe_in[2], Server &config)
 {
+    (void)config;
     if (method == "POST" && !requestBody.empty())
     {
+        if (requestBody.length() > MAX_BODY_SIZE)
         std::cerr << "CGI POST: Starting to write POST data" << std::endl;
         std::cerr << "POST data length: " << requestBody.length() << std::endl;
 
@@ -310,9 +312,10 @@ CGI LOGIC:
 4. Parent process reads the script's output
 5. Returns the output as a string
 */
-void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
+void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request, Server &config)
 {
     // Define pipes for stdin and stdout
+    (void)config;
     int status = 0;
     (void)status;
     int pipe_in[2];  // Parent writes to pipe_in[1], child reads from pipe_in[0]
@@ -329,7 +332,7 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
         close(pipe_in[0]);  // Close read end of input pipe
         close(pipe_out[1]); // Close write end of output pipe
         if (request.method == "POST") {
-            postRequest(pipe_in);
+            postRequest(pipe_in, config);
         } else {
             close(pipe_in[1]); // Close write end immediately for non-POST requests
         }

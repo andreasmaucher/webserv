@@ -27,7 +27,7 @@
 // #define PORT "8080"
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
-#define MAX_CGI_BODY_SIZE 1000000
+#define MAX_CGI_BODY_SIZE 10
 
 class WebService
 {
@@ -52,7 +52,6 @@ private:
     void mapFdToServer(int new_fd, Server &server);
     // void addToPfdsVector(int new_fd);
     void createRequestObject(int new_fd, Server &server);
-    static void cleanup();
     int get_listener_socket(const std::string &port);
     void *get_in_addr(struct sockaddr *sa);
     static void deleteFromPfdsVec(int &fd, size_t &i);
@@ -87,5 +86,6 @@ public:
     static std::map<int, HttpResponse *> cgi_fd_to_http_response; // fds to respective server objects pointer
     static std::vector<pollfd> pfds_vec;
     static std::map<int, Server *> fd_to_server; // fds to respective server objects pointer
-                                                 // all pfds (listener and client) for all servers
+    static void cleanup();
+                                             // all pfds (listener and client) for all servers
 };

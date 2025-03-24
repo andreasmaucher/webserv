@@ -1,7 +1,7 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#define MAX_BODY_SIZE 20
+#define MAX_BODY_SIZE 11
 #define ROOT_DIR "www"
 #define DEFAULT_FILE "index.html"
 #define ERROR_PATH "/errors/"
@@ -68,7 +68,7 @@ public:
     std::string name;
     std::string host;
     std::string root_directory;
-    std::string client_max_body_size;
+    size_t client_max_body_size;
     std::map<std::string, Route> routes;    // Mapping of URIs to Route objects
     std::map<int, std::string> error_pages; // Error pages mapped by status code
     std::string index;

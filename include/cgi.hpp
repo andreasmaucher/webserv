@@ -36,7 +36,7 @@ public:
     CGI(int clientSocket, const std::string &scriptPath, const std::string &method,
         const std::string &queryString, const std::string &requestBody);
 
-    void handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response);
+    void handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response, Server &config);
 
     static bool isCGIRequest(const std::string &path);
 
@@ -75,7 +75,7 @@ private:
     std::string requestBody;
 
     char **setCGIEnvironment(const HttpRequest &httpRequest) const;
-    void executeCGI(int &fd, HttpResponse &response, HttpRequest &request);
+    void executeCGI(int &fd, HttpResponse &response, HttpRequest &request, Server &config);
     void sendCGIOutputToClient(int pipefd) const;
     void sendHttpResponseHeaders(const std::string &contentType) const;
     static std::string constructErrorResponse(int status_code, const std::string &message);
@@ -88,7 +88,7 @@ private:
     std::string getStatusMessage(int status_code);
     pid_t runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request);
 
-    void postRequest(int pipe_in[2]);
+    void postRequest(int pipe_in[2], Server &config);
     static bool isfdOpen(int fd);
     static void readCGI(pid_t pid, CGIProcess &proc);
     static void killCGI(pid_t pid, CGIProcess &proc);

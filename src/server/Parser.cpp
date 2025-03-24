@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Parser.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizhakov <mrizhakov@student.42.fr>        +#+  +:+       +#+        */
+/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/01/28 17:48:44 by mrizhakov        ###   ########.fr       */
+/*   Updated: 2025/03/24 21:23:50 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -90,7 +90,7 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
             }
             if (key == "content_type")
             {
-                route.methods.insert(value_array.begin(), value_array.end());
+                route.content_type.insert(value_array.begin(), value_array.end());
             }
         }
         else if (result == KEY_VALUE_PAIR || result == KEY_VALUE_PAIR_WITH_QUOTES)
@@ -145,7 +145,10 @@ bool Parser::checkMaxBodySize(const std::string &value)
         return false;
 
     if (value_long <= 0 || value_long > MAX_BODY_SIZE)
+    {
+        DEBUG_MSG("Invalid client max body size : ", value);
         return false;
+    }
     return true;
 }
 
@@ -427,10 +430,10 @@ bool Parser::parseServerBlock(std::istream &config_file, Server &server)
         if (key == "client_max_body_size")
         {
             if (checkMaxBodySize(value))
-                server.client_max_body_size = value;
+                server.client_max_body_size = atoi(value.c_str());
             else
             {
-                DEBUG_MSG("Invalid client max body size : ", value);
+                throw std::runtime_error("Invalid client max body size: " + value);
                 server.clear();
                 return false;
             }
@@ -454,6 +457,8 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
     location_bloc_ok = false;
     new_server_found = false;
     Server new_server(0, "", "", "");
+    DEBUG_MSG_1("Config file opened", "");
+
     while (std::getline(file, line))
     {
         if (line.empty() || line[0] == '#')
@@ -479,6 +484,7 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
             error_block_ok = false;
             location_bloc_ok = false;
             new_server_found = false;
+            DEBUG_MSG_1("Server setup completed", "");
         }
     }
     if (server_block_ok && error_block_ok && location_bloc_ok && new_server_found)
@@ -489,6 +495,31 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
         error_block_ok = false;
         location_bloc_ok = false;
         new_server_found = false;
+        DEBUG_MSG_1("Server setup completed", "");
     }
+
+    if (checkForDuplicates(servers_vector))
+        throw std::runtime_error("Error: Duplicate server configuration found");
+
     return servers_vector;
 }
+
+
+int Parser::checkForDuplicates(std::vector<Server> &servers_vector)
+{
+    for (size_t i = 0; i < servers_vector.size(); i++)
+    {
+        DEBUG_MSG_1("Checking for duplicates", "");
+        for (size_t j = i + 1; j < servers_vector.size(); j++)
+        {
+            DEBUG_MSG_1("Checking for duplicates more", ""); 
+            if (servers_vector[i].port == servers_vector[j].port && 
+                servers_vector[i].host == servers_vector[j].host)
+            {
+                std::cerr << "Error: Duplicate server configuration found for " << servers_vector[i].host << ":" << servers_vector[i].port << std::endl;
+                return 1;
+            }
+        }
+    }
+    return 0;
+}   
