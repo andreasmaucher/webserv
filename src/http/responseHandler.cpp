@@ -107,16 +107,13 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   if (!findMatchingRoute(config, request, response))
   {
     DEBUG_MSG("Route status", "No matching route found");
-    
     // response.status_code = 404;
     response.status_code = request.error_code;
     DEBUG_MSG_1("response.status_code ", response.status_code);
-
     response.close_connection = true;
     ResponseHandler::responseBuilder(response);
     response.reason_phrase = ResponseHandler::getStatusMessage(response.status_code);
     DEBUG_MSG_1("response.reason_phrase ", response.reason_phrase);
-
     return;
   }
   

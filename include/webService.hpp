@@ -27,7 +27,7 @@
 // #define PORT "8080"
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
-#define MAX_CGI_BODY_SIZE 10
+#define MAX_CGI_BODY_SIZE 1000000
 
 class WebService
 {
