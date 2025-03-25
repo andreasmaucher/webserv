@@ -112,7 +112,13 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   if (!findMatchingRoute(config, request, response))
   {
     DEBUG_MSG("Route status", "No matching route found");
-    response.status_code = 404;
+    // response.status_code = 404;
+    response.status_code = request.error_code;
+    DEBUG_MSG_1("response.status_code ", response.status_code);
+    response.close_connection = true;
+    ResponseHandler::responseBuilder(response);
+    response.reason_phrase = ResponseHandler::getStatusMessage(response.status_code);
+    DEBUG_MSG_1("response.reason_phrase ", response.reason_phrase);
     return;
   }
   
@@ -135,7 +141,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
         }
       }
       CGI cgi;
-      cgi.handleCGIRequest(fd, request, response);
+      cgi.handleCGIRequest(fd, request, response, config);
       
       size_t headerEnd = request.body.find("\r\n\r\n");
       if (headerEnd != std::string::npos)
@@ -187,7 +193,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   /* -- Carinas part starts here -- */
   DEBUG_MSG("Status", "Processing request");
   //  from here on, we will populate & use the response object status code only
-  //  response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
+  response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
   //  find connection header and set close_connection in response object
   if (request.error_code == 0)
   { // Check error_code but don't set response status

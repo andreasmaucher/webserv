@@ -34,13 +34,12 @@ std::string HttpResponse::generateRawResponseStr()
 
     raw_string += "\r\n";
   }
-  //! REDIRECTS
   // only add body for non-redirects
   bool is_redirect = (status_code >= 300 && status_code < 400);
   if (!this->body.empty() && !is_redirect)
   {
     DEBUG_MSG_2("SG8 ", "");
-    raw_string += this->body; // + "/r/n" ??
+    raw_string += this->body;
   }
   return raw_string;
 }

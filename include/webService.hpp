@@ -21,24 +21,20 @@
 #include "server.hpp"
 #include "debug.hpp"
 
-#define DEFAULT_CONFIG "./server/default.conf"
+#define DEFAULT_CONFIG "tomldb.config"
 #define MAX_BACKLOG_UNACCEPTED_CON 200
 #define BUFFER_SIZE 1000
-// #define PORT "8080"
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
 #define MAX_CGI_BODY_SIZE 1000000
 
 class WebService
 {
-
-private:
-    static std::vector<Server> servers; // constructor calls config parser and instantiates server(s)
-
-    // std::unordered_map<int, std::pair<Server*, HttpRequest*>> pfd_to_server_request; //client_fds to server and request objectient address (both IPv4 and IPv6)
-    socklen_t addrlen;
-    char buf[BUFFER_SIZE];           // Buff for client data
-    char remoteIP[INET6_ADDRSTRLEN]; // To store IP address in string form
+    private:
+        static std::vector<Server> servers; // constructor calls config parser and instantiates server(s)
+        socklen_t addrlen;
+        char buf[BUFFER_SIZE];           // Buff for client data
+        char remoteIP[INET6_ADDRSTRLEN]; // To store IP address in string form
 
     int reuse_socket_opt;
     int addrinfo_status; // Return status of getaddrinfo()
@@ -52,7 +48,6 @@ private:
     void mapFdToServer(int new_fd, Server &server);
     // void addToPfdsVector(int new_fd);
     void createRequestObject(int new_fd, Server &server);
-    static void cleanup();
     int get_listener_socket(const std::string &port);
     void *get_in_addr(struct sockaddr *sa);
     static void deleteFromPfdsVec(int &fd, size_t &i);
@@ -87,5 +82,6 @@ public:
     static std::map<int, HttpResponse *> cgi_fd_to_http_response; // fds to respective server objects pointer
     static std::vector<pollfd> pfds_vec;
     static std::map<int, Server *> fd_to_server; // fds to respective server objects pointer
-                                                 // all pfds (listener and client) for all servers
+    static void cleanup();
+                                             // all pfds (listener and client) for all servers
 };

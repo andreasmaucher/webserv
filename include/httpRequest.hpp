@@ -35,46 +35,6 @@ public:
   void reset();
   void printRequest();
 
-  // // Getters
-  // const std::string& getMethod() const { return method; }
-  // const std::string& getUri() const { return uri; }
-  // const std::string& getPath() const { return path; }
-  // const std::string& getVersion() const { return version; }
-  // const std::map<std::string, std::string>& getHeaders() const { return headers; }
-  // const std::string& getBody() const { return body; }
-  // const Route* getRoute() const { return route; }
-  // const std::string& getFileName() const { return file_name; }
-  // const std::string& getFileExtension() const { return file_extension; }
-  // const std::string& getContentType() const { return content_type; }
-  // bool isDirectory() const { return is_directory; }
-  // bool isCgi() const { return is_cgi; }
-  // int getErrorCode() const { return error_code; }
-  // // Getters for ChunkState
-  // size_t getChunkSize() const { return chunk_state.chunk_size; }
-  // size_t getBytesRead() const { return chunk_state.bytes_read; }
-  // bool isInChunk() const { return chunk_state.in_chunk; }
-  // bool isChunkedDone() const { return chunk_state.chunked_done; }
-
-  // // Setters
-  // void setMethod(const std::string &m) { method = m; }
-  // void setUri(const std::string &u) { uri = u; }
-  // void setPath(const std::string &p) { path = p; }
-  // void setVersion(const std::string &v) { version = v; }
-  // void setHeader(const std::string &key, const std::string &value) { headers[key] = value; }
-  // void setBody(const std::string &b) { body = b; }
-  // void setRoute(const Route *r) { route = r; }
-  // void setFileName(const std::string &name) { file_name = name; }
-  // void setFileExtension(const std::string &ext) { file_extension = ext; }
-  // void setContentType(const std::string &type) { content_type = type; }
-  // void setIsDirectory(bool dir) { is_directory = dir; }
-  // void setIsCgi(bool cgi) { is_cgi = cgi; }
-  // void setErrorCode(int code) { error_code = code; }
-  // // Setters for ChunkState
-  // void setChunkSize(size_t &size) { chunk_state.chunk_size = size; }
-  // void setBytesRead(size_t &bytes) { chunk_state.bytes_read = bytes; }
-  // void setInChunk(bool &in_chunk) { chunk_state.in_chunk = in_chunk; }
-  // void setChunkedDone(bool &chunked_done) { chunk_state.chunked_done = chunked_done; }
-
   // private:
   std::string raw_request;
   std::string method;                         // e.g., GET, POST

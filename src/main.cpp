@@ -6,7 +6,6 @@
 #include "../include/responseHandler.hpp"
 #include "../include/mimeTypeMapper.hpp"
 #include "../include/cgi.hpp"
-#include "../tests/testsHeader.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -37,7 +36,7 @@ int main(int argc, char *argv[])
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Service error: " << e.what() << std::endl;
+        std::cerr << "Server error: " << e.what() << std::endl;
         return 1;
     }
     return 0;

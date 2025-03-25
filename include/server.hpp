@@ -1,7 +1,7 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#define MAX_BODY_SIZE 20
+#define MAX_BODY_SIZE 2000000
 #define ROOT_DIR "www"
 #define DEFAULT_FILE "index.html"
 #define ERROR_PATH "/errors/"
@@ -48,6 +48,7 @@ public:
     Route *getRoute(const std::string &uri); // Getter for a specific Route by URI
     const std::map<int, std::string> &getErrorPages() const;
     HttpRequest &getRequestObject(int &fd);
+
     // Setters
     void setRootDirectory(const std::string &root_directory);
     void setRoutes(const std::map<std::string, Route> &routes);
@@ -61,30 +62,18 @@ public:
     void debugServer() const;
     void debugPrintRoutes() const;
     void clear();
-
-    // changed to public temporarily to integrate between two branches
-    int listener_fd; // Listening socket fd
+    int listener_fd;
     std::string port;
     std::string name;
     std::string host;
     std::string root_directory;
-    std::string client_max_body_size;
+    size_t client_max_body_size;
     std::map<std::string, Route> routes;    // Mapping of URIs to Route objects
     std::map<int, std::string> error_pages; // Error pages mapped by status code
     std::string index;
 
 private:
-    // int listener_fd; //Listening socket fd
-    // std::string port;
-    // std::string name;
-    // std::string host;
-    // std::string root_directory;                      // Root directory for server files
-    // std::vector<HttpRequest> httpRequests;
     std::map<int, HttpRequest> client_fd_to_request;
-    // bool loadConfig(const std::string &config_file); // config file parser
 };
-
-// after parsing the config file, load all the error pages and other default htmls into the map of error_pages
-// to avoid reading the file every time we need to send an error page (makes server faster)
 
 #endif

@@ -1,0 +1,7 @@
+{
+"info version":"2.0",
+"firmware version":"HD7.01.01.70.00",
+"wifi mac":"f4dd9e9ce2c7",
+"camera type":"HERO7 Black",
+"camera serial number":"C3281326459666",
+}

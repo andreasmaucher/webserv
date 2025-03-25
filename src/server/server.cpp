@@ -2,8 +2,6 @@
 #include "../../include/httpRequest.hpp"
 #include "../../include/webService.hpp"
 
-// Server::Server() {}
-
 Server::Server(int listener_fd, std::string port, std::string name, std::string root_directory) : listener_fd(listener_fd), port(port), name(name), root_directory(root_directory) {}
 
 Server::Server() : listener_fd(-1), port(""), name(""), host(""), root_directory("")
@@ -65,10 +63,6 @@ void Server::setRoute(const std::string &uri, const Route &route)
 {
     routes[uri] = route; // This will add a new route or update an existing one
 }
-
-// void Server::setRoutes(const std::map<std::string, Route> &routes) {
-//     this->routes = routes;
-// }
 
 void Server::setErrorPage(const int &code, const std::string &path)
 {
@@ -139,12 +133,8 @@ void Server::debugPrintRoutes() const
     std::map<std::string, Route>::const_iterator it;
     for (it = routes.begin(); it != routes.end(); ++it)
     {
-        // const std::string &uri = it->first;
         const Route &route = it->second;
-
-        // DEBUG_MSG("Route URI", uri);
         DEBUG_MSG("Route Path", route.path);
-
         std::string methods_str;
         for (std::set<std::string>::const_iterator method_it = route.methods.begin();
              method_it != route.methods.end(); ++method_it)
@@ -175,84 +165,8 @@ void Server::clear()
     port.clear();
     name.clear();
     root_directory.clear();
-    client_max_body_size.clear();
+    client_max_body_size = MAX_BODY_SIZE;
     index.clear();
     routes.clear();
     error_pages.clear();
 }
-
-// bool Server::loadConfig(const std::string &config_file) {
-//     std::ifstream file(config_file);
-//     if (!file.is_open()) {
-//         std::cerr << "Error: could not open config file " << config_file << std::endl;
-//         return false;
-//     }
-
-//     std::string line;
-//     std::string uri;
-//     std::string path;
-//     std::string index_file;
-//     std::set<std::string> methods;
-//     std::set<std::string> content_type;
-//     std::string redirect_uri;
-//     bool directory_listing_enabled;
-//     bool is_cgi;
-//     while (std::getline(file, line)) {
-//         if (line.empty() || line[0] == '#') {
-//             continue;
-//         }
-
-//         std::istringstream iss(line);
-//         std::string key;
-//         iss >> key;
-//         if (key == "root") {
-//             iss >> root_directory;
-//         } else if (key == "route") {
-//             uri.clear();
-//             path.clear();
-//             methods.clear();
-//             index_file.clear();
-//             content_type.clear();
-//             redirect_uri.clear();
-//             directory_listing_enabled = false;
-//             is_cgi = false;
-//             std::string parameter;
-//             while (iss >> parameter) {
-//                 if (parameter == "uri") {
-//                     iss >> uri;
-//                 } else if (parameter == "path") {
-//                     iss >> path;
-//                 } else if (parameter == "method") {
-//                     while (iss >> parameter) {
-//                         methods.insert(parameter);
-//                     }
-//                 } else if (parameter == "content_type") {
-//                     while (iss >> parameter) {
-//                         content_type.insert(parameter);
-//                     }
-//                 } else if (parameter == "redirection") {
-//                     iss >> redirect_uri;
-//                 } else if (parameter == "index") {
-//                         iss >> index_file;
-//                 } else if (parameter == "directory_listing_enabled") {
-//                     directory_listing_enabled = true;
-//                 } else if (parameter == "is_cgi") {
-//                     is_cgi = true;
-//                 }
-//             }
-//             Route route;
-//             route.uri = uri;
-//             route.path = path;
-//             route.methods = methods;
-//             route.index = index_file;
-//             route.content_type = content_type;
-//             route.redirect_uri = redirect_uri;
-//             route.directory_listing_enabled = directory_listing_enabled;
-//             route.is_cgi = is_cgi;
-//             routes[uri] = route;
-//         }
-//     }
-
-//     file.close();
-//     return true;
-// }

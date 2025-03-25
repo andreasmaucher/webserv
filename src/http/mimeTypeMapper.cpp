@@ -66,16 +66,6 @@ void MimeTypeMapper::extractFileName(HttpRequest &request)
     {
         request.file_name = "";
     }
-
-    // Old version from Carina, seemed to have a bug- would extrac secret.png and ecret.png
-    // if (request.uri.length() > request.route->uri.length())
-    // {
-    //     request.file_name = request.uri.substr(request.route->uri.length() + 1);
-    // }
-    // else
-    // {
-    //     request.file_name = "";
-    // }
     DEBUG_MSG("MimeTypeMapper: Extracted file name", request.file_name);
 }
 
@@ -94,9 +84,6 @@ void MimeTypeMapper::findContentType(HttpRequest &request)
 
 bool MimeTypeMapper::isCGIRequest(const std::string &extension)
 {
-
-    // std::string extension = getFileExtension(request);
-
     return cgi_extensions.find(extension) != cgi_extensions.end();
 }
 
