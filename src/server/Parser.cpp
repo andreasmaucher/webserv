@@ -61,7 +61,6 @@ bool Parser::parseLocationBlock(std::istream &config_file, Server &server)
             if (!route.path.empty() && !route.methods.empty())
             {
                 server.setRoute(route.uri, route);
-                // server.debugPrintRoutes();
                 route = Route();
                 continue;
             }

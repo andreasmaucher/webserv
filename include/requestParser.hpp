@@ -16,6 +16,7 @@
 class RequestParser {
   public:
     static void parseRawRequest(HttpRequest &request);
+    
   private:
     static void tokenizeRequestLine(HttpRequest &request);
     static void checkForDirectory(HttpRequest &request);

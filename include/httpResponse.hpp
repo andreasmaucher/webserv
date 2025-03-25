@@ -15,23 +15,6 @@ class HttpResponse {
         
         void setHeader(const std::string &header_name, const std::string &header_value);
         std::string generateRawResponseStr();
-
-        // // Getters
-        // const std::string& getVersion() const { return version; }
-        // int getStatusCode() const { return status_code; }
-        // const std::string& getReasonPhrase() const { return reason_phrase; }
-        // const std::map<std::string, std::string>& getHeaders() const { return headers; }
-        // const std::string& getBody() const { return body; }
-        // const std::string& getFileContentType() const { return file_content_type; }
-
-        // // Setters
-        // void setVersion(const std::string &v) { version = v; }
-        // void setStatusCode(int code) { status_code = code; }
-        // void setReasonPhrase(const std::string &reason) { reason_phrase = reason; }
-        // void setBody(const std::string &b) { body = b; }
-        // void setFileContentType(const std::string &type) { file_content_type = type; }
-
-    //private:
         int fd;                                     // FD to send the response
         std::string version;                        // e.g., HTTP/1.1
         int status_code;                            // e.g., 200, 404

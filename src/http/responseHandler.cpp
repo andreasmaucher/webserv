@@ -187,7 +187,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   /* -- Carinas part starts here -- */
   DEBUG_MSG("Status", "Processing request");
   //  from here on, we will populate & use the response object status code only
-  //  response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
+  response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
   //  find connection header and set close_connection in response object
   if (request.error_code == 0)
   { // Check error_code but don't set response status
