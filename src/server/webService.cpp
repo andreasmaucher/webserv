@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/20 23:49:23 by mrizakov         ###   ########.fr       */
+/*   Updated: 2025/03/25 17:28:40 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -284,7 +284,7 @@ void WebService::setupSockets()
         int listener_fd = get_listener_socket((*it).getPort());
         if (listener_fd == -1)
         {
-            DEBUG_MSG_1("get_listener_socket failed", strerror(errno));
+            std::cerr << "Incorrect server configuration, please check the config file " << std::endl;
 
             throw std::runtime_error("Error getting listening socket for server: " + (*it).getName());
         }
@@ -600,6 +600,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
     HttpRequest &request = server.getRequestObject(fd);
+
     
     // Check if we're handling a binary upload 
     bool is_binary_upload = false;
@@ -669,7 +670,23 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         {
             // For binary uploads, we need to be careful with null bytes
             // Append using data() and size() instead of string methods
+            
+
+
+            
+            
             request.raw_request.append(recv_buffer, nbytes);
+            DEBUG_MSG_2("Checking request body size request.raw_request.size() ", request.raw_request.size());
+            DEBUG_MSG_2("server.client_max_body_size ", server.client_max_body_size);
+            if (request.raw_request.size() > server.client_max_body_size ||request.raw_request.size() > MAX_BODY_SIZE)
+            {
+                DEBUG_MSG_2("Request body size is greater than client_max_body_size", request.raw_request.size());
+                request.complete = true;
+                request.error_code = 413;
+                setPollfdEventsToOut(fd);
+                // response.status_code = 413;
+                return;
+            }
             
             DEBUG_MSG("Received data from fd", fd);
             
@@ -730,13 +747,15 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         ResponseHandler handler;
 
         handler.processRequest(fd, server, request, *response);
-        DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
+        // DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
         // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
         if (request.route == NULL)
         {
             // Handle invalid CGI or other requests without routes
             pfds_vec[i].events = POLLOUT;
             std::string responseStr = response->generateRawResponseStr();
+            DEBUG_MSG_2("------->WebService::sendResponse sending responseStr ", responseStr.c_str());
+
             if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
             {
                 DEBUG_MSG_2("Send error ", strerror(errno));
@@ -749,7 +768,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         // If request is a CGI, skip this part
         const Route *route = request.route; // Route is already stored in request
-        DEBUG_MSG_2("------->WebService::sendResponse const Route *route = request.route; is the issue ", fd);
+        // DEBUG_MSG_2("------->WebService::sendResponse const Route *route = request.route; is the issue ", fd);
 
         if (!route->is_cgi)
         {

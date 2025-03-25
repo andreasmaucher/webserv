@@ -21,7 +21,6 @@
 #include "responseHandler.hpp"
 #include "server.hpp"
 
-#define DEFAULT_CONFIG "./server/default.conf"
 #define BUFFER_SIZE 1000
 #define INIT_FD_SIZE 2
 #define END_HEADER "\r\n\r\n"
@@ -54,6 +53,7 @@ private:
     bool parseKeyArray(const std::string &line, std::string &key, std::set<std::string> &value);
     bool checkValidSquareBrackets(const std::string &line);
     bool checkMaxBodySize(const std::string &value);
+    int checkForDuplicates(std::vector<Server> &servers_vector);
 
 public:
     Parser();
@@ -63,7 +63,7 @@ public:
     std::string port;
     std::string host;
     std::string name;
-    std::string client_max_body_size;
+    unsigned int client_max_body_size;
     std::string index;
     bool server_block_ok, error_block_ok, location_bloc_ok, new_server_found;
     std::string root_directory;

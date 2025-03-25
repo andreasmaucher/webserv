@@ -121,7 +121,7 @@ std::string CGI::extractPathInfo(const std::string &uri)
 4. execute cgi (creates pipe, forks a process and executes the script)
 5. response: store script output in request body and mark request as complete
 */
-void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response)
+void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response, Server &config)
 {
     DEBUG_MSG("Starting CGI Request", request.uri);
     DEBUG_MSG_2("CGI::handleCGIRequest receiving FD is  ", fd);
@@ -135,7 +135,7 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
     method = request.method;
     requestBody = request.body;
 
-    executeCGI(fd, response, request);
+    executeCGI(fd, response, request, config);
 }
 
 /*
@@ -187,10 +187,15 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     return env_array;
 }
 
-void CGI::postRequest(int pipe_in[2])
+void CGI::postRequest(int pipe_in[2], Server &config)
 {
+    (void)config;
     if (method == "POST" && !requestBody.empty())
     {
+        if (requestBody.length() > MAX_BODY_SIZE)
+        std::cerr << "CGI POST: Starting to write POST data" << std::endl;
+        std::cerr << "POST data length: " << requestBody.length() << std::endl;
+
         const size_t CHUNK_SIZE = 4096;
         size_t total_written = 0;
         const char *data = requestBody.c_str();
@@ -301,9 +306,10 @@ CGI LOGIC:
 4. Parent process reads the script's output
 5. Returns the output as a string
 */
-void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
+void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request, Server &config)
 {
     // Define pipes for stdin and stdout
+    (void)config;
     int status = 0;
     (void)status;
     int pipe_in[2];  // Parent writes to pipe_in[1], child reads from pipe_in[0]
@@ -320,7 +326,7 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
         close(pipe_in[0]);  // Close read end of input pipe
         close(pipe_out[1]); // Close write end of output pipe
         if (request.method == "POST") {
-            postRequest(pipe_in);
+            postRequest(pipe_in, config);
         } else {
             close(pipe_in[1]); // Close write end immediately for non-POST requests
         }
@@ -340,17 +346,22 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
         int output_pipe = pipe_out[0];  // Store a copy of the value
         int client_fd = fd;
 
-        WebService::addToPfdsVector(output_pipe, true);
+        // Store the fd value before adding to vector
+        int output_pipe_fd = output_pipe;
+        WebService::addToPfdsVector(output_pipe_fd, true);
+        // Use the local copy instead of the reference that might be invalidated
+        output_pipe = output_pipe_fd;
+
         WebService::setPollfdEventsToIn(output_pipe);
         WebService::setPollfdEventsToOut(client_fd);
 
         WebService::fd_to_server.erase(output_pipe);
 
-        DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", output_pipe);
+        DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", output_pipe_fd);
         WebService::cgi_fd_to_http_response[output_pipe] = &response;
         WebService::cgi_fd_to_http_response[client_fd] = &response;
 
-        DEBUG_MSG_3("CGI: WebService:: added new process at response_fd ", fd);
+        DEBUG_MSG_3("CGI: WebService:: added new process at response_fd ", client_fd);
 
         DEBUG_MSG_3("CGI: WebService:: same proces  at output_pipe fd ", output_pipe);
 

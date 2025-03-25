@@ -165,7 +165,7 @@ void Server::clear()
     port.clear();
     name.clear();
     root_directory.clear();
-    client_max_body_size.clear();
+    client_max_body_size = MAX_BODY_SIZE;
     index.clear();
     routes.clear();
     error_pages.clear();
