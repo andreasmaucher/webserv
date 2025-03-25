@@ -9,6 +9,18 @@ def is_valid_png(data):
     png_signature = b'\x89PNG\r\n\x1a\n'
     return data.startswith(png_signature)
 
+def get_unique_filename(base_path, filename):
+    """Generate a unique filename by adding a number if file exists."""
+    name, ext = os.path.splitext(filename)
+    counter = 1
+    new_filename = filename
+    
+    while os.path.exists(os.path.join(base_path, new_filename)):
+        new_filename = f"{name}_{counter}{ext}"
+        counter += 1
+    
+    return new_filename
+
 # Set up environment
 server_root = os.environ.get('SERVER_ROOT', os.getcwd())
 upload_dir = os.environ.get('UPLOAD_DIR', os.path.join(server_root, 'www/uploads'))
@@ -48,7 +60,8 @@ try:
         raise ValueError("No file was selected")
     
     # Get the filename and prepare the destination path
-    filename = os.path.basename(fileitem.filename)
+    original_filename = os.path.basename(fileitem.filename)
+    filename = get_unique_filename(upload_dir, original_filename)  # Get unique filename
     filepath = os.path.join(upload_dir, filename)
     
     # Read file data
@@ -65,8 +78,11 @@ try:
     with open(filepath, 'wb') as f:
         f.write(file_data)
     
-    # Success message
-    print(f"<p class='success'>File <strong>{filename}</strong> was uploaded successfully!</p>")
+    # Success message with rename notification if needed
+    if filename != original_filename:
+        print(f"<p class='success'>File was renamed to avoid conflicts and saved as: <strong>{filename}</strong></p>")
+    else:
+        print(f"<p class='success'>File <strong>{filename}</strong> was uploaded successfully!</p>")
     print(f"<p>Saved to: {filepath}</p>")
     print(f"<p>File size: {len(file_data)} bytes</p>")
     
