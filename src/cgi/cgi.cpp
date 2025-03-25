@@ -193,14 +193,11 @@ void CGI::postRequest(int pipe_in[2], Server &config)
     if (method == "POST" && !requestBody.empty())
     {
         if (requestBody.length() > MAX_BODY_SIZE)
-        std::cerr << "CGI POST: Starting to write POST data" << std::endl;
-        std::cerr << "POST data length: " << requestBody.length() << std::endl;
 
         const size_t CHUNK_SIZE = 4096;
         size_t total_written = 0;
         const char *data = requestBody.c_str();
         size_t remaining = requestBody.length();
-
         while (remaining > 0)
         {
             size_t to_write = std::min(CHUNK_SIZE, remaining);
