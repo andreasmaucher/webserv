@@ -21,7 +21,7 @@
 #include "server.hpp"
 #include "debug.hpp"
 
-#define DEFAULT_CONFIG "./server/default.conf"
+#define DEFAULT_CONFIG "tomldb.config"
 #define MAX_BACKLOG_UNACCEPTED_CON 200
 #define BUFFER_SIZE 1000
 // #define PORT "8080"

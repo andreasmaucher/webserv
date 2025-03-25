@@ -352,17 +352,22 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request, Serv
         int output_pipe = pipe_out[0];  // Store a copy of the value
         int client_fd = fd;
 
-        WebService::addToPfdsVector(output_pipe, true);
+        // Store the fd value before adding to vector
+        int output_pipe_fd = output_pipe;
+        WebService::addToPfdsVector(output_pipe_fd, true);
+        // Use the local copy instead of the reference that might be invalidated
+        output_pipe = output_pipe_fd;
+
         WebService::setPollfdEventsToIn(output_pipe);
         WebService::setPollfdEventsToOut(client_fd);
 
         WebService::fd_to_server.erase(output_pipe);
 
-        DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", output_pipe);
+        DEBUG_MSG_2("CGI: WebService::addToPfdsVector added fd: ", output_pipe_fd);
         WebService::cgi_fd_to_http_response[output_pipe] = &response;
         WebService::cgi_fd_to_http_response[client_fd] = &response;
 
-        DEBUG_MSG_3("CGI: WebService:: added new process at response_fd ", fd);
+        DEBUG_MSG_3("CGI: WebService:: added new process at response_fd ", client_fd);
 
         DEBUG_MSG_3("CGI: WebService:: same proces  at output_pipe fd ", output_pipe);
 

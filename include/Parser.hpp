@@ -22,7 +22,6 @@
 #include "server.hpp"
 #include "../tests/testsHeader.hpp"
 
-#define DEFAULT_CONFIG "./server/default.conf"
 // #define MAX_SIM_CONN 10
 #define BUFFER_SIZE 1000
 // #define PORT "8080"

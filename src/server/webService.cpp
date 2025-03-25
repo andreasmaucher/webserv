@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/24 21:52:23 by mrizakov         ###   ########.fr       */
+/*   Updated: 2025/03/25 17:28:40 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -747,7 +747,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
         ResponseHandler handler;
 
         handler.processRequest(fd, server, request, *response);
-        DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
+        // DEBUG_MSG_2("------->WebService::sendResponse handler.processRequest(fd, server, request, response); passed ", fd);
         // Add null check before accessing route -> to catch faulty cgi requests (e.g. not .py)
         if (request.route == NULL)
         {
@@ -768,7 +768,7 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
 
         // If request is a CGI, skip this part
         const Route *route = request.route; // Route is already stored in request
-        DEBUG_MSG_2("------->WebService::sendResponse const Route *route = request.route; is the issue ", fd);
+        // DEBUG_MSG_2("------->WebService::sendResponse const Route *route = request.route; is the issue ", fd);
 
         if (!route->is_cgi)
         {
