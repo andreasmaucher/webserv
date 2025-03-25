@@ -191,9 +191,6 @@ void CGI::postRequest(int pipe_in[2])
 {
     if (method == "POST" && !requestBody.empty())
     {
-        std::cerr << "CGI POST: Starting to write POST data" << std::endl;
-        std::cerr << "POST data length: " << requestBody.length() << std::endl;
-
         const size_t CHUNK_SIZE = 4096;
         size_t total_written = 0;
         const char *data = requestBody.c_str();
@@ -206,19 +203,13 @@ void CGI::postRequest(int pipe_in[2])
 
             if (written == -1)
             {
-                std::cerr << "Write error: " << strerror(errno) << std::endl;
                 close(pipe_in[1]);
                 throw std::runtime_error("Failed to write to CGI input pipe");
             }
 
             total_written += written;
             remaining -= written;
-
-            std::cerr << "Written " << written << " bytes, total " << total_written
-                        << " of " << requestBody.length() << std::endl;
         } 
-
-        std::cerr << "CGI POST: Finished writing POST data" << std::endl;
         close(pipe_in[1]); // Close write end immediately for non-POST requests
     }
        else

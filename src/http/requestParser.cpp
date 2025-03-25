@@ -147,7 +147,6 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     // Extract the boundary
     size_t boundaryPos = it->second.find("boundary=");
     if (boundaryPos == std::string::npos) {
-        std::cout << "No boundary found in Content-Type: " << it->second << std::endl;
         return false;
     }
     
@@ -170,13 +169,8 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     static int checkCount = 0;
     checkCount++;
     
-    std::cout << "Checking for final boundary variants" << std::endl;
-    std::cout << "Check #" << checkCount << ": Body size=" << request.body.size() 
-              << ", Content-Length=" << contentLength << std::endl;
-    
     // Check if the Content-Length has been fully received
     if (contentLength > 0 && request.body.size() >= contentLength) {
-        std::cout << "Full Content-Length received, marking as complete" << std::endl;
         checkCount = 0;
         return true;
     }
@@ -202,7 +196,6 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     // Check each possible boundary variant
     for (size_t i = 0; i < possibleBoundaries.size(); i++) {
         if (lastPart.find(possibleBoundaries[i]) != std::string::npos) {
-            std::cout << "Found final boundary variant #" << i << std::endl;
             checkCount = 0;
             return true;
         }
@@ -211,7 +204,6 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     // Safety check: If we've checked many times, assume it's complete
     // This prevents hanging on large files
     if (checkCount > 100 || (request.client_closed_connection && request.body.size() > 1000)) {
-        std::cout << "Forcing completion after " << checkCount << " checks" << std::endl;
         checkCount = 0;
         return true;
     }
@@ -219,7 +211,6 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     return false;
 }
 
-//! NEW to handle binary data properly
 // First, modify parseBody to handle binary data properly
 void RequestParser::parseBody(HttpRequest &request)
 {
