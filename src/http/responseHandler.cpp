@@ -141,7 +141,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
         }
       }
       CGI cgi;
-      cgi.handleCGIRequest(fd, request, response, config);
+      cgi.handleCGIRequest(fd, request, response);
       
       size_t headerEnd = request.body.find("\r\n\r\n");
       if (headerEnd != std::string::npos)
@@ -860,6 +860,9 @@ std::string ResponseHandler::generateDateHeader()
 void ResponseHandler::serveErrorPage(HttpResponse &response)
 {
   std::string file_path = buildFullPath(response.status_code);
+  response.body = read_error_file(file_path);
+  response.close_connection = true;
+  response.headers["Connection"] = "close";
 
   if (response.is_cgi_response == false)
   {

@@ -87,6 +87,8 @@ std::string CGI::getStatusMessage(int status_code)
         return "Not Found";
     case 500:
         return "Internal Server Error";
+    case 504:
+        return "Gateway Timeout";
     default:
         return "Unknown";
     }
@@ -121,7 +123,7 @@ std::string CGI::extractPathInfo(const std::string &uri)
 4. execute cgi (creates pipe, forks a process and executes the script)
 5. response: store script output in request body and mark request as complete
 */
-void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response, Server &config)
+void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response)
 {
     DEBUG_MSG("Starting CGI Request", request.uri);
     DEBUG_MSG_2("CGI::handleCGIRequest receiving FD is  ", fd);
@@ -135,7 +137,7 @@ void CGI::handleCGIRequest(int &fd, HttpRequest &request, HttpResponse &response
     method = request.method;
     requestBody = request.body;
 
-    executeCGI(fd, response, request, config);
+    executeCGI(fd, response, request);
 }
 
 /*
@@ -187,12 +189,10 @@ char **CGI::setCGIEnvironment(const HttpRequest &httpRequest) const
     return env_array;
 }
 
-void CGI::postRequest(int pipe_in[2], Server &config)
+void CGI::postRequest(int pipe_in[2])
 {
-    (void)config;
     if (method == "POST" && !requestBody.empty())
     {
-        if (requestBody.length() > MAX_BODY_SIZE)
         std::cerr << "CGI POST: Starting to write POST data" << std::endl;
         std::cerr << "POST data length: " << requestBody.length() << std::endl;
 
@@ -262,7 +262,7 @@ pid_t CGI::runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request)
         if (dup2(pipe_in[0], STDIN_FILENO) == -1)
         {
             DEBUG_MSG("Child: dup2 for stdin failed", strerror(errno));
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("dup2 for stdin failed");
         }
         close(pipe_in[0]); // Child closes its copy after redirecting
         close(pipe_in[1]); // Child closes write end of input pipe
@@ -271,7 +271,7 @@ pid_t CGI::runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request)
         if (dup2(pipe_out[1], STDOUT_FILENO) == -1)
         {
             DEBUG_MSG("Child: dup2 for stdout failed", strerror(errno));
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("dup2 for stdout failed");
         }
 
         // Close unused file descriptors in child
@@ -306,16 +306,12 @@ CGI LOGIC:
 4. Parent process reads the script's output
 5. Returns the output as a string
 */
-void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request, Server &config)
+void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
 {
     // Define pipes for stdin and stdout
-    (void)config;
-    int status = 0;
-    (void)status;
     int pipe_in[2];  // Parent writes to pipe_in[1], child reads from pipe_in[0]
     int pipe_out[2]; // Child writes to pipe_out[1], parent reads from pipe_out[0]
-    // DEBUG_MSG_2("Output pipe - Read FD", pipe_out[0]);
-    // DEBUG_MSG_2("Output pipe - Write FD", pipe_out[1]);
+
     pid_t pid = runChildCGI(pipe_in, pipe_out, request);
 
     DEBUG_MSG_2("---------------->CGI: executeCGI: new CGI process added: PID ", pid);
@@ -325,24 +321,17 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request, Serv
         // Close unused file descriptors in parent
         close(pipe_in[0]);  // Close read end of input pipe
         close(pipe_out[1]); // Close write end of output pipe
-        if (request.method == "POST") {
-            postRequest(pipe_in, config);
-        } else {
-            close(pipe_in[1]); // Close write end immediately for non-POST requests
-        }
 
-        // Parent process
+        if (request.method == "POST")
+            postRequest(pipe_in);
+
         // Add process to tracking map right after fork
         addProcess(pid, pipe_out[0], fd, request, &response);
-        // TODO:change to pollin immediately
         DEBUG_MSG_3("CGI:WebService::fd_to_server.erase(fd); ", fd);
 
         WebService::fd_to_server.erase(fd);
-        // DEBUG_MSG_3("CGI:WebService::deleteFromPfdsVecForCGI(fd); ", fd);
 
-        // // Add this line to remove the FD from the poll vector too
-        // WebService::deleteFromPfdsVecForCGI(fd);
-
+        // careful to use copies of fd, not references, otherwise reserve() will mess up the vector
         int output_pipe = pipe_out[0];  // Store a copy of the value
         int client_fd = fd;
 
@@ -368,14 +357,7 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request, Serv
         WebService::printPollFdStatus(WebService::findPollFd(output_pipe));
 
         DEBUG_MSG_2(" WebService::cgi_fd_to_http_response[pollfd_obj.fd] added fd: ", output_pipe);
-
-        DEBUG_MSG_1("Waitpid will start, pid : ", pid);
     }
-
-    // If POST request, write the request body to the CGI's stdin
-    // close(pipe_in[1]); // Close write end immediately for non-POST requests
-
-    // waitpid(-1, &status, WNOHANG);
 }
 
 std::map<pid_t, CGI::CGIProcess> CGI::running_processes;
@@ -878,20 +860,32 @@ void CGI::checkAllCGIProcesses()
             waitpid(pid, NULL, 0);
             
             // Close file descriptors
-            if (proc.output_pipe > 0) close(proc.output_pipe);
-            if (proc.response_fd > 0 && isfdOpen(proc.response_fd)) {
-            std::string timeout_response = constructErrorResponse(504, "CGI Process Timeout - Process exceeded maximum allowed execution time");
-            
-            // Send the response directly to the client
-            ssize_t bytes_sent = send(proc.response_fd, timeout_response.c_str(), timeout_response.size(), 0);
-            if (bytes_sent == -1) {
-                DEBUG_MSG("Error sending timeout response", strerror(errno));
-            } else {
-                DEBUG_MSG_2("Sent timeout response, bytes:", bytes_sent);
+            if (proc.output_pipe > 0) 
+                close(proc.output_pipe);
+            if (proc.response_fd > 0 && isfdOpen(proc.response_fd)) 
+            {
+                proc.response->status_code = 504;
+                DEBUG_MSG_1("response.status_code ", proc.response->status_code);
+                proc.response->close_connection = true;
+                ResponseHandler::responseBuilder(*(proc.response));;
+                // proc.response->reason_phrase = ResponseHandler::getStatusMessage(proc.response->status_code);
+                std::string responseStr = proc.response->generateRawResponseStr();
+
+                // std::string timeout_response = constructErrorResponse(504, "CGI Process Timeout - Process exceeded maximum allowed execution time");
+                
+                // Send the response directly to the client
+                ssize_t bytes_sent = send(proc.response_fd, responseStr.c_str(), responseStr.size(), 0);
+                if (bytes_sent == -1) {
+                    DEBUG_MSG("Error sending timeout response", strerror(errno));
+                } else {
+                    DEBUG_MSG_2("Sent timeout response, bytes:", bytes_sent);
+                }
             }
-        }
-            if (proc.response_fd > 0) close(proc.response_fd);
-            if (proc.response) delete proc.response;
+            close(proc.response_fd);
+            // if (proc.response_fd > 0) 
+            //     close(proc.response_fd);
+            if (proc.response)
+                delete proc.response;
 
             
             // Remove from tracking structures
