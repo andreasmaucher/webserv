@@ -263,6 +263,7 @@ void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &r
 // creates a directory listing html page if autoindex is 'on'
 void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
 {
+  std::cout << "request.uri" << request.uri << std::endl;
   std::string html = "<html>\n<head>\n"
                      "<title>Index of " +
                      request.uri + "</title>\n"
@@ -315,13 +316,25 @@ void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpR
 
       // Format name with trailing slash for directories
       std::string display_name = name;
+      std::string url_path;
+
+      // Ensure the URI ends with a slash for directories
+      std::string current_uri = request.uri;
+      if (current_uri[current_uri.length() - 1] != '/')
+          current_uri += '/';
+
       if (S_ISDIR(file_stat.st_mode))
       {
         display_name += "/";
+        url_path = current_uri + name + "/";
+      }
+      else
+      {
+        url_path = current_uri + name;
       }
 
-      // Add entry (name padded to 50 chars, then size)
-      html += "<a href=\"" + display_name + "\">" + display_name + "</a>";
+      // Add entry with proper URL path
+      html += "<a href=\"" + url_path + "\">" + display_name + "</a>";
       html += std::string(50 - display_name.length(), ' ') + size + "\n";
     }
   }
