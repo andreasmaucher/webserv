@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>🌈 Another beautiful webserver 🌟</title>
+    <title>🌈 Magical Webserver 🌟</title>
     <style>
         body {
             background: linear-gradient(45deg, #ff00ff, #00ffff, #ff00ff);
@@ -41,47 +41,42 @@
             margin-top: 50px;
         }
 
-        .file-list {
+        .directory-card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             border-radius: 15px;
-            padding: 30px;
-            width: 80%;
-            max-width: 800px;
-            margin: 0 auto;
+            padding: 20px;
+            width: 250px;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
-        .file-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 15px;
-            margin: 10px 0;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            transition: transform 0.2s ease;
+        .directory-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         }
 
-        .file-item:hover {
-            transform: translateX(10px);
-            background: rgba(255, 255, 255, 0.1);
+        .icon {
+            font-size: 4em;
+            margin-bottom: 15px;
         }
 
         a {
             color: white;
             text-decoration: none;
-            font-size: 1.2em;
+            font-size: 1.5em;
             font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
 
         a:hover {
             text-decoration: underline;
             color: #ffff00;
+        }
+        
+        .card-description {
+            margin-top: 10px;
+            font-size: 1.1em;
+            opacity: 0.9;
         }
         
         .sparkle {
@@ -100,39 +95,38 @@
             50% { transform: scale(1); opacity: 0.8; }
             100% { transform: scale(0); opacity: 0; }
         }
-
-        .file-icon {
-            font-size: 1.5em;
-            margin-right: 10px;
-        }
-
-        .file-size {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.9em;
-        }
     </style>
 </head>
 <body>
-    <h1>✨ Directory Contents 🌈</h1>
+    <h1>✨ Magical Webserver 🌈</h1>
     
-    <div class="file-list">
-        <!-- This section will be populated by your server's directory listing -->
-        <div class="file-item">
-            <a href="../"><span class="file-icon">📁</span> Parent Directory</a>
+    <div class="directory-container">
+        <div class="directory-card">
+            <div class="icon">📸</div>
+            <a href="/images">Images</a>
+            <p class="card-description">Your magical collection of visuals and photographs</p>
         </div>
-        <div class="file-item">
-            <a href="example.txt"><span class="file-icon">📄</span> example.txt</a>
-            <span class="file-size">123 KB</span>
-        </div>
-        <div class="file-item">
-            <a href="folder/"><span class="file-icon">📁</span> folder</a>
-            <span class="file-size">-</span>
+
+        <div class="directory-card">
+            <div class="icon">⬆️</div>
+            <a href="/uploads">File Portal</a>
+            <p class="card-description">Portal to upload and download your cosmic files</p>
         </div>
     </div>
 
     <script>
+        document.addEventListener('mousemove', (e) => {
+            const cards = document.querySelectorAll('.directory-card');
+            cards.forEach(card => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                card.style.transform = `perspective(1000px) rotateY(${x/20}deg) rotateX(${-y/20}deg)`;
+            });
+        });
+        
         function createSparkles() {
-            const container = document.querySelector('.file-list');
+            const container = document.querySelector('.directory-container');
             for (let i = 0; i < 20; i++) {
                 const sparkle = document.createElement('div');
                 sparkle.classList.add('sparkle');
