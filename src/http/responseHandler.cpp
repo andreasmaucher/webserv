@@ -263,7 +263,6 @@ void ResponseHandler::staticContentHandler(HttpRequest &request, HttpResponse &r
 // creates a directory listing html page if autoindex is 'on'
 void ResponseHandler::generateDirectoryListing(const HttpRequest &request, HttpResponse &response)
 {
-  std::cout << "request.uri" << request.uri << std::endl;
   std::string html = "<html>\n<head>\n"
                      "<title>Index of " +
                      request.uri + "</title>\n"
