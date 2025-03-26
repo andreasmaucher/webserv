@@ -141,7 +141,7 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
         }
       }
       CGI cgi;
-      cgi.handleCGIRequest(fd, request, response, config);
+      cgi.handleCGIRequest(fd, request, response);
       
       size_t headerEnd = request.body.find("\r\n\r\n");
       if (headerEnd != std::string::npos)
