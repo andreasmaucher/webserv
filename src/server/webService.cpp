@@ -6,7 +6,7 @@
 /*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/25 17:28:40 by mrizakov         ###   ########.fr       */
+/*   Updated: 2025/03/27 15:59:52 by mrizakov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -636,6 +636,8 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
         int nbytes = recv(fd, recv_buffer, buffer_size, 0);
         DEBUG_MSG_3("RECV done at receiveRequest", fd);
         DEBUG_MSG_3("Bytes received", nbytes);
+        DEBUG_MSG_2("RECEIVE REQUEST", recv_buffer);
+
         
         if (nbytes <= 0)
         {

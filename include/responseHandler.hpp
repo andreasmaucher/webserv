@@ -26,6 +26,8 @@ class ResponseHandler
 public:
     void processRequest(int &fd, Server &config, HttpRequest &request, HttpResponse &response);
     static void responseBuilder(HttpResponse &response);
+    static std::string getStatusMessage(int code);
+
 
 private:
     // Routing
@@ -51,7 +53,6 @@ private:
 
     // Response Building
     // static void responseBuilder(HttpResponse &response);
-    static std::string getStatusMessage(int code);
     static void serveErrorPage(HttpResponse &response);
 
     // Shared Helper Functions
