@@ -882,6 +882,8 @@ void CGI::checkAllCGIProcesses()
                 }
             }
             close(proc.response_fd);
+            close(proc.output_pipe);
+
             // if (proc.response_fd > 0) 
             //     close(proc.response_fd);
             if (proc.response)
@@ -891,7 +893,8 @@ void CGI::checkAllCGIProcesses()
             // Remove from tracking structures
             WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
             WebService::deleteFromPfdsVecForCGI(proc.response_fd);
-            
+            WebService::cgi_fd_to_http_response.erase(proc.response_fd);
+            WebService::cgi_fd_to_http_response.erase(proc.output_pipe);
             // In C++98, erase() returns void, not an iterator
             std::map<pid_t, CGIProcess>::iterator temp = it;
             ++it;
