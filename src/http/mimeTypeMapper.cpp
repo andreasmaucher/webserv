@@ -52,7 +52,6 @@ void MimeTypeMapper::extractFileExtension(HttpRequest &request)
 
 void MimeTypeMapper::extractFileName(HttpRequest &request)
 {
-    // Michael : fixed version, hope it doesnt break anything else
     if (request.uri.length() > request.route->uri.length())
     {
         size_t start_index = request.route->uri.length();
@@ -133,7 +132,6 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
         DEBUG_MSG("Content type validation", "No header but file extension matches route (allowed)");
         is_valid = true;
     }
-    // MICHAEL : added this part for files, need to check if logic is correct
     else if (!request.is_directory)
     {
         DEBUG_MSG("URI type", "is a file");
@@ -149,8 +147,6 @@ bool MimeTypeMapper::isContentTypeAllowed(HttpRequest &request, HttpResponse &re
             is_valid = true;
         }
     }
-    // MICHAEL : end of addition
-
     if (!is_valid)
     {
         response.status_code = 415;

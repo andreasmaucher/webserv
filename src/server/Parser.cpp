@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Parser.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: mrizakov <mrizakov@student.42.fr>          +#+  +:+       +#+        */
+/*   By: amaucher <amaucher@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/24 21:23:50 by mrizakov         ###   ########.fr       */
+/*   Updated: 2025/03/28 13:58:41 by amaucher         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -381,7 +381,6 @@ bool Parser::parseErrorBlock(std::istream &config_file, Server &server)
                 }
             }
         }
-        // TODO: check which values are mandatory before giving ok
         error_block_ok = true;
     }
     return true;
