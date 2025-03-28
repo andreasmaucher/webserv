@@ -321,6 +321,8 @@ void CGI::executeCGI(int &fd, HttpResponse &response, HttpRequest &request)
 
         if (request.method == "POST")
             postRequest(pipe_in);
+        else
+            close(pipe_in[1]);
 
         // Add process to tracking map right after fork
         addProcess(pid, pipe_out[0], fd, request, &response);
