@@ -82,7 +82,7 @@ std::string RequestParser::readLine(const std::string &raw_request, size_t &posi
   size_t line_end = raw_request.find("\r\n", position);
   std::string line;
   if (line_end != std::string::npos)
-  { // \r\n found
+  {
     line = raw_request.substr(position, line_end - position);
     position = line_end + 2; // Move past the '\r\n' so line is pointing to the next line or the end
   }
@@ -106,7 +106,6 @@ bool RequestParser::mandatoryHeadersPresent(HttpRequest &request)
   {
     return false;
   }
-  // MICHAEL : Need to add GET and DELETE
   if (request.method == "POST")
   {
     // Check for the Content-Type header
@@ -182,7 +181,6 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
     possibleBoundaries.push_back("\r\n--" + boundary + "--\r\n"); // With preceding newline
     possibleBoundaries.push_back("\r\n--" + boundary + "--");     // Partial variant
     
-    // For binary-safe search, we'll check the last part of the body
     // Binary data might contain sequences that look like boundaries
     const size_t SEARCH_LENGTH = 256; // Look in the last 256 bytes
     std::string lastPart;
@@ -201,7 +199,6 @@ bool RequestParser::isMultipartRequestComplete(const HttpRequest &request)
         }
     }
     
-    // Safety check: If we've checked many times, assume it's complete
     // This prevents hanging on large files
     if (checkCount > 100 || (request.client_closed_connection && request.body.size() > 1000)) {
         checkCount = 0;
@@ -245,7 +242,6 @@ void RequestParser::parseBody(HttpRequest &request)
     if (headers_end != std::string::npos) {
         headers_end += 4; // Move past \r\n\r\n
         
-        // Calculate how much new data we have
         if (request.position < headers_end) {
             request.position = headers_end; // Skip the headers if not already skipped
         }
@@ -280,7 +276,7 @@ void RequestParser::parseBody(HttpRequest &request)
                 request.complete = false;
             }
         } else {
-            // No content-length but we have a body, assume it's complete
+            // No content-length body exists
             request.complete = true;
         }
     }
@@ -294,13 +290,12 @@ bool RequestParser::processMultipartRequest(HttpRequest &request)
 
 void RequestParser::saveChunkedBody(HttpRequest &request)
 {
-  // If we're not in the middle of a chunk, read the chunk size
   if (!request.chunk_state.in_chunk)
   {
     std::string chunk_size_str = RequestParser::readLine(request.raw_request, request.position);
     if (chunk_size_str.empty())
     {
-      return; // Keep reading (incomplete chunk size) -> avoid infinite loop with timeout in recv loop!
+      return; // Keep reading (incomplete chunk size)
     }
     std::istringstream(chunk_size_str) >> std::hex >> request.chunk_state.chunk_size;
 
@@ -320,7 +315,6 @@ void RequestParser::saveChunkedBody(HttpRequest &request)
     request.chunk_state.in_chunk = true;
   }
 
-  // Read the actual chunk data
   size_t available_data_to_be_read = request.raw_request.size() - request.position;
   size_t remaining_data_in_chunk = request.chunk_state.chunk_size - request.chunk_state.bytes_read;
 
@@ -378,7 +372,7 @@ void RequestParser::saveContentLengthBody(HttpRequest &request)
     }
     else if (request.body.size() > content_length)
     {
-      request.error_code = 400; // 400 BAD_REQUEST
+      request.error_code = 400;
       throw std::runtime_error("Extra data after body");
     }
     DEBUG_MSG("Body complete", "");
@@ -472,7 +466,6 @@ bool RequestParser::validMethod(HttpRequest &request)
   throw std::runtime_error("Invalid method");
 }
 
-// add check for invalid chars?
 bool RequestParser::validPathFormat(HttpRequest &request)
 {
   if (request.uri.empty() || request.uri[0] != '/' || request.uri.find(" ") != std::string::npos)

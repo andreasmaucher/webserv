@@ -112,7 +112,6 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   if (!findMatchingRoute(config, request, response))
   {
     DEBUG_MSG("Route status", "No matching route found");
-    // response.status_code = 404;
     response.status_code = request.error_code;
     DEBUG_MSG_1("response.status_code ", response.status_code);
     response.close_connection = true;
@@ -189,8 +188,6 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
       return;
     }
   }
-
-  /* -- Carinas part starts here -- */
   DEBUG_MSG("Status", "Processing request");
   //  from here on, we will populate & use the response object status code only
   response.status_code = request.error_code; //do at the end in populateResponse or responseBuilder
@@ -202,7 +199,6 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
   if (response.status_code == 0)
   {
     // serve_file, process_api_request & populate response body (content) or error code
-    // ResponseHandler::routeRequest(config, request, response);
     response.status_code = 200;
   }
   if (!request.route->redirect_uri.empty())
@@ -218,9 +214,6 @@ void ResponseHandler::processRequest(int &fd, Server &config, HttpRequest &reque
 
   if (request.headers.find("Connection") != request.headers.end() && request.headers["Connection"] == "close")
     response.close_connection = true;
-  // fill the rest of the response fields to create the final response
-  // the ones with error code from parser go directly here
-  // to do: (check if in the parser I set some other value like headers etc since here I'm not passing the request object)
   ResponseHandler::responseBuilder(response);
 }
 
@@ -489,7 +482,6 @@ void ResponseHandler::processFileUpload(HttpRequest &request, HttpResponse &resp
 void ResponseHandler::writeToFile(HttpRequest &request, HttpResponse &response)
 {
   // Open the file and write request body into it
-  // Permission check??
   std::ofstream file(request.path.c_str(), std::ios::binary);
   if (file.is_open())
   {
@@ -512,7 +504,7 @@ void ResponseHandler::processFileDeletion(HttpRequest &request, HttpResponse &re
   DEBUG_MSG("Status", "Processing file deletion");
   constructFullPath(request, response);
 
-  // Check if the file exists at the location. Permission check??
+  // Check if the file exists at the location
   if (fileExists(request, response))
   {
     DEBUG_MSG("Status", "Deleting file");
@@ -582,7 +574,6 @@ void ResponseHandler::constructFullPath(HttpRequest &request, HttpResponse &resp
 {
   // path is relative to the current working directory
   //(where the server is running, if we execute from inside src for ex ../werbserv, the root dir is src and it won't work)
-  // std::string full_path = request.route->path; // Assuming route_path is the matched route's path
   request.path = request.route->path;
 
   // Check if file_name contains subdirectories (e.g., "subdir/filename.txt")
@@ -794,7 +785,7 @@ void ResponseHandler::setFullPath(HttpRequest &request)
 {
   // Ensure the extracted file path starts with a '/' to avoid path issues
   if (!request.file_name.empty() && request.file_name[0] != '/')
-  { // this shouldn't be valid?!
+  {
     request.file_name = "/" + request.file_name;
   }
 
@@ -885,7 +876,6 @@ void ResponseHandler::serveErrorPage(HttpResponse &response)
       return;
     }
     // alternatively we could just create the html using a template + status code & msg
-    // ResponseHandler::createHtmlBody(response);
     response.close_connection = true;
     response.headers["Connection"] = "close";
   }
