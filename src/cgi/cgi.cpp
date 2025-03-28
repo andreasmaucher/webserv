@@ -542,7 +542,6 @@ void CGI::readCGI(pid_t pid, CGIProcess &proc)
     }
     else if (result == -1)
     {
-        // Error occurred (e.g., no child with this PID)
         DEBUG_MSG_2("CGI: waitpid error", "");
     }
     WebService::deleteFromPfdsVecForCGI(proc.output_pipe);
@@ -635,11 +634,6 @@ void CGI::checkCGIProcess(int pfds_fd)
     }
 }
 
-
-// bool CGI::isfdOpen(int fd)
-// {
-//     return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
-// }
 
 void CGI::checkAllCGIProcesses()
 {
