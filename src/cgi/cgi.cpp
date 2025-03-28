@@ -193,9 +193,6 @@ void CGI::postRequest(int pipe_in[2])
 {
     if (method == "POST" && !requestBody.empty())
     {
-        std::cerr << "CGI POST: Starting to write POST data" << std::endl;
-        std::cerr << "POST data length: " << requestBody.length() << std::endl;
-
         const size_t CHUNK_SIZE = 4096;
         size_t total_written = 0;
         const char *data = requestBody.c_str();
