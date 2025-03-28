@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   webService.cpp                                     :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: amaucher <amaucher@student.42.fr>          +#+  +:+       +#+        */
+/*   By: cestevez <cestevez@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/28 13:50:27 by amaucher         ###   ########.fr       */
+/*   Updated: 2025/03/28 15:21:14 by cestevez         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -72,7 +72,7 @@ int WebService::get_listener_socket(const std::string &port)
 {
     struct addrinfo hints;
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET; // IPv4
+    hints.ai_family = AF_INET;       // IPv4
     hints.ai_socktype = SOCK_STREAM; // TCP
 
     hints.ai_flags = AI_PASSIVE; // Use my IP
@@ -155,7 +155,7 @@ int WebService::addToPfdsVector(int new_fd, bool isCGIOutput)
     pfds_vec.push_back(new_pollfd);
     DEBUG_MSG_1("Added new fd to pfds_vec", new_fd);
     DEBUG_MSG_1("Current pfds_vec size", pfds_vec.size());
-    
+
     // Return the index of the newly added element
     return pfds_vec.size() - 1;
 }
@@ -299,7 +299,7 @@ int WebService::start()
             DEBUG_MSG_1("Poll error", strerror(errno));
             continue;
         }
-		
+
         // Check CGI processes for timeouts
         // Iterate backwards to handle removals safely
         for (size_t i = pfds_vec.size(); i-- > 0;)
@@ -377,37 +377,39 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 {
     HttpRequest &request = server.getRequestObject(fd);
 
-    // Check if we're handling a binary upload 
+    // Check if we're handling a binary upload
     bool is_binary_upload = false;
-    if (request.headers_parsed && 
-        request.headers.find("Content-Type") != request.headers.end() && 
-        request.headers["Content-Type"].find("multipart/form-data") != std::string::npos) {
+    if (request.headers_parsed &&
+        request.headers.find("Content-Type") != request.headers.end() &&
+        request.headers["Content-Type"].find("multipart/form-data") != std::string::npos)
+    {
         is_binary_upload = true;
     }
-    
+
     if (request.complete)
     {
         // Request is complete, so switch event monitoring to POLLOUT.
         setPollfdEventsToOut(fd);
         return;
     }
-    
+
     if (!request.complete)
     {
         WebService::printPollFdStatus(WebService::findPollFd(fd));
         DEBUG_MSG_3("RECV started at receiveRequest", fd);
-        
+
         // For binary uploads, use a larger buffer for better performance
-        char* recv_buffer = buf;
+        char *recv_buffer = buf;
         size_t buffer_size = sizeof(buf);
-        
+
         // Use a larger buffer for binary uploads
         char large_buffer[65536];
-        if (is_binary_upload) {
+        if (is_binary_upload)
+        {
             recv_buffer = large_buffer;
             buffer_size = sizeof(large_buffer);
         }
-        
+
         int nbytes = recv(fd, recv_buffer, buffer_size, 0);
         DEBUG_MSG_3("RECV done at receiveRequest", fd);
         DEBUG_MSG_3("Bytes received", nbytes);
@@ -415,24 +417,36 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
 
         if (nbytes <= 0)
         {
-            if (nbytes == 0) {
+            if (nbytes == 0)
+            {
                 DEBUG_MSG_2("Client closed connection", fd);
                 request.client_closed_connection = true;
-                if (is_binary_upload) {
-                    if (request.body.size() > 1000) {
-                        try {
+                if (is_binary_upload)
+                {
+                    if (request.body.size() > 1000)
+                    {
+                        try
+                        {
                             RequestParser::parseRawRequest(request);
                             return;
-                        } catch (const std::exception &e) {
+                        }
+                        catch (const std::exception &e)
+                        {
                             closeConnection(fd, i, server);
                         }
-                    } else {
+                    }
+                    else
+                    {
                         closeConnection(fd, i, server);
                     }
-                } else {
+                }
+                else
+                {
                     closeConnection(fd, i, server);
                 }
-            } else {
+            }
+            else
+            {
                 DEBUG_MSG_2("Receive failed, error", strerror(errno));
                 closeConnection(fd, i, server);
             }
@@ -442,7 +456,7 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
             request.raw_request.append(recv_buffer, nbytes);
             DEBUG_MSG_2("Checking request body size request.raw_request.size() ", request.raw_request.size());
             DEBUG_MSG_2("server.client_max_body_size ", server.client_max_body_size);
-            if (request.raw_request.size() > server.client_max_body_size ||request.raw_request.size() > MAX_BODY_SIZE)
+            if (request.raw_request.size() > server.client_max_body_size || request.raw_request.size() > MAX_BODY_SIZE)
             {
                 DEBUG_MSG_2("Request body size is greater than client_max_body_size", request.raw_request.size());
                 request.complete = true;
@@ -450,9 +464,9 @@ void WebService::receiveRequest(int &fd, size_t &i, Server &server)
                 setPollfdEventsToOut(fd);
                 return;
             }
-            
+
             DEBUG_MSG("Received data from fd", fd);
-            
+
             if (!request.headers_parsed &&
                 request.raw_request.find("\r\n\r\n") != std::string::npos)
             {
@@ -517,9 +531,14 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
             std::string responseStr = response->generateRawResponseStr();
             DEBUG_MSG_2("------->WebService::sendResponse sending responseStr ", responseStr.c_str());
 
-            if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
+            int nbytes = send(fd, responseStr.c_str(), responseStr.size(), 0);
+            if (nbytes == -1)
             {
                 DEBUG_MSG_2("Send error ", strerror(errno));
+            }
+            else if (nbytes == 0)
+            {
+                DEBUG_MSG_2("Connection closed by client", "");
             }
 
             closeConnection(fd, i, server);
@@ -543,9 +562,14 @@ void WebService::sendResponse(int &fd, size_t &i, Server &server)
             std::string responseStr = response->generateRawResponseStr();
             DEBUG_MSG_2("------->WebService::sendResponse generateRawResponseStr(); passed ", fd);
 
-            if (send(fd, responseStr.c_str(), responseStr.size(), 0) == -1)
+            int nbytes = send(fd, responseStr.c_str(), responseStr.size(), 0);
+            if (nbytes == -1)
             {
                 DEBUG_MSG_2("Send error ", strerror(errno));
+            }
+            else if (nbytes == 0)
+            {
+                DEBUG_MSG_2("Connection closed by client", "");
             }
             DEBUG_MSG_2("Response sent to fd", fd);
             DEBUG_MSG_2("WebService::sendResponse response.close_connection", response->close_connection);
