@@ -38,7 +38,7 @@ class Parser
 {
 
 private:
-    std::vector<Server> servers; // constructor calls config parser and instantiates server(s)
+    std::vector<Server> servers; 
     std::string line;
 
     // Parser

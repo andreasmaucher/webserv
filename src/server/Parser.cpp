@@ -6,7 +6,6 @@
 /*   By: amaucher <amaucher@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/24 14:17:32 by mrizakov          #+#    #+#             */
-/*   Updated: 2025/03/28 13:58:41 by amaucher         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,15 +14,9 @@
 #include "../../include/debug.hpp"
 
 
-Parser::Parser()
-{
-    // Initialize any necessary members
-}
+Parser::Parser() {}
 
-Parser::~Parser()
-{
-    // Cleanup if needed
-}
+Parser::~Parser() {}
 
 void Parser::setRootDirectory(const std::string &root_directory)
 {
@@ -447,8 +440,7 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
     std::ifstream file(config_file.c_str());
     if (!file.is_open())
     {
-        DEBUG_MSG("Error: can't open config file", "");
-        return servers_vector;
+        throw std::runtime_error("Error: can't open config file");
     }
     server_block_ok = false;
     error_block_ok = false;
@@ -498,6 +490,8 @@ std::vector<Server> Parser::parseConfig(const std::string config_file)
 
     if (checkForDuplicates(servers_vector))
         throw std::runtime_error("Error: Duplicate server configuration found");
+    if (servers_vector.empty())
+        throw std::runtime_error("Error: No correctly configured servers found, please review configuration file");
 
     return servers_vector;
 }
