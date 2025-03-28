@@ -11,7 +11,7 @@
 #include <ctime>
 #include "httpRequest.hpp"
 #include "httpResponse.hpp"
-#include "../include/cgi.hpp"
+#include "cgi.hpp"
 #include "server.hpp"
 #include "mimeTypeMapper.hpp"
 #include <dirent.h>
