@@ -83,7 +83,6 @@ private:
     pid_t runChildCGI(int pipe_in[2], int pipe_out[2], HttpRequest &request);
 
     void postRequest(int pipe_in[2]);
-    static bool isfdOpen(int fd);
     static void readCGI(pid_t pid, CGIProcess &proc);
     static void killCGI(pid_t pid, CGIProcess &proc);
 };

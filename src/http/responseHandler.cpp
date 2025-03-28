@@ -96,6 +96,14 @@ bool ResponseHandler::handleCGIErrors(int &fd, Server &config, HttpRequest &requ
           finalizeCGIErrorResponse(fd, request, response);
           return false;
       }
+      std::string fullScriptPath = CGI::resolveCGIPath(request.uri);
+      // Check if the file exists
+      if (access(fullScriptPath.c_str(), F_OK) == -1) {
+          DEBUG_MSG("CGI Error", "Script not found at path: " + fullScriptPath);
+          prepareCGIErrorResponse(response, 404, "Not found", "Script not found", "");
+          finalizeCGIErrorResponse(fd, request, response);
+          return false;
+      }
     }
     response.is_cgi_response = true;
     request.queryString = CGI::extractPathInfo(request.uri);
