@@ -450,10 +450,6 @@ void CGI::readCGI(pid_t pid, CGIProcess &proc)
     (void)pid;
     ssize_t bytes_read;
     char buffer[MAX_CGI_BODY_SIZE];
-    WebService::printPollFdStatus(WebService::findPollFd(proc.output_pipe));
-
-    DEBUG_MSG_3("READ started at readFromCGI", proc.output_pipe);
-    // sleep(1);
     if ((bytes_read = read(proc.output_pipe, buffer, sizeof(buffer))) > 0)
     {
         proc.last_update_time = time(NULL);

@@ -304,52 +304,31 @@ int WebService::start()
         // Iterate backwards to handle removals safely
         for (size_t i = pfds_vec.size(); i-- > 0;)
         {
-            CGI::printRunningProcesses();
-
-            // sleep(1);
-            // sleep(1);
-            DEBUG_MSG_2("-----------> Webservice::start() pfds_vec.size() ", pfds_vec.size());
-            DEBUG_MSG_2("-----------> Webservice::start() pfds_vec[i].fd ", pfds_vec[i].fd);
-            DEBUG_MSG_2("-----------> Webservice::start() i ", i);
-
-            DEBUG_MSG_2("-----------> Webservice::start() entered pfds loop ", "");
             if (i >= pfds_vec.size())
             {
-                DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec.size() is true ", pfds_vec.size());
-
                 continue;
             }
             if (pfds_vec[i].revents == 0)
             {
-                DEBUG_MSG_2("-----------> Webservice::start() i >= pfds_vec[i].revents == 0 is true", "");
                 continue;
             }
             if (cgi_fd_to_http_response.find(pfds_vec[i].fd) != cgi_fd_to_http_response.end() &&
                 (pfds_vec[i].revents & (POLLIN | POLLOUT | POLLHUP | POLLERR | POLLNVAL)))
             {
-                DEBUG_MSG_2("Detected CGI FD, entering CGI::checkRunningProcesses(pfds_vec[i].fd);fd ", pfds_vec[i].fd);
                 CGI::checkCGIProcess(pfds_vec[i].fd);
                 i--;
-            }
-            else
-            {
-                DEBUG_MSG_2("Not a CGI process ", pfds_vec[i].fd);
             }
 
             if (fd_to_server.find(pfds_vec[i].fd) == fd_to_server.end())
             {
-                DEBUG_MSG_2("Detected NON-server FD, skipping loop, fd ", pfds_vec[i].fd);
                 continue;
             }
-            DEBUG_MSG_2("Passed FD check --->  FD is either in fd_to_server nor in cgi_fd_to_http_response, fd ", pfds_vec[i].fd);
-            //  get server object from a particular connection fd
+            // Get server object from a particular connection fd
             Server *server_obj = fd_to_server[pfds_vec[i].fd];
-            DEBUG_MSG_2("Passed Server assignment check --->, fd ", pfds_vec[i].fd);
             if (pfds_vec[i].revents & POLLIN)
             {
                 if (i < servers.size())
                 {
-                    DEBUG_MSG_2("New connection ", pfds_vec[i].fd);
                     newConnection(*server_obj);
                 }
                 else
