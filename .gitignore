@@ -1,0 +1,23 @@
+# Build artifacts
+*.o
+*.a
+*.so
+*.dSYM/
+webserv
+webserv.dSYM/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.log
+

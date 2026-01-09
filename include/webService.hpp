@@ -12,6 +12,7 @@
 #include <cerrno>
 #include <poll.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <vector>
 #include <cstdio>
 #include "httpRequest.hpp"
